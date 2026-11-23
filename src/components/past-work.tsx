@@ -106,8 +106,8 @@ export default function PastWork({ userId, lang, member }: { userId: string; lan
         {Object.entries(selected.cells).map(([address,c])=><div key={address} className="past-source-cell">
           <strong>{address}</strong><p dir="auto">{String(c.value??"")}</p>
           {safeUrl(c.value)&&<a href={safeUrl(c.value)!} target="_blank" rel="noopener noreferrer"><ExternalLink size={14}/>{t("Open reference","فتح المرجع")}</a>}
-          {c.comment&&<p className="muted">{t("Original comment","التعليق الأصلي")}: {JSON.stringify(c.comment)}</p>}
-          {c.hyperlink&&<p className="muted">{t("Original link","الرابط الأصلي")}: {JSON.stringify(c.hyperlink)}</p>}
+          {!!c.comment&&<p className="muted">{t("Original comment","التعليق الأصلي")}: {JSON.stringify(c.comment)}</p>}
+          {!!c.hyperlink&&<p className="muted">{t("Original link","الرابط الأصلي")}: {JSON.stringify(c.hyperlink)}</p>}
         </div>)}
       </div>
       <p className="muted">{t("The original source is unchanged. This record is not a new task.","كل البيانات الأصلية محفوظة بدون تغيير، والسجل ده مش مهمة جديدة.")}</p>
