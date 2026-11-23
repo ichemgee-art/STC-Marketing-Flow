@@ -536,12 +536,17 @@ export default function Workspace() {
                        <div className="focus-panel-icon"><ListTodo size={22} /></div>
                        <div className="focus-panel-copy">
                          <strong>{manager
-                           ? review.length > 0 ? t("Submissions need your review", "في تسليمات مستنية مراجعتك") : t("Your team's workflow is ready", "متابعة شغل الفريق جاهزة")
+                           ? review.length > 0 ? t("Submissions need your review", "في تسليمات مستنية مراجعتك") : t("The old history is archived — start with a new task", "الشغل القديم محفوظ في الأرشيف — ابدئي بتاسك جديد")
                            : tasks.some((x) => x.status === "changes_requested") ? t("Changes requested on a task", "عندك مهمة محتاجة تعديلات") : t("All your tasks in one place", "كل المطلوب منك في مكان واحد")}</strong>
                          <p>{manager
-                           ? review.length > 0 ? t("Open a submission to approve it or request changes.", "افتحي التسليم لاعتماده أو طلب تعديلات واضحة.") : t("Create a task and assign it to the right person.", "أضيفي مهمة جديدة وحددي المسؤول عنها، وهتظهر عنده مباشرة.")
+                           ? review.length > 0 ? t("Open a submission to approve it or request changes.", "افتحي التسليم لاعتماده أو طلب تعديلات واضحة.") : t("The old spreadsheet is safely saved in Historical archive. Create a task to start fresh.", "كل بيانات الإكسيل القديمة محفوظة في الأرشيف التاريخي. أضيفي مهمة جديدة لبدء الشغل على السيستم.")
                            : tasks.some((x) => x.status === "changes_requested") ? t("Open the task, read the manager's note, and submit again.", "افتح المهمة واقرأ ملاحظات المديرة، وعدّل شغلك وسلّمه تاني.") : t("Open any card to see instructions, add notes, and update progress.", "افتح أي بطاقة لقراءة التعليمات وإضافة ملاحظات وتحديث حالتها.")}</p>
                        </div>
+                       {manager && tasks.length === 0 && (
+                         <button className="focus-panel-cta" onClick={() => setView("history")}>
+                           {t("Open history", "عرض الأرشيف")} <ArrowUpRight size={16} />
+                         </button>
+                       )}
                        {manager && review.length > 0 && (
                          <button className="focus-panel-cta" onClick={() => setSelected(review[0])}>
                            {t("Review now", "مراجعة الآن")} <ArrowUpRight size={16} />
