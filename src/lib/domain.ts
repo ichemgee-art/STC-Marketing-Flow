@@ -27,6 +27,8 @@ export type Task = {
   created_at: string;
   updated_at: string;
   version: number;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 };
 export type Notice = {
   id: string;
@@ -34,6 +36,8 @@ export type Notice = {
   kind: string;
   created_at: string;
   read_at: string | null;
+  task_title?: string;
+  actor_name?: string;
 };
 export type Event = {
   id: string;
