@@ -20,6 +20,7 @@ export default function TaskDetail({
   lang,
   onClose,
   onChange,
+  onNotice,
 }: {
   task: Task;
   member: Member;
@@ -27,12 +28,14 @@ export default function TaskDetail({
   lang: Lang;
   onClose: () => void;
   onChange: () => Promise<void>;
+  onNotice: (message: string) => void;
 }) {
   const t = (en: string, ar: string) => (lang === "ar" ? ar : en);
   const [comments, setComments] = useState<Comment[]>([]),
     [files, setFiles] = useState<Attachment[]>([]),
     [events, setEvents] = useState<Event[]>([]),
     [note, setNote] = useState(""),
+    [editing, setEditing] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
@@ -99,13 +102,14 @@ export default function TaskDetail({
   useEffect(() => {
     void load();
   }, [task.version, load]);
-  async function run(fn: () => Promise<void>) {
+  async function run(fn: () => Promise<void>, confirmation?: string) {
     setBusy(true);
     setError("");
     try {
       await fn();
       await load();
       await onChange();
+      if (confirmation) onNotice(confirmation);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -143,6 +147,34 @@ export default function TaskDetail({
         ),
       );
     setNote("");
+  }
+  async function updateTask(form: HTMLFormElement) {
+    const f = new FormData(form);
+    const r = await supabase.from("stc_tasks").update({
+      title: String(f.get("title") || "").trim(),
+      description: String(f.get("description") || ""),
+      assignee_id: String(f.get("assignee")),
+      due_date: f.get("due") || null,
+      priority: String(f.get("priority")),
+    }).eq("id", task.id).eq("version", task.version).select("id");
+    if (r.error) throw r.error;
+    if (!r.data?.length) throw new Error(t("Task changed in another session. Reopen it and try again.", "المهمة اتعدلت من حساب تاني. افتحها من جديد وحاول تاني."));
+    setEditing(false);
+  }
+  async function removeTask() {
+    if (!window.confirm(t(
+      "Remove this task from everyone's active lists? The action will be recorded.",
+      "هل متأكد من حذف المهمة من القوائم الحالية عند كل الفريق؟ هيتم حفظ العملية في سجل النشاط."
+    ))) return;
+    await run(async () => {
+      const r = await supabase.from("stc_tasks").update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: member.id,
+      }).eq("id", task.id).eq("version", task.version).select("id");
+      if (r.error) throw r.error;
+      if (!r.data?.length) throw new Error(t("Task changed. Reopen it and try again.", "المهمة اتغيرت. افتحها تاني وحاول."));
+      onClose();
+    }, t("Task removed from team lists.", "تم حذف المهمة من قوائم الفريق بنجاح."));
   }
   async function upload(file: File) {
     if (file.size > 25 * 1024 * 1024)
@@ -191,6 +223,44 @@ export default function TaskDetail({
         </div>
         <h2 id="task-title">{task.title}</h2>
         <p className="detail-description">{task.description}</p>
+        {member.role === "manager" && !task.deleted_at && (
+          <div className="manager-task-tools">
+            <div className="manager-task-tool-heading">
+              <strong>{t("Manager controls", "إدارة المهمة")}</strong>
+              <span>{t("Changes update the assigned member automatically.", "أي تعديل هيتحدث عند الموظف تلقائيًا.")}</span>
+            </div>
+            <div className="manager-task-tool-buttons">
+              {task.status !== "approved" && <button type="button" onClick={() => setEditing(!editing)} disabled={busy}>
+                {editing ? t("Cancel editing", "إلغاء التعديل") : t("Edit task", "تعديل المهمة")}
+              </button>}
+              <button type="button" className="danger-action" disabled={busy} onClick={() => void removeTask()}>
+                {t("Remove task", "حذف المهمة")}
+              </button>
+            </div>
+            {editing && task.status !== "approved" && (
+              <form className="manager-edit-form" onSubmit={(e) => {
+                e.preventDefault();
+                void run(() => updateTask(e.currentTarget), t("Task updated for the team.", "تم تعديل المهمة والتحديث هيظهر للفريق."));
+              }}>
+                <label>{t("Title", "عنوان المهمة")}<input name="title" defaultValue={task.title} required maxLength={300}/></label>
+                <label>{t("Instructions", "التفاصيل والتعليمات")}<textarea name="description" defaultValue={task.description} rows={4}/></label>
+                <div className="form-grid">
+                  <label>{t("Assigned to", "المسؤول")}<select name="assignee" defaultValue={task.assignee_id} required>
+                    {team.filter(p => p.role === "member" && p.active).map(p => <option key={p.id} value={p.id}>{p.display_name}</option>)}
+                  </select></label>
+                  <label>{t("Deadline", "موعد التسليم")}<input name="due" type="date" defaultValue={task.due_date || ""}/></label>
+                </div>
+                <label>{t("Priority", "الأولوية")}<select name="priority" defaultValue={task.priority}>
+                  <option value="low">{t("Low", "منخفضة")}</option>
+                  <option value="normal">{t("Normal", "عادية")}</option>
+                  <option value="high">{t("High", "عالية")}</option>
+                </select></label>
+                <button className="primary wide" type="submit" disabled={busy}>{t("Save changes for team", "حفظ التعديلات للفريق")}</button>
+              </form>
+            )}
+          </div>
+        )}
+
         <div className="detail-facts">
           <span>
             {t("Assigned to", "المسؤول")}
@@ -261,7 +331,7 @@ export default function TaskDetail({
                         : ""
                     }
                     key={s}
-                    onClick={() => void run(() => change(s))}
+                    onClick={() => void run(() => change(s), s === "waiting_review" ? t("Submitted successfully. Nardine has been notified for review.", "تم تسليم المهمة بنجاح، ووصل لناردين إشعار بانتظار المراجعة.") : s === "approved" ? t("Task approved. Team member notified.", "تم اعتماد المهمة، ووصل إشعار للموظف.") : s === "changes_requested" ? t("Requested changes sent to the member.", "تم إرسال التعديلات المطلوبة للموظف.") : t("Task status updated.", "تم تحديث حالة المهمة بنجاح."))}
                   >
                     {s === "waiting_review"
                       ? t("Submit for review", "تسليم للمراجعة")
@@ -315,7 +385,7 @@ export default function TaskDetail({
               disabled={busy}
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) void run(() => upload(file));
+                if (file) void run(() => upload(file), t("Attachment saved.", "تم حفظ المرفق بنجاح."));
                 e.target.value = "";
               }}
             />
@@ -350,7 +420,7 @@ export default function TaskDetail({
                   .insert({ task_id: task.id, body });
                 if (r.error) throw r.error;
                 form.reset();
-              });
+              }, t("Note saved.", "تم حفظ الملاحظة."));
             }}
           >
             <input
