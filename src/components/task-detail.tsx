@@ -222,6 +222,18 @@ export default function TaskDetail({
         )}
         {task.status !== "approved" && (
           <>
+            <div className="task-detail-guidance">
+              <strong>{member.role === "manager" && task.status === "waiting_review"
+                ? t("Review the delivered work", "راجعي الشغل اللي اتسلّم")
+                : task.status === "changes_requested"
+                  ? t("Changes are required", "مطلوب تعديل المهمة")
+                  : t("Keep the task moving", "حدّث حالة المهمة بسهولة")}</strong>
+              <p>{member.role === "manager" && task.status === "waiting_review"
+                ? t("Check the submitted files and notes, then approve or request specific changes.", "راجعي الملفات والملاحظات، وبعدها اعتمدي المهمة أو اكتبي التعديلات المطلوبة بشكل واضح.")
+                : task.status === "changes_requested"
+                  ? t("Read the review note, make the requested updates and resubmit your work.", "اقرأ ملاحظات المديرة، ونفّذ التعديلات المطلوبة، وبعدها سلّم شغلك تاني.")
+                  : t("Choose the current step. When you finish, submit your work for manager approval.", "اختار المرحلة المناسبة. لما تخلص، سلّم المهمة للمراجعة علشان المديرة تعتمدها.")}</p>
+            </div>
             <label>
               {task.status === "waiting_review"
                 ? t("Review note", "ملاحظات المراجعة")
@@ -251,7 +263,17 @@ export default function TaskDetail({
                     key={s}
                     onClick={() => void run(() => change(s))}
                   >
-                    {labels[s][lang === "ar" ? 1 : 0]}
+                    {s === "waiting_review"
+                      ? t("Submit for review", "تسليم للمراجعة")
+                      : s === "approved"
+                        ? t("Approve task", "اعتماد المهمة")
+                        : s === "changes_requested"
+                          ? t("Request changes", "طلب تعديلات")
+                          : s === "in_progress"
+                            ? t("Start / continue work", "بدء / متابعة التنفيذ")
+                            : s === "tomorrow"
+                              ? t("Move to tomorrow", "تأجيل العمل لبكرة")
+                              : labels[s][lang === "ar" ? 1 : 0]}
                   </button>
                 ))}
             </div>
