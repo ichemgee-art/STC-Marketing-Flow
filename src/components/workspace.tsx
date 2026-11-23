@@ -31,9 +31,21 @@ import { labels, type Lang } from "@/lib/i18n";
 import TaskDetail from "./task-detail";
 import History from "./history";
 import TaskBoard from "./task-board";
+import PastWork from "./past-work";
 
+const accountCache = new Map<string, { at: number; tasks: Task[]; team: Member[]; notices: Notice[] }>();
+function prefKey(id: string) { return "stc-workspace-prefs-" + id; }
+function readPrefs(id: string): { view?: string; query?: string; filter?: string } {
+  try { return JSON.parse(sessionStorage.getItem(prefKey(id)) || "{}"); } catch { return {}; }
+}
+function writePrefs(id: string, next: Record<string, string>) {
+  try { sessionStorage.setItem(prefKey(id), JSON.stringify({ ...readPrefs(id), ...next })); } catch {}
+}
 export default function Workspace() {
   const authEpoch = useRef(0);
+  const [toast, setToast] = useState("");
+  const toastSeq = useRef(0);
+  const notify = useCallback((message: string) => { setToast(message); toastSeq.current++; }, []);
   const [lang, setLang] = useState<Lang>("ar");
   const t = (en: string, ar: string) => (lang === "ar" ? ar : en);
   const [session, setSession] = useState<Session | null>(null),
@@ -86,6 +98,19 @@ export default function Workspace() {
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
     localStorage.setItem("stc-language", lang);
   }, [lang]);
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const prefs = readPrefs(session.user.id);
+    if (prefs.view && ["overview","tasks","calendar","reports","history","past"].includes(prefs.view)) setView(prefs.view);
+    if (typeof prefs.query === "string") setQuery(prefs.query);
+    if (typeof prefs.filter === "string") setFilter(prefs.filter);
+  }, [session?.user?.id]);
+  useEffect(() => {
+    if (!toast) return;
+    const token = toastSeq.current;
+    const timer = setTimeout(() => { if (toastSeq.current === token) setToast(""); }, 5000);
+    return () => clearTimeout(timer);
+  }, [toast]);
   const load = useCallback(async () => {
     if (!session) return;
     const epoch = authEpoch.current;
@@ -99,8 +124,15 @@ export default function Workspace() {
       if (epoch !== authEpoch.current) return;
       setMember(m.data);
       if (!m.data?.active) {
+        accountCache.delete(session.user.id);
         setTasks([]);
         return;
+      }
+      const cache = accountCache.get(session.user.id);
+      if (cache && Date.now() - cache.at < 120000) {
+        setTasks(cache.tasks);
+        setTeam(cache.team);
+        setNotices(cache.notices);
       }
       // Pagination avoids Supabase's default 1000-row cap silently truncating reports.
       const all: Task[] = [];
@@ -126,9 +158,12 @@ export default function Workspace() {
       if (people.error) throw people.error;
       if (n.error) throw n.error;
       if (epoch !== authEpoch.current) return;
-      setTasks(all);
+      const activeTasks = all.filter(x => !x.deleted_at);
+      setTasks(activeTasks);
       setTeam(people.data);
       setNotices(n.data);
+      setSelected(prev => prev && !activeTasks.some(x => x.id === prev.id) ? null : prev);
+      accountCache.set(session.user.id, { at: Date.now(), tasks: activeTasks, team: people.data, notices: n.data });
       if (m.data.role === "manager") {
         const reports = await supabase
           .from("stc_daily_reports")
@@ -355,6 +390,7 @@ export default function Workspace() {
             ["overview", LayoutDashboard, t("Overview", "نظرة عامة")],
             ["tasks", ListTodo, manager ? t("Team tasks", "مهام الفريق") : t("My tasks", "مهامي")],
             ["calendar", CalendarDays, t("Calendar", "التقويم")],
+             ["past", Archive, t("Previous work", "الشغل السابق")],
             ["reports", BarChart3, manager ? t("Team reports", "تقارير الفريق") : t("My report", "تقرير إنجازي")],
             ...(manager
               ? [
@@ -373,6 +409,7 @@ export default function Workspace() {
                 className={view === id ? "active" : ""}
                 onClick={() => {
                   setView(String(id));
+                  if (session?.user.id) writePrefs(session.user.id, {view: String(id)});
                   setMobile(false);
                 }}
               >
@@ -482,6 +519,8 @@ export default function Workspace() {
                   <h1>
                     {view === "history"
                       ? t("Historical archive", "الأرشيف التاريخي")
+                      : view === "past"
+                        ? t("Previous work", "الشغل السابق")
                       : view === "reports"
                         ? t("Team reports", "تقارير الفريق")
                         : view === "calendar"
@@ -503,6 +542,8 @@ export default function Workspace() {
               </div>
               {view === "history" ? (
                 <History lang={lang} team={team} />
+              ) : view === "past" && member && session ? (
+                <PastWork userId={session.user.id} member={member} lang={lang} />
               ) : (
                 <>
                   <div className="stats">
@@ -712,7 +753,7 @@ export default function Workspace() {
                             <input
                               aria-label={t("Search tasks", "البحث في المهام")}
                               value={query}
-                              onChange={(e) => setQuery(e.target.value)}
+                              onChange={(e) => {setQuery(e.target.value);if(session?.user.id) writePrefs(session.user.id,{query:e.target.value});}}
                               placeholder={t("Search tasks…", "ابحث عن مهمة…")}
                             />
                           </label>
@@ -720,7 +761,7 @@ export default function Workspace() {
                             <select
                               aria-label={t("Assignee", "المسؤول")}
                               value={filter}
-                              onChange={(e) => setFilter(e.target.value)}
+                              onChange={(e) => {setFilter(e.target.value);if(session?.user.id) writePrefs(session.user.id,{filter:e.target.value});}}
                             >
                               <option value="all">
                                 {t("All members", "كل الفريق")}
@@ -878,6 +919,7 @@ export default function Workspace() {
           lang={lang}
           onClose={() => setSelected(null)}
           onChange={load}
+          onNotice={notify}
         />
       )}
       {creating && (
