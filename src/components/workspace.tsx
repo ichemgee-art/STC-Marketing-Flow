@@ -456,6 +456,7 @@ export default function Workspace() {
               void action(async () => {
                 const r = await supabase.auth.signOut();
                 if (r.error) throw r.error;
+                if (session?.user.id) accountCache.delete(session.user.id);
               })
             }
           >
@@ -922,6 +923,7 @@ export default function Workspace() {
                       : t("Task assigned", "تم إسناد مهمة")}
               </b>
               <span>
+                {n.actor_name ? n.actor_name + " · " : ""}
                 {n.task_title || tasks.find((x) => x.id === n.task_id)?.title ||
                   t("Task updated", "تحديث مهمة")}
               </span>
