@@ -47,10 +47,10 @@ A manager uploads `original.xlsx` and `archive.json` in Historical archive. The 
 - **Supabase project:** `mkhzwcuwirivrnrnrxoo` — 4 linked Auth/member accounts (Nardine: manager; Gerges, Esraa, Fatma: members).
 - **Database:** All 10 `stc_*` tables exist and have RLS enabled. Realtime publication includes tasks, notifications, comments, and attachments. The two Storage buckets are private.
 - **Scheduler:** `stc-marketing-digest` is active; runs at minute 5 each hour.
-- **History:** Original `STC Calendar.xlsx` is already in private `stc-history` Storage under SHA-256 `ca89dbd42d705b53abd5a56a30b2a5a804e5ffe28a8d38f76234db73e5751a78/original.xlsx`. **The 317 rows from five worksheets have NOT been inserted**: `stc_import_batches = 0`, `stc_archive_rows = 0`. Do not create artificial current tasks from old records.
+- **History:** Original `STC Calendar.xlsx` is in private `stc-history` Storage under SHA-256 `ca89dbd42d705b53abd5a56a30b2a5a804e5ffe28a8d38f76234db73e5751a78/original.xlsx`. **Import is complete:** 1 source batch, **317/317** archived rows, 5/5 tabs, 317 distinct source coordinates. Legacy rows remain intentionally separate from new tasks; no current tasks were auto-created. Potential duplicates are kept intact for review.
 - **Migration tracking:** Database objects were installed by a previous operator, but the connected Supabase migration history tool reports no tracked migrations. Do not rerun the initial `CREATE TABLE` migration against this live project; reconcile state safely before future schema changes.
 - **Security review:** RLS is enabled. Supabase reports leaked-password protection disabled; enable it in Auth settings. Performance advisors recommend supplemental FK indexes and RLS auth-call optimization before scale.
-- **Deployment:** A Vercel project has not yet been created. An earlier project/deployment API attempt returned 403 from the selected Vercel team. Use an account/team with permission to create projects; never invent a deployed URL.
+- **Deployment:** User supplied production URL: `https://stc-marketing-flow-mauve.vercel.app/`. GitHub reported successful Vercel checks for recent `main` commits; the connected Vercel API account could not read the user's deployment, so independent live-browser validation remains pending. Vercel may automatically deploy future `main` pushes if Git integration is active.
 
 ## Deploy the `main` branch to Vercel
 
@@ -61,9 +61,13 @@ A manager uploads `original.xlsx` and `archive.json` in Historical archive. The 
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = the publishable key in `.env.example`
 4. Run the first build, inspect Vercel build logs, and confirm the deployment reaches READY. Add the deployed origin to Supabase Auth URL configuration/redirect allowlist as needed for the chosen sign-in flow.
 5. Sign in with real Nardine/Gerges/Esraa/Fatma credentials and validate each permission and the Waiting for Review → Approved/Changes Requested workflow.
-6. Complete the historical import: from the manager's Historical archive screen, select the exact original `STC Calendar.xlsx` and its generated `archive.json`. The UI checks the file hash, and the import is idempotent. Verify **317 archived rows**, across Tasks (127), Fatma2 (47), Girgis (39), Esraa (55), Fatma (49), then re-run to verify no duplicates. The original file has already been uploaded, so no need to re-upload the same bytes manually.
+6. **Historical import is already complete.** Check the manager's Historical archive page for the 317 preserved rows across Tasks (127), Fatma2 (47), Girgis (39), Esraa (55), Fatma (49). Do not repeat the manual SQL import or promote historical rows into active tasks without explicit decisions.
 7. Check private downloads, Realtime, browser/mobile, scheduler, and access isolation before announcing production readiness.
 
-**Do not commit** workbook/employee data, the private extracted `archive.json`, service-role tokens, passwords, or `.env.local` to this public repository. See [migration and validation checklist](docs/MIGRATION.md) for detailed test gates.
+**Do not commit** workbook/employee data, the private extracted `archive.json`, service-role tokens, passwords, or `.env.local` to this public repository.
+
+### Browser sessions & display
+
+The web application uses per-tab Supabase Auth sessions stored in `sessionStorage`, with unique per-tab auth keys. A fresh browser tab can sign into a different team account; reopening after this change requires signing in again once because the old shared `localStorage` session is not reused. Team role permissions still come from server-enforced RLS. The bilingual task view uses Cairo for Arabic and responsive status-filtered cards that show assignee, deadline, priority and next action. See [migration and validation checklist](docs/MIGRATION.md) for detailed test gates.
 
 Reference documentation: [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [Storage policies](https://supabase.com/docs/guides/storage/security/access-control), [Realtime](https://supabase.com/docs/guides/realtime/postgres-changes), [Next.js](https://nextjs.org/docs/app/getting-started/installation).
