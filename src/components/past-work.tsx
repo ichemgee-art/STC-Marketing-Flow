@@ -11,6 +11,10 @@ function cell(r: ArchiveRow, col: string): string {
   const val = entry?.[1]?.value;
   return typeof val === "string" || typeof val === "number" ? String(val) : "";
 }
+function isWorkRecord(r: ArchiveRow) {
+  const title=String(r.mapped.title||"").trim().toLowerCase();
+  return !!title && !["task","design idea","content type","date","scheduling"].includes(title);
+}
 function statusOf(r: ArchiveRow): "done" | "ongoing" | "unknown" {
   const raw = String(r.mapped.source_status || "").trim().toLowerCase();
   if (["done", "completed", "finished", "complete", "approved", "تم", "منتهي"].includes(raw)) return "done";
@@ -36,6 +40,7 @@ export default function PastWork({ userId, lang, member }: { userId: string; lan
   const [status,setStatus]=useState("all");
   const [selected,setSelected]=useState<ArchiveRow|null>(null);
   const [owner,setOwner]=useState("all");
+  const [showSourceRows,setShowSourceRows]=useState(false);
   useEffect(()=>{
     try{
       const saved=JSON.parse(sessionStorage.getItem(key)||"{}");
@@ -43,11 +48,12 @@ export default function PastWork({ userId, lang, member }: { userId: string; lan
       if(typeof saved.sheet==="string")setSheet(saved.sheet);
       if(typeof saved.status==="string")setStatus(saved.status);
       if(typeof saved.owner==="string")setOwner(saved.owner);
+      if(typeof saved.showSourceRows==="boolean")setShowSourceRows(saved.showSourceRows);
     }catch{}
   },[key]);
   useEffect(()=>{
-    try{sessionStorage.setItem(key,JSON.stringify({search,sheet,status,owner}));}catch{}
-  },[key,search,sheet,status,owner]);
+    try{sessionStorage.setItem(key,JSON.stringify({search,sheet,status,owner,showSourceRows}));}catch{}
+  },[key,search,sheet,status,owner,showSourceRows]);
   const load=useCallback(async()=>{
     const cached=memory.get(userId);
     if(cached && Date.now()-cached.timestamp < 120000){
@@ -68,10 +74,11 @@ export default function PastWork({ userId, lang, member }: { userId: string; lan
   const owners=useMemo(()=>Array.from(new Set(rows.map(r=>String(r.mapped.owner_label||"").trim()).filter(Boolean))),[rows]);
   const visible=useMemo(()=>rows.filter(r=>{
     const x=(String(r.mapped.title||"")+" "+details(r).join(" ")).toLowerCase();
-    return (sheet==="all"||r.sheet===sheet) && (status==="all"||statusOf(r)===status) &&
+    return (showSourceRows||isWorkRecord(r)) && (sheet==="all"||r.sheet===sheet) && (status==="all"||statusOf(r)===status) &&
     (owner==="all"||String(r.mapped.owner_label||"")===owner) && x.includes(search.trim().toLowerCase());
-  }),[rows,sheet,status,owner,search]);
-  const done=rows.filter(r=>statusOf(r)==="done").length;
+  }),[rows,sheet,status,owner,search,showSourceRows]);
+  const workRows=rows.filter(isWorkRecord);
+  const done=workRows.filter(r=>statusOf(r)==="done").length;
   return <section className="past-work">
     <div className="past-heading">
       <div>
@@ -81,12 +88,13 @@ export default function PastWork({ userId, lang, member }: { userId: string; lan
       </div>
       <div className="past-count"><strong>{rows.length}</strong><span>{t("Past records","سجل قديم")}</span></div>
     </div>
-    <div className="past-summary"><span><FileText size={17}/>{t("Archived records","سجلات محفوظة")}: <b>{rows.length}</b></span><span><CheckCircle2 size={17}/>{t("Marked Done in source","مكتوب عليها Done في الإكسيل")}: <b>{done}</b></span></div>
+    <div className="past-summary"><span><FileText size={17}/>{t("Work cards","بطاقات الشغل السابق")}: <b>{workRows.length}</b></span><span><Archive size={17}/>{t("All archived source rows","كل صفوف الأرشيف")}: <b>{rows.length}</b></span><span><CheckCircle2 size={17}/>{t("Marked Done in source","مكتوب عليها Done في الإكسيل")}: <b>{done}</b></span></div>
     <div className="past-controls">
       <label className="past-search"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t("Search past work","ابحث في شغلك القديم")}/></label>
       <select value={sheet} onChange={e=>setSheet(e.target.value)} aria-label={t("Source sheet","الشيت الأصلي")}><option value="all">{t("All sheets","كل المصادر")}</option>{sheets.map(s=><option key={s}>{s}</option>)}</select>
       {member.role==="manager"&&<select value={owner} onChange={e=>setOwner(e.target.value)} aria-label={t("Owner","المسؤول")}><option value="all">{t("All team","كل الفريق")}</option>{owners.map(s=><option key={s}>{s}</option>)}</select>}
       <select value={status} onChange={e=>setStatus(e.target.value)} aria-label={t("Original status","الحالة القديمة")}><option value="all">{t("All statuses","كل الحالات")}</option><option value="done">{t("Done in source","منتهية سابقًا")}</option><option value="ongoing">{t("Unfinished in source","غير مكتملة سابقًا")}</option><option value="unknown">{t("Unspecified in source","الحالة غير محددة")}</option></select>
+      <label className="past-include-raw"><input type="checkbox" checked={showSourceRows} onChange={e=>setShowSourceRows(e.target.checked)}/>{t("Include source headers and incomplete rows","عرض عناوين الشيت والصفوف الناقصة")}</label>
     </div>
     {error&&<p className="error" role="alert">{error}<button onClick={()=>void load()}>{t("Retry","حاول تاني")}</button></p>}
     {loading&&rows.length===0&&<p className="muted">{t("Loading preserved history…","جاري تحميل السجل القديم…")}</p>}
