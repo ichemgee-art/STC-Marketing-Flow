@@ -71,6 +71,11 @@ export default function Workspace() {
       setTeam([]);
       setNotices([]);
       setSelected(null);
+      setView('overview');
+      setCreating(false);
+      setShowNotices(false);
+      setFilter('all');
+      setQuery('');
       setDailyReports([]);
     });
     return () => data.subscription.unsubscribe();

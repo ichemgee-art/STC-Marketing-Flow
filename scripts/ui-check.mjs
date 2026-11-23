@@ -179,6 +179,19 @@ try {
     .getByRole("button", { name: "الأرشيف التاريخي", exact: true })
     .click();
   await page.getByRole("heading", { name: "التاريخ المحفوظ" }).waitFor();
+  await page.setViewportSize({width:1440,height:1000});
+  await page.getByRole('button',{name:'تسجيل الخروج',exact:true}).click();
+  await page.getByRole('heading',{name:'أهلًا بعودتك'}).waitFor();
+  await page.getByRole('button',{name:'English',exact:true}).click();
+  await page.getByLabel('Email address').fill('member@example.com');
+  await page.getByLabel('Password',{exact:true}).fill('fixture-only');
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await page.getByRole('heading',{name:'Let’s move work forward'}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'New task',exact:true}).count(),0);
+  assert.equal(await page.getByRole('button',{name:'Historical archive',exact:true}).count(),0);
+  await page.getByRole('heading',{name:'Brand campaign design'}).click();
+  assert.equal(await page.getByRole('button',{name:'Approved',exact:true}).count(),0);
+  await page.getByRole('button',{name:'Close',exact:true}).click();
   assert.deepEqual(errors, []);
   console.log(
     "PASS: Arabic/English, RTL/LTR, sign-in, assignment, manager approval, reports, archive screen, mobile overflow; fixture-backed UI checks.",
