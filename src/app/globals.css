@@ -1248,6 +1248,31 @@ html[dir="rtl"] .sidebar nav .active { box-shadow: inset -3px 0 var(--gold); }
 .login-form .primary { min-height: 48px; }
 .login-form h2 { font-weight: 800; }
 
+.task-detail-guidance {
+  border: 1px solid #e5d9b8;
+  background: #fffcf4;
+  padding: 15px 17px;
+  border-radius: 13px;
+  margin-bottom: 19px;
+}
+.task-detail-guidance strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  color: #253a55;
+  margin-bottom: 3px;
+}
+.task-detail-guidance p {
+  font-size: 13px;
+  color: #596b7f;
+  line-height: 1.8;
+}
+.status-actions button {
+  min-height: 43px;
+  font-size: 13px;
+  font-weight: 700;
+  padding-inline: 17px;
+}
 /* Focus panel: a clear next action per role */
 .focus-panel {
   display: flex;
