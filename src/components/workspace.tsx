@@ -201,7 +201,21 @@ export default function Workspace() {
           table: "stc_notifications",
           filter: `recipient_id=eq.${session.user.id}`,
         },
-        () => void load(),
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const notice = payload.new as Notice;
+            const action = notice.kind === "waiting_review" ? t("submitted work for your review", "سلّم مهمة بانتظار مراجعتك")
+              : notice.kind === "approved" ? t("Your work was approved", "تم اعتماد شغلك")
+              : notice.kind === "changes_requested" ? t("Changes were requested", "مطلوب تعديلات على المهمة")
+              : notice.kind === "deleted" ? t("A task was removed from your list", "تم حذف مهمة من قائمتك")
+              : notice.kind === "reassigned" ? t("A task was reassigned to you", "تم إسناد مهمة إليك")
+              : notice.kind === "unassigned" ? t("A task was reassigned to another member", "تم تحويل المهمة لشخص آخر")
+              : notice.kind === "updated" ? t("Task details were updated", "تم تعديل تفاصيل المهمة")
+              : t("You have a task notification", "وصلك إشعار عن مهمة");
+            notify((notice.actor_name ? notice.actor_name + ": " : "") + action + (notice.task_title ? " — " + notice.task_title : ""));
+          }
+          void load();
+        },
       )
       .subscribe((s) => setLive(s === "SUBSCRIBED"));
     const poll = setInterval(() => void load(), 60000);
@@ -210,7 +224,7 @@ export default function Workspace() {
       clearInterval(poll);
       setLive(false);
     };
-  }, [session, load]);
+  }, [session, load, notify, lang]);
   const action = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError("");
@@ -837,6 +851,13 @@ export default function Workspace() {
           )}
         </main>
       </div>
+      {toast && (
+        <div className="stc-toast" role="status" aria-live="polite">
+          <CheckCheck size={20}/>
+          <span>{toast}</span>
+          <button type="button" aria-label={t("Dismiss", "إغلاق")} onClick={() => setToast("")}><X size={17}/></button>
+        </div>
+      )}
       {showNotices && (
         <section
           className="notifications"
@@ -888,7 +909,11 @@ export default function Workspace() {
               }}
             >
               <b>
-                {n.kind in labels
+                {n.kind === "deleted" ? t("Task removed", "تم حذف المهمة")
+                  : n.kind === "updated" ? t("Task updated", "تم تعديل المهمة")
+                  : n.kind === "reassigned" ? t("New assignment", "إسناد مهمة جديدة")
+                  : n.kind === "unassigned" ? t("Task reassigned", "تم تحويل المهمة")
+                  : n.kind in labels
                   ? labels[n.kind as keyof typeof labels][lang === "ar" ? 1 : 0]
                   : n.kind === "overdue"
                     ? t("Task overdue", "تأخر موعد المهمة")
@@ -897,7 +922,7 @@ export default function Workspace() {
                       : t("Task assigned", "تم إسناد مهمة")}
               </b>
               <span>
-                {tasks.find((x) => x.id === n.task_id)?.title ||
+                {n.task_title || tasks.find((x) => x.id === n.task_id)?.title ||
                   t("Task updated", "تحديث مهمة")}
               </span>
               <small>
@@ -951,6 +976,7 @@ export default function Workspace() {
                   if (r.error) throw r.error;
                   setCreating(false);
                   await load();
+                  notify(t("Task created and sent to the assigned member.", "تم إنشاء المهمة وإرسالها للموظف بنجاح."));
                 });
               }}
             >
