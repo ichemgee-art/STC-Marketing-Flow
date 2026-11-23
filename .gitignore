@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.env*
+!.env.example
+*.tsbuildinfo
+private-import/
+test-results/
+__pycache__/
+*.pyc
+supabase/.temp/
