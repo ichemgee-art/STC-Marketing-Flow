@@ -240,7 +240,8 @@ export default function TaskDetail({
             {editing && task.status !== "approved" && (
               <form className="manager-edit-form" onSubmit={(e) => {
                 e.preventDefault();
-                void run(() => updateTask(e.currentTarget), t("Task updated for the team.", "تم تعديل المهمة والتحديث هيظهر للفريق."));
+                const form = e.currentTarget;
+                void run(() => updateTask(form), t("Task updated for the team.", "تم تعديل المهمة والتحديث هيظهر للفريق."));
               }}>
                 <label>{t("Title", "عنوان المهمة")}<input name="title" defaultValue={task.title} required maxLength={300}/></label>
                 <label>{t("Instructions", "التفاصيل والتعليمات")}<textarea name="description" defaultValue={task.description} rows={4}/></label>
