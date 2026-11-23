@@ -30,6 +30,7 @@ import {
 import { labels, type Lang } from "@/lib/i18n";
 import TaskDetail from "./task-detail";
 import History from "./history";
+import TaskBoard from "./task-board";
 
 export default function Workspace() {
   const authEpoch = useRef(0);
@@ -321,6 +322,12 @@ export default function Workspace() {
               "حسابات الفريق يتم تجهيزها عن طريق مسؤولة النظام.",
             )}
           </p>
+          <p className="login-helper">
+            {t(
+              "You can use a different team account in each browser tab. Each tab signs in independently.",
+              "تقدر تفتح حساب مختلف في كل تبويب؛ كل تبويب له تسجيل دخول مستقل.",
+            )}
+          </p>
           {error && (
             <p role="alert" className="error">
               {error}
@@ -346,9 +353,9 @@ export default function Workspace() {
         <nav>
           {[
             ["overview", LayoutDashboard, t("Overview", "نظرة عامة")],
-            ["tasks", ListTodo, t("Tasks", "المهام")],
+            ["tasks", ListTodo, manager ? t("Team tasks", "مهام الفريق") : t("My tasks", "مهامي")],
             ["calendar", CalendarDays, t("Calendar", "التقويم")],
-            ["reports", BarChart3, t("Reports", "التقارير")],
+            ["reports", BarChart3, manager ? t("Team reports", "تقارير الفريق") : t("My report", "تقرير إنجازي")],
             ...(manager
               ? [
                   [
@@ -479,13 +486,12 @@ export default function Workspace() {
                         ? t("Team reports", "تقارير الفريق")
                         : view === "calendar"
                           ? t("Team calendar", "تقويم الفريق")
-                          : t("Let’s move work forward", "خلّينا ننجز سوا")}
+                          : manager ? t("Team workspace", "لوحة متابعة الفريق") : t("My workspace", "مهامي ومساحة شغلي")}
                   </h1>
                   <p className="muted">
-                    {t(
-                      "A clear view of what’s moving, what’s next, and what needs you.",
-                      "كل اللي شغال، واللي جاي، واللي محتاج مراجعتك في مكان واحد.",
-                    )}
+                    {manager
+                      ? t("Assign tasks and review what the team has submitted.", "وزّعي المهام وتابعي التنفيذ وراجعي التسليمات بكل وضوح.")
+                      : t("Your assigned tasks, next steps, and deadlines are here.", "هنا هتلاقي كل مهامك ومواعيدها والخطوة المطلوبة منك.")}
                   </p>
                 </div>
                 {manager && view !== "history" && (
@@ -525,7 +531,30 @@ export default function Workspace() {
                       </div>
                     ))}
                   </div>
-                  {late.length > 0 && (
+                  {view !== "reports" && (
+                     <div className="focus-panel">
+                       <div className="focus-panel-icon"><ListTodo size={22} /></div>
+                       <div className="focus-panel-copy">
+                         <strong>{manager
+                           ? review.length > 0 ? t("Submissions need your review", "في تسليمات مستنية مراجعتك") : t("Your team's workflow is ready", "متابعة شغل الفريق جاهزة")
+                           : tasks.some((x) => x.status === "changes_requested") ? t("Changes requested on a task", "عندك مهمة محتاجة تعديلات") : t("All your tasks in one place", "كل المطلوب منك في مكان واحد")}</strong>
+                         <p>{manager
+                           ? review.length > 0 ? t("Open a submission to approve it or request changes.", "افتحي التسليم لاعتماده أو طلب تعديلات واضحة.") : t("Create a task and assign it to the right person.", "أضيفي مهمة جديدة وحددي المسؤول عنها، وهتظهر عنده مباشرة.")
+                           : tasks.some((x) => x.status === "changes_requested") ? t("Open the task, read the manager's note, and submit again.", "افتح المهمة واقرأ ملاحظات المديرة، وعدّل شغلك وسلّمه تاني.") : t("Open any card to see instructions, add notes, and update progress.", "افتح أي بطاقة لقراءة التعليمات وإضافة ملاحظات وتحديث حالتها.")}</p>
+                       </div>
+                       {manager && review.length > 0 && (
+                         <button className="focus-panel-cta" onClick={() => setSelected(review[0])}>
+                           {t("Review now", "مراجعة الآن")} <ArrowUpRight size={16} />
+                         </button>
+                       )}
+                       {!manager && tasks.some((x) => x.status === "changes_requested") && (
+                         <button className="focus-panel-cta" onClick={() => setSelected(tasks.find((x) => x.status === "changes_requested") || null)}>
+                           {t("View changes", "عرض التعديلات")} <ArrowUpRight size={16} />
+                         </button>
+                       )}
+                     </div>
+                   )}
+                   {late.length > 0 && (
                     <div className="deadline-alert">
                       <CalendarDays size={18} />
                       {t(
@@ -738,68 +767,13 @@ export default function Workspace() {
                             ))}
                         </section>
                       ) : (
-                        <div className="board">
-                          {statuses.map((s) => (
-                            <section className={"column " + s} key={s}>
-                              <div className="column-title">
-                                <span className="status-dot" />
-                                <h3>{labels[s][lang === "ar" ? 1 : 0]}</h3>
-                                <span>
-                                  {visible.filter((x) => x.status === s).length}
-                                </span>
-                              </div>
-                              {visible
-                                .filter((x) => x.status === s)
-                                .map((task) => (
-                                  <button
-                                    className="task-card"
-                                    key={task.id}
-                                    onClick={() => setSelected(task)}
-                                  >
-                                    <span
-                                      className={"priority " + task.priority}
-                                    >
-                                      {task.priority === "high"
-                                        ? t("High priority", "أولوية عالية")
-                                        : task.priority === "low"
-                                          ? t("Low priority", "أولوية منخفضة")
-                                          : t("Normal", "عادية")}
-                                    </span>
-                                    <h4>{task.title}</h4>
-                                    <p>
-                                      {task.description ||
-                                        t(
-                                          "Open task for details",
-                                          "افتح المهمة للتفاصيل",
-                                        )}
-                                    </p>
-                                    <div className="task-meta">
-                                      <span
-                                        className={
-                                          overdue(task) ? "overdue" : ""
-                                        }
-                                      >
-                                        <CalendarDays size={13} />
-                                        {task.due_date ||
-                                          t("No deadline", "بدون موعد")}
-                                      </span>
-                                      <span
-                                        className="mini-avatar"
-                                        title={name(task.assignee_id)}
-                                      >
-                                        {name(task.assignee_id).slice(0, 1)}
-                                      </span>
-                                    </div>
-                                  </button>
-                                ))}
-                              {!visible.some((x) => x.status === s) && (
-                                <div className="column-empty">
-                                  {t("No tasks here yet", "لا توجد مهام هنا")}
-                                </div>
-                              )}
-                            </section>
-                          ))}
-                        </div>
+                        <TaskBoard
+                          tasks={visible}
+                          team={team}
+                          manager={manager}
+                          lang={lang}
+                          onOpen={setSelected}
+                        />
                       )}
                     </>
                   )}
