@@ -54,6 +54,7 @@ export default function Workspace() {
   const [tasks, setTasks] = useState<Task[]>([]),
     [team, setTeam] = useState<Member[]>([]),
     [notices, setNotices] = useState<Notice[]>([]);
+  const [historicalCount, setHistoricalCount] = useState<number | null>(null);
   const [dailyReports, setDailyReports] = useState<
     { report_date: string; summary: Record<string, unknown>[] }[]
   >([]);
@@ -90,6 +91,7 @@ export default function Workspace() {
       setFilter('all');
       setQuery('');
       setDailyReports([]);
+      setHistoricalCount(null);
     });
     return () => data.subscription.unsubscribe();
   }, []);
@@ -147,17 +149,20 @@ export default function Workspace() {
         all.push(...r.data);
         if (r.data.length < 1000) break;
       }
-      const [people, n] = await Promise.all([
+      const [people, n, past] = await Promise.all([
         supabase.from("stc_members").select("*").eq("active", true),
         supabase
           .from("stc_notifications")
           .select("*")
           .order("created_at", { ascending: false })
           .limit(100),
+        supabase.from("stc_archive_rows").select("id", { head: true, count: "exact" }),
       ]);
       if (people.error) throw people.error;
       if (n.error) throw n.error;
+      if (past.error) throw past.error;
       if (epoch !== authEpoch.current) return;
+      setHistoricalCount(past.count || 0);
       const activeTasks = all.filter(x => !x.deleted_at);
       setTasks(activeTasks);
       setTeam(people.data);
@@ -587,6 +592,22 @@ export default function Workspace() {
                       </div>
                     ))}
                   </div>
+                  {view === "overview" && (
+                    <section className="historical-banner">
+                      <div className="historical-banner-icon"><Archive size={23}/></div>
+                      <div>
+                        <strong>{t("Your previous work is here too", "شغلك السابق موجود هنا كمان")}</strong>
+                        <p>{historicalCount !== null
+                          ? t("Preserved historical records visible to your account: ", "سجلات الشغل السابق المتاحة لحسابك: ") + historicalCount
+                          : t("Loading your preserved history…", "جارٍ تحميل بيانات شغلك القديم…")}</p>
+                        <small>{t("Original dates, descriptions, captions and completion notes are preserved.", "كل التواريخ والتفاصيل والكابشنات وحالات الإنجاز الأصلية محفوظة.")}</small>
+                      </div>
+                      <button type="button" onClick={() => {
+                        setView("past");
+                        if (session?.user.id) writePrefs(session.user.id,{view:"past"});
+                      }}>{t("Browse previous work", "عرض الشغل السابق")} <ArrowUpRight size={16}/></button>
+                    </section>
+                  )}
                   {view !== "reports" && (
                      <div className="focus-panel">
                        <div className="focus-panel-icon"><ListTodo size={22} /></div>
