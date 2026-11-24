@@ -250,6 +250,7 @@ export default function SimpleWorkspace(){
   const [mediaPending,setMediaPending]=useState(0);
   const [seoView,setSeoView]=useState<string|null>(null);
   const [storageView,setStorageView]=useState(false);
+  const [storageAccess,setStorageAccess]=useState(false);
   const [seoPending,setSeoPending]=useState<Record<string,number>>({});
   const [seoReviews,setSeoReviews]=useState<SeoReview[]>([]);
   const [flowFilter,setFlowFilter]=useState<FlowFilter>("all");
@@ -273,7 +274,7 @@ export default function SimpleWorkspace(){
       cache.clear();
       clearStorageManagerCache();clearSeoDataCache();clearMediaBuyerCache();
       setMember(null);setTeam([]);setTasks([]);setNotices([]);
-      setSeoPeople([]);setMediaPeople([]);setSeoView(null);setMediaView(false);setStorageView(false);
+      setSeoPeople([]);setMediaPeople([]);setSeoView(null);setMediaView(false);setStorageView(false);setStorageAccess(false);
       setSeoPending({});setSeoReviews([]);setMediaPending(0);setFlowFilter("all");
       pendingTaskId.current=null;setSelected(null);return;
     }
@@ -302,12 +303,13 @@ export default function SimpleWorkspace(){
     if(activeUser.current!==userId||serial!==refreshSerial.current)return;
     if(m.error){setErr(m.error.message);return;}
     if(!m.data?.active){setMember(null);setErr("الحساب مش متفعل. كلم ناردين.");return;}
-    const [t,p,n,sp,mp]=await Promise.all([
+    const [t,p,n,sp,mp,storagePerm]=await Promise.all([
       supabase.from("stc_tasks").select("*").is("deleted_at",null).order("updated_at",{ascending:false}).limit(1000),
       supabase.from("stc_members").select("*").eq("active",true),
       supabase.from("stc_notifications").select("*").order("created_at",{ascending:false}).limit(80),
       supabase.from("stc_seo_profiles").select("id,slug,member_id,display_name,brand"),
       supabase.from("stc_media_profiles").select("id,slug,member_id,display_name"),
+      supabase.rpc("stc_can_view_storage"),
     ]);
     if(activeUser.current!==userId||serial!==refreshSerial.current)return;
     const error=t.error||p.error||n.error||sp.error||mp.error;
@@ -323,7 +325,10 @@ export default function SimpleWorkspace(){
       return notice.kind !== "waiting_review" || status === "waiting_review";
     });
     setMember(m.data);setTeam(p.data);setTasks(list);setNotices(visibleNotices);
-    setSeoPeople(sp.data||[]);setMediaPeople(mp.data||[]);setErr("");
+    setSeoPeople(sp.data||[]);setMediaPeople(mp.data||[]);
+    // Permission is resolved from the database, not the person's display name.
+    setStorageAccess(storagePerm.error===null&&storagePerm.data===true);
+    setErr("");
     if(m.data.role==="manager"){
       const pending=await supabase.from("stc_seo_metrics")
        .select("id,profile_id,metric_key,month_key,before_value,after_value,status")
@@ -384,6 +389,7 @@ export default function SimpleWorkspace(){
     };
   },[userId,refresh,announce]);
   const manager=member?.role==="manager";
+  const canOpenStorage=!!manager||storageAccess;
   const people=useMemo(()=>team.filter(p=>p.role==="member"&&p.active
     && !seoPeople.some(sp=>sp.member_id===p.id) && !mediaPeople.some(mp=>mp.member_id===p.id)
     && !["Sandra","Mohamed Omar","Ahmed El Kholy"].includes(p.display_name)
@@ -490,8 +496,8 @@ export default function SimpleWorkspace(){
       </form>{err&&<p className="easy-error" role="alert">{err}</p>}
     </section>
   </main>;
-  if(member&&manager&&storageView)return <StorageDashboard userId={member.id}
-    onBack={returnToTasks}/>;
+  if(member&&canOpenStorage&&storageView)return <StorageDashboard userId={member.id}
+    readOnly={!manager} onBack={returnToTasks}/>;
   if(member&&((manager&&mediaView)||assignedMedia))return <MediaBuyerWorkspace
     key={member.id+"-media"} member={member}
     onBack={()=>{if(manager)returnToTasks();else void logout();}}/>;
@@ -502,7 +508,7 @@ export default function SimpleWorkspace(){
   return <div className="easy-shell" dir="rtl">
     <header className="easy-header"><div className="easy-brand"><BrandLockup/><div><strong>Marketing Flow</strong><small>{manager?"متابعة شغل التيم":"تاسكاتي"}</small></div></div>
       <div className="easy-header-buttons"><span className={online?"easy-online":"easy-offline"}>{online?"متصل":"بيوصل…"}</span>
-        {manager&&<button type="button" className="easy-storage-entry" onClick={enterStorage}
+        {canOpenStorage&&<button type="button" className="easy-storage-entry" onClick={enterStorage}
           title="متابعة استهلاك Supabase Storage"><HardDrive size={18}/><span>التخزين والملفات</span></button>}
         <button className="easy-icon easy-bell" onClick={()=>setShowNotices(v=>!v)} aria-label="الإشعارات" title="الإشعارات"><Bell size={21}/>{unread>0&&<i>{unread}</i>}</button>
         <button className="easy-icon easy-logout" onClick={()=>void logout()} title="خروج"><LogOut size={19}/><span>خروج</span></button>
