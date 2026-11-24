@@ -22,6 +22,9 @@ const bucketNames:Record<string,string>={
   "stc-task-files":"مرفقات التاسكات",
   "stc-history":"ملفات الأرشيف القديم",
 };
+// The project's organization is currently on Supabase Free (1 GB Storage).
+// This is a reference allowance, not a live billing balance from Supabase.
+const FREE_STORAGE_ALLOWANCE_BYTES=1024**3;
 const formatSize=(size:number)=>{
   if(size>=1024*1024*1024)return (size/(1024**3)).toFixed(2)+" GiB";
   if(size>=1024*1024)return (size/(1024**2)).toFixed(2)+" MiB";
@@ -113,6 +116,10 @@ export default function StorageDashboard({userId,onBack}:{
     return file.name.toLowerCase().includes(q)||(bucketNames[file.bucket_id]||file.bucket_id).toLowerCase().includes(q);
   }),[overview,activeBucket,search]);
   const pct=(size:number)=>overview?.total_bytes?Math.round(size/overview.total_bytes*100):0;
+  const used=overview?.total_bytes||0;
+  const freeBytes=Math.max(0,FREE_STORAGE_ALLOWANCE_BYTES-used);
+  const usedPercent=Math.round(used/FREE_STORAGE_ALLOWANCE_BYTES*10000)/100;
+  const remainingPercent=Math.max(0,100-usedPercent);
 
   async function openFile(file:StorageFile,download=false){
     setOpening(file.bucket_id+"/"+file.name);setError("");
@@ -163,6 +170,28 @@ export default function StorageDashboard({userId,onBack}:{
       {error&&<div className="storage-error" role="alert">{error}<button onClick={()=>void refresh()}>حاول تاني</button></div>}
       {!overview&&<div className="storage-loading">بنحمّل بيانات التخزين من Supabase…</div>}
       {overview&&<>
+        <section className="storage-quota" aria-label="المساحة المستخدمة من إجمالي مساحة Supabase Free">
+          <div className="storage-quota__headline">
+            <div><span className="storage-eyebrow">SUPABASE FREE · STORAGE</span>
+              <h2>استهلكنا كام من مساحة الملفات؟</h2>
+              <p>المساحة المستخدمة حاليًا من حد التخزين المجاني المعروف (1 GB).</p>
+            </div>
+            <div className="storage-quota__number" dir="ltr">
+              <strong>{formatSize(used)}</strong><span> / 1 GiB</span>
+            </div>
+          </div>
+          <div className="storage-quota__progress" role="progressbar"
+            aria-label="نسبة التخزين المستخدمة" aria-valuemin={0} aria-valuemax={100}
+            aria-valuenow={Math.min(100,usedPercent)}>
+            <span style={{width:Math.max(0,Math.min(100,usedPercent))+"%"}}/>
+          </div>
+          <div className="storage-quota__bottom">
+            <span><b>{usedPercent.toFixed(2)}%</b> مستخدم</span>
+            <span><b>{formatSize(freeBytes)}</b> متبقي تقريبًا</span>
+            <span><b>{remainingPercent.toFixed(2)}%</b> فاضي</span>
+          </div>
+          <small>الحد ده مرجع لخطة Free، مش قراءة مباشرة من نظام الفوترة. استهلاك الملفات التابع لمشاريع تانية في نفس المؤسسة مش داخل الرقم ده.</small>
+        </section>
         <div className="storage-summary">
           <article><span className="storage-summary-icon"><HardDrive size={24}/></span><small>حجم الملفات الحالية</small>
             <strong dir="ltr">{formatSize(overview.total_bytes)}</strong><p>إجمالي حجم ملفات الـBuckets</p></article>
