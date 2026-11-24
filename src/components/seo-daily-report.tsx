@@ -16,13 +16,16 @@ const asMinutes=(value:string)=>{const [hours,minutes]=value.split(":").map(Numb
 const timeLabel=(m:number)=>Math.floor(m/60)+" ساعة"+(m%60?" و"+m%60+" دقيقة":"");
 
 export default function SeoDailyReport({
-  profileId, member, entries, onRefresh, onNotice, onError,
+  profileId, member, monthKey, entries, onRefresh, onNotice, onError,
 }: {
-  profileId:string; member:Member; entries:SeoHours[];
+  profileId:string; member:Member; monthKey:string; entries:SeoHours[];
   onRefresh:()=>Promise<void>; onNotice:(message:string)=>void; onError:(message:string)=>void;
 }) {
   const manager=member.role==="manager";
-  const [date,setDate]=useState(cairoToday);
+  const [date,setDate]=useState(()=>{
+    const now=cairoToday();
+    return monthKey&&now.startsWith(monthKey+"-")?now:monthKey?monthKey+"-01":now;
+  });
   const [start,setStart]=useState("09:00");
   const [end,setEnd]=useState("17:00");
   const [activity,setActivity]=useState("");
@@ -46,11 +49,14 @@ export default function SeoDailyReport({
       .subscribe();
     return()=>{void supabase.removeChannel(channel);};
   },[profileId,load]);
-  const days=useMemo(()=>[...new Set([date,...entries.map(e=>e.work_date),...progress.map(e=>e.work_date)])].sort().reverse(),[date,entries,progress]);
-  const rows=entries.filter(e=>e.work_date===date).sort((a,b)=>a.start_minutes-b.start_minutes);
+  const monthEntries=entries.filter(e=>!monthKey||e.work_date.startsWith(monthKey+"-"));
+  const days=useMemo(()=>[...new Set([date,...monthEntries.map(e=>e.work_date),...progress.filter(e=>!monthKey||e.work_date.startsWith(monthKey+"-")).map(e=>e.work_date)])].sort().reverse(),[date,monthEntries,progress,monthKey]);
+  const rows=monthEntries.filter(e=>e.work_date===date).sort((a,b)=>a.start_minutes-b.start_minutes);
   const achievements=progress.filter(e=>e.work_date===date).sort((a,b)=>b.created_at.localeCompare(a.created_at));
   const duration=rows.reduce((n,r)=>n+r.end_minutes-r.start_minutes,0);
+  const monthDuration=monthEntries.reduce((n,r)=>n+r.end_minutes-r.start_minutes,0);
   async function submitHours() {
+    if(monthKey&&!date.startsWith(monthKey+"-")){onError("اختار يوم جوه الشهر اللي فاتحه.");return;}
     const from=asMinutes(start),to=asMinutes(end);
     if(!Number.isInteger(from)||!Number.isInteger(to)||from<0||to>1440||to<=from){
       onError("اتأكد من مواعيد البداية والنهاية.");return;
@@ -84,11 +90,13 @@ export default function SeoDailyReport({
         <h2><Clock3 size={23}/> ساعات الشغل والحاجات اللي اتعملت</h2>
         <p>اختار اليوم وهتشوف الساعات اللي اتسجلت، وكل الإنجازات والملاحظات بتاعته.</p>
       </div>
-      <label className="seo-daily-picker"><CalendarDays size={18}/> اليوم<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label>
+      <label className="seo-daily-picker"><CalendarDays size={18}/> اليوم<input type="date" value={date}
+        min={monthKey?monthKey+"-01":undefined} max={monthKey?monthKey+"-31":undefined}
+        onChange={e=>setDate(e.target.value)}/></label>
     </div>
     <div className="seo-daily-summary">
       <div><Clock3 size={19}/><span>ساعات اليوم</span><strong>{timeLabel(duration)}</strong></div>
-      <div><CalendarDays size={19}/><span>فترات الشغل</span><strong>{rows.length}</strong></div>
+      <div><CalendarDays size={19}/><span>ساعات الشهر</span><strong>{timeLabel(monthDuration)}</strong></div>
       <div><CheckCircle2 size={19}/><span>الإنجازات اللي اتسجلت</span><strong>{achievements.reduce((n,x)=>n+x.done_count,0)}</strong></div>
     </div>
     {!manager&&<form className="seo-daily-entry-form" onSubmit={e=>{e.preventDefault();void submitHours();}}>
