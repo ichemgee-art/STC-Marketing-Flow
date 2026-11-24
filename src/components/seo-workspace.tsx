@@ -74,8 +74,6 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const [snapshot,setSnapshot]=useState({total:0,completed:0,pending:0,approved:0});
   const [newMonth,setNewMonth]=useState("");
   const [showMonthCreator,setShowMonthCreator]=useState(false);
-  const [uploadTarget,setUploadTarget]=useState("");
-  const [uploadOptions,setUploadOptions]=useState<{id:string;title:string}[]>([]);
   const [uploadingShot,setUploadingShot]=useState(false);
   const [signed,setSigned]=useState<Record<string,string>>({});
   const [zoom,setZoom]=useState<number|null>(null);
@@ -148,7 +146,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     try{sessionStorage.setItem("stc-seo-screen-"+member.id+"-"+slug,next);}catch{}
   }
   function chooseMonth(id:string){
-    setSelected(id);setZoom(null);setUploadTarget("");
+    setSelected(id);setZoom(null);
     const entry=seoMemory.get(seoCacheKey);
     if(entry)seoMemory.set(seoCacheKey,{...entry,selectedId:id});
     try{sessionStorage.setItem("stc-seo-month-"+member.id+"-"+slug,id);}catch{}
@@ -185,19 +183,6 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     return()=>{clearInterval(poll);void supabase.removeChannel(channel);};
   },[profile?.id,selected,member.id,loadSnapshot]);
 
-  useEffect(()=>{
-    if(!profile||!period||period.period_kind!=="month"){setUploadOptions([]);return;}
-    let active=true;
-    const load=async()=>{
-      const r=await supabase.from("stc_seo_targets").select("id,title")
-       .eq("profile_id",profile.id).eq("month_key",period.month_key);
-      if(active&&!r.error)setUploadOptions(r.data||[]);
-    };
-    void load();
-    const channel=supabase.channel("seo-screenshots-target-list-"+period.id)
-      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_targets"},()=>void load()).subscribe();
-    return()=>{active=false;void supabase.removeChannel(channel);};
-  },[profile?.id,period?.id,period?.month_key,period?.period_kind]);
   const entries=useMemo(()=>period?asEntries(period):[],[period]);
   const loadScreenshots=useCallback(async(periodId:string)=>{
     const serial=++assetsSerial.current;
@@ -292,7 +277,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       const added=await supabase.from("stc_seo_assets").insert({
         period_id:period.id,position_index:position,anchor_row:0,anchor_col:0,
         filename:file.name,object_path:objectPath,mime_type:file.type,
-        size_bytes:file.size,target_id:uploadTarget||null,uploaded_by:member.id,origin:"manual",
+        size_bytes:file.size,target_id:null,uploaded_by:member.id,origin:"manual",
       });
       if(added.error)throw added.error;
       await loadScreenshots(period.id);
@@ -385,9 +370,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       {section==="targets"&&period&&profile&&period.period_kind==="month"&&
         <SeoTargetBoard key={profile.id+"-"+period.month_key} profileId={profile.id}
           monthKey={period.month_key} manager={manager} memberId={member.id}
-          onError={setError} onNotice={setToast} onAttach={id=>{
-            setUploadTarget(id);chooseSection("evidence");
-          }}/>}
+          onError={setError} onNotice={setToast}/>}
       {section==="metrics"&&period&&profile&&period.period_kind==="month"&&
         <SeoMetricsBoard key={"metrics-"+period.month_key} profileId={profile.id} memberId={member.id}
           monthKey={period.month_key} manager={manager} onError={setError}
@@ -398,21 +381,13 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
           onRefresh={refresh} onNotice={setToast} onError={setError}/>}
       {section==="evidence"&&period&&<section className="seo-gallery seo-gallery--main" id="seo-photo-upload">
         <div className="seo-section-top"><div>
-          <h2><ImageIcon size={22}/> الاسكرينات بتاعة {period.label}</h2>
-          <p>{manager?"الاسكرينات اللي محمد أو ساندرا رفعوها؛ تقدري تفتحيها وتراجعيها هنا.":"ارفع صور شغلك، وافتح أي اسكرين كبيرة من جوه السيستم."}</p>
+          <h2><ImageIcon size={22}/> الاسكرينات شهر {period.label}</h2>
+          <p>{manager?"الاسكرينات اللي محمد أو ساندرا رفعوها؛ تقدري تفتحيها وتراجعيها هنا.":"ارفع اسكرينات الشهر كله هنا في مكان واحد، وافتح أي صورة بحجم كبير."}</p>
         </div><span>{assets.length} اسكرين</span></div>
         {!manager&&period.period_kind==="month"&&<div className="seo-gallery-upload">
           <label>ارفع اسكرين جديدة (PNG / JPG / WEBP — لحد 10 ميجا)
             <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingShot}
               onChange={e=>{const file=e.target.files?.[0];if(file)void uploadScreenshot(file);e.currentTarget.value="";}}/>
-          </label>
-          <label>الاسكرين دي تابعة لأنهي تارجت؟ (اختياري)
-            <select value={uploadTarget} onChange={e=>setUploadTarget(e.target.value)}>
-              <option value="">اسكرين عامة للشهر</option>
-              {uploadOptions.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}
-              {uploadTarget&&!uploadOptions.some(item=>item.id===uploadTarget)&&
-                <option value={uploadTarget}>التارجت اللي اخترته</option>}
-            </select>
           </label>
           {uploadingShot&&<strong className="seo-photo-status">بترفع الاسكرين…</strong>}
         </div>}
@@ -422,9 +397,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
           onClick={()=>setZoom(i)} aria-label={"افتح اسكرين "+(i+1)}>
           <Image src={signed[asset.id]} alt={"اسكرين "+(i+1)+" - "+period.label}
             width={330} height={180} unoptimized/>
-          <span><Maximize2 size={14}/> {asset.origin==="manual"?"اسكرين مرفوعة":"اسكرين من الإكسيل"} {i+1}
-            {asset.target_id&&uploadOptions.find(t=>t.id===asset.target_id)?.title?
-             " · "+uploadOptions.find(t=>t.id===asset.target_id)?.title:""}</span>
+          <span><Maximize2 size={14}/> اسكرين {i+1} · {period.label}</span>
         </button>)}</div>
       </section>}
       {section==="archive"&&<div className="seo-archive-panel">
