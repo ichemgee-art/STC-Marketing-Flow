@@ -194,11 +194,12 @@ export default function SimpleWorkspace(){
   const [showNotices,setShowNotices]=useState(false),[online,setOnline]=useState(false);
   const [err,setErr]=useState(""),[busy,setBusy]=useState(false),[toast,setToast]=useState("");
   const toastSerial=useRef(0);
+  const activeUser=useRef<string|null>(null);
   const userId=session?.user.id||null;
   const announce=useCallback((message:string)=>{setToast(message);toastSerial.current++;},[]);
   useEffect(()=>{
-    void supabase.auth.getSession().then(({data,error})=>{if(error)setErr(error.message);setSession(data.session);setReady(true);});
-    const {data}=supabase.auth.onAuthStateChange((_ev,s)=>{setSession(s);setReady(true);});
+    void supabase.auth.getSession().then(({data,error})=>{if(error)setErr(error.message);activeUser.current=data.session?.user.id||null;setSession(data.session);setReady(true);});
+    const {data}=supabase.auth.onAuthStateChange((_ev,s)=>{activeUser.current=s?.user.id||null;setSession(s);setReady(true);});
     return ()=>data.subscription.unsubscribe();
   },[]);
   useEffect(()=>{if(!toast)return;const id=toastSerial.current;const timer=setTimeout(()=>{if(id===toastSerial.current)setToast("");},5500);return()=>clearTimeout(timer);},[toast]);
@@ -212,6 +213,7 @@ export default function SimpleWorkspace(){
   const refresh=useCallback(async()=>{
     if(!userId)return;
     const m=await supabase.from("stc_members").select("*").eq("id",userId).maybeSingle();
+    if(activeUser.current!==userId)return;
     if(m.error){setErr(m.error.message);return;}
     if(!m.data?.active){setMember(null);setErr("الحساب مش متفعل. كلم ناردين.");return;}
     const [t,p,n]=await Promise.all([
@@ -219,6 +221,7 @@ export default function SimpleWorkspace(){
       supabase.from("stc_members").select("*").eq("active",true),
       supabase.from("stc_notifications").select("*").order("created_at",{ascending:false}).limit(80),
     ]);
+    if(activeUser.current!==userId)return;
     const error=t.error||p.error||n.error;
     if(error){setErr(error.message);return;}
     const list=t.data as Task[];
