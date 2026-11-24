@@ -512,7 +512,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
              onOpenPhoto={id=>{const idx=screenshots.findIndex(asset=>asset.id===id);if(idx>=0)setZoom(idx);}}/>
           :<SeoMetricsBoard key={"metrics-"+period.month_key} profileId={profile.id} memberId={member.id}
              monthKey={period.month_key} manager={manager} onError={setError}
-             onNotice={setToast} onUpdated={loadSnapshot}/>)};}
+             onNotice={setToast} onUpdated={loadSnapshot}/>)}
       {section==="daily"&&profile&&
         <SeoDailyReport key={"daily-"+period?.month_key} profileId={profile.id}
           member={member} monthKey={period?.month_key||""} entries={log}
