@@ -164,3 +164,13 @@
  .easy-login{grid-template-columns:1fr}.easy-login-brand{min-height:255px;padding:25px}.easy-login-brand img{width:115px;height:69px}.easy-login-brand h1{font-size:27px}.easy-login-brand p{font-size:13px}.easy-login-form{padding:27px 10px 55px}
  .easy-toast{top:83px;inset-inline-end:14px}.easy-notifications{top:66px;inset-inline-end:10px}
 }
+
+.easy-seo-links{margin:4px 0 22px;border:1px solid #dce6f2;border-radius:15px;background:#fff;padding:16px 17px;box-shadow:0 3px 14px #223a5508}
+.easy-seo-links>strong{font-size:13px;font-weight:800;color:#536c87;display:block;margin-bottom:11px}
+.easy-seo-links>div{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap}
+.easy-seo-links button{display:flex;align-items:center;gap:14px;min-width:220px;flex:1;position:relative;padding:11px 15px;border:1px solid #e1e8f0;border-radius:12px;text-align:start;background:#f8fafc}
+.easy-seo-links button:hover{border-color:#f3b820;background:#fff9e8}
+.easy-seo-links button span{font-size:15px;color:#253a55;font-weight:800}
+.easy-seo-links button small{font-size:11px;color:#718298}
+.easy-seo-links button svg{margin-inline-start:auto;color:#58748c}
+@media(max-width:650px){.easy-seo-links>div{flex-direction:column}.easy-seo-links button{min-width:0;width:100%;flex-wrap:wrap}.easy-seo-links button small{flex-basis:100%}}
