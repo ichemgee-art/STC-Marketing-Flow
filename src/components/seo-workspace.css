@@ -1,0 +1,89 @@
+/* SEO workspaces — clear monthly reviews, evidence gallery, daily hours */
+.seo-shell{min-height:100vh;background:#f5f7fb;color:#253a55;font-family:Cairo,Tahoma,Arial,sans-serif;font-size:14px;line-height:1.8}
+.seo-shell *{box-sizing:border-box}
+.seo-shell button,.seo-shell input,.seo-shell textarea{font:inherit}
+.seo-shell button{cursor:pointer}
+.seo-topbar{height:78px;padding:10px max(22px,calc((100vw - 1320px)/2));background:#fff;border-bottom:1px solid #e1e7ee;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:30}
+.seo-brand{display:flex;align-items:center;gap:13px}
+.seo-brand img{object-fit:contain}
+.seo-brand strong{font-size:17px;font-weight:800;display:block}
+.seo-brand small{font-size:12px;color:#76879b;line-height:1.3;display:block;direction:ltr;text-align:right}
+.seo-back{display:inline-flex;align-items:center;gap:9px;background:#fff;border:1px solid #e0e7ee;color:#36536f;border-radius:12px;padding:7px 13px;font-weight:700}
+.seo-main{max-width:1320px;margin:0 auto;padding:34px 26px 80px}
+.seo-headline{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:26px}
+.seo-eyebrow{display:block;color:#b28a29;font-size:12px;font-weight:800}
+.seo-headline h1{font-size:32px;line-height:1.6;font-weight:800;margin:0}
+.seo-headline p{font-size:13.5px;color:#63768b;margin-top:4px}
+.seo-upload label{display:flex;align-items:center;gap:9px;padding:11px 15px;border-radius:13px;border:1px solid #253a55;background:#253a55;color:#fff;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap}
+.seo-upload label:hover{background:#35516f}
+.seo-upload .seo-uploading{opacity:.55;cursor:wait}
+.seo-upload input{display:none}
+.seo-error{background:#fff1ed;border:1px solid #f2c8bd;color:#ac483c;border-radius:12px;padding:12px 15px;display:flex;justify-content:space-between;gap:10px;margin-bottom:18px}
+.seo-error button{border:0;background:transparent;color:#923e35;font-weight:800}
+.seo-main-tabs{display:flex;gap:11px;border-bottom:1px solid #dce4ed;padding-bottom:14px;margin-bottom:21px}
+.seo-main-tabs button{display:flex;gap:8px;align-items:center;background:#fff;color:#526d89;border:1px solid #e3eaf1;font-weight:800;padding:10px 17px;border-radius:12px;font-size:13px}
+.seo-main-tabs .selected{background:#253a55;color:#fff;border-color:#253a55}
+.seo-main-tabs span{background:#eef2f6;border-radius:8px;color:#455f75;padding:0 7px;font-size:11px}
+.seo-month-tabs{display:flex;gap:8px;align-items:stretch;overflow-x:auto;padding:4px 0 13px;scrollbar-width:thin;margin-bottom:17px}
+.seo-month-tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;white-space:nowrap;min-height:68px;min-width:135px;padding:9px 14px;background:#fff;border:1px solid #dce5ee;border-radius:13px;color:#455973;font-weight:800;font-size:14px}
+.seo-month-tabs button small{font-size:10.5px;font-weight:600;color:#8493a5}
+.seo-month-tabs button.active{border-color:#f3b820;background:#fff8e7;box-shadow:inset 0 -3px #f3b820;color:#253a55}
+.seo-month-tabs button.active small{color:#a58238}
+.seo-month-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:4px 0 25px}
+.seo-month-summary>div{background:#fff;border:1px solid #e2e8ee;border-radius:14px;padding:15px 17px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.seo-month-summary span{font-size:12px;color:#73859a}
+.seo-month-summary strong{font-size:17px;color:#253a55;overflow-wrap:anywhere;font-weight:800;line-height:1.5}
+.seo-caution{display:flex;align-items:center;gap:10px;border:1px solid #efcf82;color:#8c661d;background:#fff7e5;border-radius:12px;padding:12px 14px;margin-bottom:21px;font-size:12.5px}
+.seo-data-section{background:#fff;border:1px solid #e0e7ef;border-radius:17px;box-shadow:0 6px 22px #243a5506;margin-bottom:19px;padding:20px}
+.seo-data-section h3{font-size:18px;font-weight:800;color:#253a55;display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.seo-data-section h3 span{font-size:11px;font-weight:600;color:#8190a4;background:#f1f4f8;border-radius:50px;padding:3px 8px}
+.seo-data-scroll{overflow-x:auto;max-height:450px;overflow-y:auto;scrollbar-width:thin;border:1px solid #e9edf3;border-radius:10px}
+.seo-original-table{border-collapse:collapse;width:100%;min-width:660px}
+.seo-original-table th,.seo-original-table td{border-bottom:1px solid #e9edf3;border-left:1px solid #edf0f4;padding:9px 11px;vertical-align:top;min-width:110px;max-width:350px}
+.seo-original-table thead th{background:#eef3f8;color:#546b82;position:sticky;top:0;font-size:12px;z-index:2}
+.seo-original-table tbody th{background:#f9fbfd;color:#8796a7;font-size:11px;min-width:42px;text-align:center;position:sticky;right:0;z-index:1}
+.seo-original-table tbody tr:hover{background:#fcf9f0}
+.seo-cell{font-size:12.5px;color:#364c67;line-height:1.8;display:flex;flex-direction:column;gap:6px;overflow-wrap:anywhere;white-space:pre-wrap}
+.seo-cell a{color:#27699e;display:inline-flex;align-items:center;gap:3px;font-size:11px}
+.seo-cell small{font-size:11px;background:#fff5de;color:#8d6322;padding:5px 6px;border-radius:6px}
+.seo-cell-blank{color:#c5cbd3;font-size:11px}
+.seo-gallery{background:#fff;border:1px solid #e2e9f1;border-radius:17px;padding:21px;margin:16px 0 21px}
+.seo-section-top{display:flex;align-items:center;justify-content:space-between;gap:17px;margin-bottom:17px}
+.seo-section-top h2{font-size:20px;font-weight:800;color:#253a55;display:flex;align-items:center;gap:9px}
+.seo-section-top p{font-size:12.5px;color:#75879c}
+.seo-section-top>span{background:#fff2d1;color:#8d6620;font-weight:800;font-size:12px;border-radius:50px;padding:4px 12px}
+.seo-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:14px}
+.seo-gallery-grid button{border:1px solid #e2e8ef;border-radius:12px;background:#f9fbfd;padding:8px;overflow:hidden;text-align:start;transition:.15s}
+.seo-gallery-grid button:hover{border-color:#f3b820;transform:translateY(-2px);box-shadow:0 9px 22px #233a551b}
+.seo-gallery-grid img{width:100%;height:155px;object-fit:contain;background:#f0f3f7;border-radius:8px;display:block}
+.seo-gallery-grid button span{font-size:12px;color:#4a607b;display:inline-flex;align-items:center;gap:7px;padding:6px 4px}
+.seo-lightbox{position:fixed;inset:0;background:#081422ed;z-index:90;display:flex;flex-direction:column;justify-content:space-between;color:#fff;backdrop-filter:blur(3px)}
+.seo-lightbox header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 27px;font-weight:800}
+.seo-lightbox header button{display:grid;place-items:center;background:#ffffff22;color:white;border:1px solid #ffffff3f;border-radius:10px;width:44px;height:44px}
+.seo-lightbox-stage{display:flex;align-items:center;justify-content:center;min-height:0;min-width:0;flex:1;gap:15px;padding:5px 20px}
+.seo-lightbox-stage img{max-height:calc(100vh - 145px);max-width:calc(100vw - 165px);width:auto;height:auto;object-fit:contain;box-shadow:0 7px 30px #0004;border-radius:4px;background:white}
+.seo-lightbox-stage button{background:#ffffff24;border:1px solid #ffffff42;border-radius:50%;width:44px;height:44px;min-width:44px;display:grid;place-items:center;color:white}
+.seo-lightbox footer{text-align:center;font-size:12px;color:#cad1da;padding:9px 0 18px}
+.seo-all-toggle{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #d9e2ee;border-radius:13px;color:#426187;padding:11px 17px;font-weight:800;font-size:13px;margin-bottom:15px}
+.seo-source{font-size:11px;color:#8391a2;overflow-wrap:anywhere}
+.seo-empty,.seo-empty-inline{background:#fff;border:1px dashed #cbd8e5;border-radius:16px;text-align:center;padding:41px 20px;color:#708399}
+.seo-empty svg{color:#9fb0c2}.seo-empty h2{font-size:20px;color:#405975;margin:9px 0 5px}
+.seo-empty p{font-size:13px;max-width:550px;margin:auto}
+.seo-empty-inline{padding:16px;font-size:12px}
+.seo-loading{font-size:12px;color:#748599}
+.seo-hours{border-radius:17px;border:1px solid #e2e9f1;background:#fff;padding:23px}
+.seo-hours-total{display:flex;flex-direction:column;align-items:center;border:1px solid #e3e9f0;background:#f7f9fc;border-radius:13px;padding:7px 17px;color:#253a55;font-size:19px;font-weight:800}
+.seo-hours-total small{font-size:11px;color:#8795a6;font-weight:600}
+.seo-hours-form{background:#f8fafc;padding:18px;border:1px solid #e6edf4;border-radius:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:24px}
+.seo-hours-form label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:#47617a;font-weight:800}
+.seo-hours-form input,.seo-hours-form textarea{min-height:43px;padding:9px 11px;border:1px solid #dce4ec;border-radius:10px;color:#233e58;background:#fff;width:100%}
+.seo-hours-form .seo-hours-wide{grid-column:1 / -1}
+.seo-hours-form button{grid-column:1 / -1;display:flex;align-items:center;justify-content:center;gap:8px;background:#253a55;color:white;border:0;border-radius:11px;min-height:47px;font-weight:800}
+.seo-hours-entry{display:flex;justify-content:space-between;gap:13px;border-bottom:1px solid #e5eaf0;padding:13px 2px}
+.seo-hours-entry strong{color:#273d57;font-size:13px}
+.seo-hours-entry span{font-size:12px;color:#5b7390;display:block}
+.seo-hours-entry p{color:#4f6077;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.seo-hours-entry>button{height:32px;min-width:32px;border:0;border-radius:8px;background:#fff1ed;color:#ae544b}
+.seo-toast{position:fixed;z-index:100;inset-inline-end:25px;top:90px;background:#27654b;color:#fff;padding:15px 20px;border-radius:13px;display:flex;align-items:center;gap:9px;box-shadow:0 10px 35px #1f584735}
+@media(max-width:800px){.seo-main{padding:26px 15px}.seo-topbar{padding:7px 14px}.seo-headline{align-items:start;flex-wrap:wrap}.seo-upload,.seo-upload label{width:100%;justify-content:center}.seo-month-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.seo-hours-form{grid-template-columns:1fr 1fr}.seo-gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.seo-data-section{padding:13px}.seo-lightbox-stage img{max-width:calc(100vw - 110px)}}
+@media(max-width:500px){.seo-brand img{width:77px;height:45px}.seo-brand strong{font-size:13px}.seo-brand small{font-size:10px}.seo-main{padding:20px 10px}.seo-headline h1{font-size:25px}.seo-month-summary{gap:8px}.seo-month-summary>div{padding:11px}.seo-month-summary strong{font-size:13px}.seo-month-tabs button{min-width:114px}.seo-gallery-grid{grid-template-columns:1fr 1fr;gap:7px}.seo-gallery-grid img{height:118px}.seo-gallery{padding:13px}.seo-hours-form{grid-template-columns:1fr}.seo-lightbox-stage{gap:6px;padding:5px}.seo-lightbox-stage button{width:31px;min-width:31px;height:31px}.seo-lightbox-stage img{max-width:calc(100vw - 80px)}}
