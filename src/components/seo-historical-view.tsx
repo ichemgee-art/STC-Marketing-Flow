@@ -42,21 +42,21 @@ function readTasks(cells:SourceCells,slug:string,month:string):WorkRow[]{
   let status:WorkRow["status"]="undocumented";
   let detail="";
   if(slug==="mohamed-omar"&&month==="2026-10"&&row===7&&/^30\b/.test(b)&&onlyNumberC!==null){
-    target=30;completed=onlyNumberC;status="partial";detail="المطلوب 30 رابط، والمذكور في تقرير الشهر 21. مراجعة التفاصيل من المصدر.";
+    target=onlyNumberC;status="undocumented";
+    detail="الشيت كاتب 30 رابط منتجات وأقسام فرعية في الملاحظات، و21 في خانة Per Month. مفيش تأكيد إن الـ30 دي عدد تنفيذ قابل للمقارنة مع التارجت.";
   }else if(/stopped at 3 upon nardin/i.test(b)&&slug==="sandra"&&month==="2026-08"){
-    completed=3;target=10;status="complete";detail="اتوقف عند 3 بطلب من ناردين، مع إن الخطة الأصلية كانت 10. تم اعتباره مكتمل حسب الملاحظة، مش 10/10.";
+    completed=3;target=10;status="complete";detail="اتوقف عند 3 بطلب من ناردين، مع إن الخطة الأصلية كانت 10. علامة Done هنا حسب تعليمات ناردين، مش معناها 10/10.";
   }else if(onlyNumberB!==null&&onlyNumberC!==null&&onlyNumberC>0){
     completed=onlyNumberB;target=onlyNumberC;status=completed>=target?"complete":"partial";
   }else if(looksDone){
     status="complete";
-    // A Done marker proves completion, but not the exact count; avoid converting
-    // the plan count into a made-up executed count.
-    if(onlyNumberC!==null&&onlyNumberC>0){target=onlyNumberC;}
-    else {
-      const match=c.match(/^\s*(\d+)\s*(blogs?|cards?|backlinks?|photos?)/i);
-      if(match)target=Number(match[1]);
-    }
-    detail="الشيت الأصلي كاتب Done، لكن العدد المنفّذ مش مفصول عن الخطة بشكل مؤكد.";
+    // Where the sheet explicitly says Done, column C often records the
+    // delivered quantity. Never mislabel that quantity as the target.
+    const qty=c.match(/^\s*(\d+(?:\.\d+)?)\s*(?:blogs?|cards?|backlinks?|photos?)?\s*$/i);
+    if(qty)completed=Number(qty[1]);
+    detail=completed===null
+      ?"الشيت كاتب Done، لكن مفيش عدد منفّذ محدد وواضح."
+      :"الشيت كاتب Done، والعدد المتسجل واضح. التارجت الأصلي للعدد ده مش مؤكد.";
   }else{
     target=onlyNumberC!==null&&onlyNumberC>0?onlyNumberC:null;
     const match=c.match(/^\s*(\d+)\s*(?:page|photo|blog|card|backlink)/i);
