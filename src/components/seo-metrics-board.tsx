@@ -63,13 +63,27 @@ function ChangeSummary({before,after,def}:{
   </div>;
 }
 
-function MetricCard({row,def,manager,onSaved,onNotice,onError}:{
-  row:Metric;def:Definition;manager:boolean;
+function MetricCard({row,def,manager,memberId,onSaved,onNotice,onError}:{
+  row:Metric;def:Definition;manager:boolean;memberId:string;
   onSaved:()=>Promise<void>;onNotice:(message:string)=>void;onError:(message:string)=>void;
 }) {
-  const [before,setBefore]=useState(row.before_value===null?"":String(row.before_value));
-  const [after,setAfter]=useState(row.after_value===null?"":String(row.after_value));
-  const [note,setNote]=useState(row.note||"");
+  const draftKey="stc-flow2:metric:"+memberId+":"+row.id;
+  const [cached]=useState<{before?:string;after?:string;note?:string}>(()=>{
+    if(manager)return {};
+    try{const raw=sessionStorage.getItem(draftKey);
+      return raw?JSON.parse(raw) as {before?:string;after?:string;note?:string}:{};
+    }catch{return {};}
+  });
+  const [before,setBefore]=useState(cached.before??(row.before_value===null?"":String(row.before_value)));
+  const [after,setAfter]=useState(cached.after??(row.after_value===null?"":String(row.after_value)));
+  const [note,setNote]=useState(cached.note??row.note??"");
+  useEffect(()=>{
+    if(manager||row.status==="approved"||row.status==="pending_review")return;
+    const timeout=setTimeout(()=>{
+      try{sessionStorage.setItem(draftKey,JSON.stringify({before,after,note}));}catch{}
+    },350);
+    return()=>clearTimeout(timeout);
+  },[manager,row.status,draftKey,before,after,note]);
   const [reviewNote,setReviewNote]=useState("");
   const [editing,setEditing]=useState(false);
   const [busy,setBusy]=useState(false);
@@ -77,10 +91,14 @@ function MetricCard({row,def,manager,onSaved,onNotice,onError}:{
   const approved=row.status==="approved";
   const needsFix=row.status==="changes_requested";
   useEffect(()=>{
+    // An unsent local draft wins over repeated polling, but a submitted
+    // result always comes from the server.
+    if(!manager&&["draft","changes_requested"].includes(row.status)&&
+      (cached.before!==undefined||cached.after!==undefined||cached.note!==undefined))return;
     setBefore(row.before_value===null?"":String(row.before_value));
     setAfter(row.after_value===null?"":String(row.after_value));
     setNote(row.note||"");
-  },[row.id,row.before_value,row.after_value,row.note]);
+  },[row.id,row.before_value,row.after_value,row.note,row.status,manager,cached]);
 
   async function write(values:Record<string,unknown>,success:string) {
     setBusy(true);
@@ -89,6 +107,7 @@ function MetricCard({row,def,manager,onSaved,onNotice,onError}:{
         .eq("id",row.id).eq("updated_at",row.updated_at).select("id");
       if(result.error)throw result.error;
       if(!result.data?.length)throw new Error("فيه تعديل حصل من حساب تاني؛ افتح المؤشر تاني.");
+      if(!manager)try{sessionStorage.removeItem(draftKey);}catch{}
       await onSaved();
       onNotice(success);
       setEditing(false);setReviewNote("");
@@ -242,7 +261,7 @@ export default function SeoMetricsBoard({profileId,monthKey,manager,memberId,onN
     {!loading&&!rows.length&&<p className="seo-empty-inline">لسه مفيش مؤشرات متسجلة للشهر ده.</p>}
     <div className="seo-metrics-grid">{visible.map(def=>{
       const row=byKey.get(def.key);
-      return row?<MetricCard key={row.id} row={row} def={def} manager={manager}
+      return row?<MetricCard key={row.id} row={row} def={def} manager={manager} memberId={memberId}
         onSaved={load} onNotice={onNotice} onError={onError}/>:null;
     })}</div>
     {rows.length>4&&<button type="button" className="seo-metrics-show-more" onClick={()=>setShowExtra(v=>!v)}>

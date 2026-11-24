@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CheckCircle2, ClipboardCheck, Pencil, Plus, Target, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ClipboardCheck, Pencil, Plus, Target, X, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export type SeoTarget = {
@@ -32,8 +32,17 @@ export default function SeoTargetBoard({
  const [create,setCreate]=useState(false);
  const [editing,setEditing]=useState<SeoTarget|null>(null);
  const [active,setActive]=useState<string|null>(null);
+ const [filter,setFilter]=useState<"all"|"pending"|"complete">("all");
  const [amount,setAmount]=useState("1");
  const [note,setNote]=useState("");
+ const noteKey="stc-flow2:seo-draft:"+memberId+":"+monthKey+":"+(active||"none");
+ useEffect(()=>{
+   try{setNote(active?sessionStorage.getItem(noteKey)||"":"");}catch{setNote("");}
+ },[noteKey,active]);
+ useEffect(()=>{
+   if(!active)return;
+   try{if(note)sessionStorage.setItem(noteKey,note);else sessionStorage.removeItem(noteKey);}catch{}
+ },[noteKey,note,active]);
  const [day,setDay]=useState(()=>cairoToday().startsWith(monthKey+"-")?cairoToday():monthKey+"-01");
  const [busy,setBusy]=useState(false);
  const [loaded,setLoaded]=useState(!!warm);
@@ -110,6 +119,7 @@ export default function SeoTargetBoard({
        target_id:target.id,work_date:day,done_count:n,note:note.trim(),created_by:memberId,
      });
      if(r.error)throw r.error;
+     try{sessionStorage.removeItem(noteKey);}catch{}
      setNote("");setAmount("1");setActive(null);await load();
      onNotice("اتسجّل الإنجاز ✅ وهتلاقيه في التقرير اليومي.");
    }catch(e){onError(e instanceof Error?e.message:"مقدرناش نسجّل الإنجاز.");}
@@ -146,7 +156,21 @@ export default function SeoTargetBoard({
     <div className="seo-target-day"><CalendarDays size={18}/><span>{manager?"اختاري اليوم عشان تشوفي اللي اتنفّذ:":"اليوم اللي هتسجّل عليه شغلك:"}</span>
       <input type="date" value={day} min={monthKey+"-01"} max={monthKey+"-31"} onChange={e=>setDay(e.target.value)}/>
     </div>
-    <div className="seo-live-card-grid">{targets.map(target=>{
+    <nav className="flow-target-filters" aria-label="تصفية تارجت الشهر"><Filter size={16}/>
+      <button type="button" className={filter==="all"?"active":""} onClick={()=>setFilter("all")}>
+        الكل <small>{targets.length}</small></button>
+      <button type="button" className={filter==="pending"?"active":""} onClick={()=>setFilter("pending")}>
+        لسه ناقص <small>{targets.filter(t=>(t.cadence==="monthly"?countAll(t.id,progress):
+          sumFor(t,progress,day))<t.target_count).length}</small></button>
+      <button type="button" className={filter==="complete"?"active":""} onClick={()=>setFilter("complete")}>
+        اتعمل <small>{targets.filter(t=>(t.cadence==="monthly"?countAll(t.id,progress):
+          sumFor(t,progress,day))>=t.target_count).length}</small></button>
+    </nav>
+    <div className="seo-live-card-grid">{targets.filter(t=>{
+      const done=t.cadence==="monthly"?countAll(t.id,progress):sumFor(t,progress,day);
+      return filter==="all"||filter==="complete"&&done>=t.target_count||
+        filter==="pending"&&done<t.target_count;
+    }).map(target=>{
       const done=sumFor(target,progress,day);
       const all=countAll(target.id,progress);
       const pct=Math.min(100,Math.round((done/target.target_count)*100));

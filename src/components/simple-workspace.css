@@ -210,3 +210,49 @@ border:1px solid #eed58c;border-radius:12px;font-size:12px;font-weight:900}
 .easy-storage-entry:hover{background:#ffefc0;border-color:#e9b92e}
 @media(max-width:650px){.easy-storage-entry{width:39px;height:39px;padding:0}
 .easy-storage-entry>span{display:none}}
+
+
+/* STC Flow 2.0 — calm cards, clear next steps and one manager review inbox */
+.flow-card-steps{display:flex;gap:5px;margin:12px 0 8px;height:5px;max-width:100%}
+.flow-card-steps span{display:block;flex:1;background:#e4e9ef;border-radius:8px}
+.flow-card-steps span.filled{background:#f3b820}
+.easy-task--approved .flow-card-steps span.filled{background:#43a67a}
+.flow-review-inbox,.flow-focus{background:#fff;border:1px solid #e0e8f1;box-shadow:0 6px 24px #223d560d;border-radius:18px;padding:20px 22px;margin:17px 0 25px}
+.flow-inbox-title{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.flow-inbox-title h2{color:#253a55;font-size:20px;font-weight:900;line-height:1.5}
+.flow-inbox-title p{font-size:12px;color:#75869b}
+.flow-inbox-title>strong{font-size:12px;background:#fff3d2;border:1px solid #efd68a;color:#876119;border-radius:24px;padding:6px 12px;font-weight:900}
+.flow-inbox-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.flow-inbox-list button{display:flex;gap:10px;align-items:center;text-align:start;min-width:0;border:1px solid #e5eaf1;background:#f9fbfd;padding:12px;border-radius:12px;color:#3c556d}
+.flow-inbox-list button:hover{border-color:#efc558;background:#fffcf4}
+.flow-inbox-list button>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column}
+.flow-inbox-list button b{font-size:13px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flow-inbox-list button small{color:#728498;font-size:11px;overflow-wrap:anywhere}
+.flow-kind{font:900 10px Inter,Cairo,sans-serif;border-radius:8px;padding:6px 8px;background:#eaf0f8;color:#527391}
+.flow-kind.seo{background:#e7f6ee;color:#357d5b}
+.flow-all-clear{display:flex;gap:8px;align-items:center;color:#4e8367;font-size:12px;background:#f3fbf6;padding:12px 14px;border-radius:11px}
+.flow-focus{border-color:#f0deb2;background:linear-gradient(145deg,#fffaf0,#fff 35%)}
+.flow-focus-title{display:flex;align-items:center;gap:9px;margin-bottom:13px;color:#a57a24}
+.flow-focus-title div{display:flex;flex-direction:column;gap:1px}
+.flow-focus-title strong{color:#253a55;font-weight:900;font-size:18px}
+.flow-focus-title small{color:#8191a2;font-size:12px}
+.flow-focus-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.flow-focus-list button{display:flex;align-items:flex-start;flex-direction:column;gap:8px;padding:13px 12px;border:1px solid #e9e6db;background:white;border-radius:13px;min-width:0;text-align:start;color:#253a55}
+.flow-focus-list button:hover{border-color:#e8bf4d;background:#fffdf7}
+.flow-focus-list button b{font-size:13px;font-weight:900;overflow-wrap:anywhere;line-height:1.6}
+.flow-focus-list button small{font-size:11px;color:#7d8da0}
+.flow-focus-list button svg:last-child{align-self:flex-end;color:#a9832a}
+.flow-filters{display:flex;align-items:center;gap:7px;margin:17px 0;padding:8px;background:#fff;border:1px solid #e0e8f2;border-radius:13px;overflow-x:auto;scrollbar-width:thin}
+.flow-filters>svg{flex:0 0 auto;color:#8495a7;margin-inline:5px}
+.flow-filters button{display:flex;gap:7px;align-items:center;white-space:nowrap;border:1px solid transparent;padding:8px 11px;border-radius:9px;color:#637c93;background:transparent;font-size:12px;font-weight:900;min-height:36px}
+.flow-filters button:hover{background:#f4f7fa}
+.flow-filters button.active{background:#fff2d0;color:#725513;border-color:#eacf83}
+.flow-filters button small{font-size:10px;min-width:18px;border-radius:12px;text-align:center;background:#eaf0f5;color:#506d89;padding:1px 5px}
+.flow-filters button.active small{background:#ead493;color:#6e520c}
+.flow-draft-hint{display:flex;align-items:center;gap:7px;font-size:11px;color:#6e8d77;padding:5px 0}
+.flow-task-history summary{display:flex;align-items:center;gap:8px}
+.flow-history-item{display:flex;flex-direction:column;gap:2px;padding:9px 12px 9px 0;margin:6px 0;border-inline-start:3px solid #e5c56e;color:#48617a}
+.flow-history-item strong{font-size:12px}
+.flow-history-item small{font-size:11px;color:#8294a8}
+@media(max-width:850px){.flow-inbox-list{grid-template-columns:1fr}.flow-focus-list{grid-template-columns:1fr}}
+@media(max-width:650px){.flow-review-inbox,.flow-focus{padding:14px}.flow-inbox-title h2{font-size:17px}.flow-focus-title strong{font-size:15px}.flow-filters{gap:3px}.flow-filters button{padding:6px 9px;font-size:11px}}

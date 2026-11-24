@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, CheckCircle2, Info, Trash2, X, XCircle } from "lucide-react";
+import { CheckCircle2, Info, Trash2, X, XCircle } from "lucide-react";
 import type { ToastKind, ToastMessage } from "@/lib/toasts";
 import "./toast-host.css";
 
@@ -49,7 +49,7 @@ export default function ToastHost(){
       </div>
       <button type="button" className="stc-toast-card__dismiss" aria-label="اقفل الرسالة"
         onClick={()=>setItems(current=>current.filter(x=>x.id!==item.id))}><X size={17}/></button>
-      <div className="stc-toast-card__stripe"/>
+      <div className="stc-toast-card__stripe" style={{animationDuration:lifetime[item.kind]+"ms"}}/>
     </div>)}
   </div>;
 }

@@ -78,6 +78,8 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const [snapshot,setSnapshot]=useState({total:0,completed:0,pending:0,approved:0});
   const [newMonth,setNewMonth]=useState("");
   const [showMonthCreator,setShowMonthCreator]=useState(false);
+  const [copyPreviousTargets,setCopyPreviousTargets]=useState(false);
+  const [creatingMonth,setCreatingMonth]=useState(false);
   const [uploadingShot,setUploadingShot]=useState(false);
   const [removingShot,setRemovingShot]=useState<string|null>(null);
   const [downloadingShot,setDownloadingShot]=useState<string|null>(null);
@@ -279,19 +281,48 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     finally{setUploading(false);}
   }
   async function createMonth() {
-    if(!profile||!manager)return;
+    if(!profile||!manager||creatingMonth)return;
     if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(newMonth)){setError("اختاري شهر صحيح.");return;}
     if(periods.some(p=>p.month_key===newMonth)){setError("الشهر ده موجود بالفعل، اختاريه من التابات.");return;}
-    const date=new Date(newMonth+"-01T12:00:00Z");
-    const label=new Intl.DateTimeFormat("ar-EG",{month:"long",year:"numeric",timeZone:"UTC"}).format(date);
-    const r=await supabase.from("stc_seo_periods").insert({
-      profile_id:profile.id,source_sheet:"from-system-"+newMonth,
-      source_filename:"خطة من السيستم",source_sha256:"manual:"+slug+":"+newMonth,
-      month_key:newMonth,label,period_kind:"month",cells:{},links:{},comments:{},image_count:0,
-    });
-    if(r.error){setError(r.error.message);return;}
-    setShowMonthCreator(false);setNewMonth("");await refresh();
-    setToast("الشهر الجديد اتفتح. دلوقتي ناردين تقدر تحط التارجت.");
+    setCreatingMonth(true);setError("");
+    try{
+      let copied:{title:string;details:string;target_count:number;target_unit:string;cadence:string}[]=[];
+      let sourceMonth="";
+      if(copyPreviousTargets){
+        const past=await supabase.from("stc_seo_targets")
+          .select("title,details,target_count,target_unit,cadence,month_key")
+          .eq("profile_id",profile.id).lt("month_key",newMonth)
+          .order("month_key",{ascending:false}).limit(100);
+        if(past.error)throw past.error;
+        sourceMonth=past.data?.[0]?.month_key||"";
+        if(!sourceMonth)throw new Error("مفيش تارجت سابق ننسخه. شيلي علامة النسخ وافتحي الشهر من غير تارجت.");
+        copied=(past.data||[]).filter(t=>t.month_key===sourceMonth)
+          .map(t=>({title:t.title,details:t.details,target_count:t.target_count,target_unit:t.target_unit,cadence:t.cadence}));
+      }
+      const date=new Date(newMonth+"-01T12:00:00Z");
+      const label=new Intl.DateTimeFormat("ar-EG",{month:"long",year:"numeric",timeZone:"UTC"}).format(date);
+      const result=await supabase.from("stc_seo_periods").insert({
+        profile_id:profile.id,source_sheet:"from-system-"+newMonth,
+        source_filename:"خطة من السيستم",source_sha256:"manual:"+slug+":"+newMonth,
+        month_key:newMonth,label,period_kind:"month",cells:{},links:{},comments:{},image_count:0,
+      });
+      if(result.error)throw result.error;
+      if(copied.length){
+        const inserted=await supabase.from("stc_seo_targets").insert(copied.map(t=>({
+          ...t,profile_id:profile.id,month_key:newMonth,created_by:member.id
+        })));
+        if(inserted.error){
+          await refresh();
+          throw new Error("الشهر اتفتح، لكن نسخ التارجت فشل: "+inserted.error.message+" . افتحي الشهر وأضيفي التارجت يدويًا.");
+        }
+      }
+      setShowMonthCreator(false);setCopyPreviousTargets(false);setNewMonth("");
+      await refresh();
+      setToast(copied.length?
+        "الشهر الجديد اتفتح واتنسخ "+copied.length+" تارجت من "+sourceMonth+"، من غير إنجازات قديمة.":
+        "الشهر الجديد اتفتح. دلوقتي ناردين تقدر تحدد التارجت.");
+    }catch(e){setError(e instanceof Error?e.message:"مقدرناش نفتح الشهر.");}
+    finally{setCreatingMonth(false);}
   }
   async function uploadScreenshot(file:File) {
     if(manager){setError("رفع الاسكرينات متاح لصاحب الشغل، انتي بتشوفيها من هنا.");return;}
@@ -394,7 +425,11 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         <button className="seo-target-add" type="button" onClick={()=>setShowMonthCreator(x=>!x)}><Plus size={16}/> افتحي شهر جديد</button>
         {showMonthCreator&&<form className="seo-new-month" onSubmit={e=>{e.preventDefault();void createMonth();}}>
           <label>اختاري الشهر<input type="month" value={newMonth} onChange={e=>setNewMonth(e.target.value)} required/></label>
-          <button type="submit">افتحي الشهر</button>
+          <label className="flow-copy-targets"><input type="checkbox" checked={copyPreviousTargets}
+            onChange={e=>setCopyPreviousTargets(e.target.checked)}/>
+            انسخي تارجت آخر شهر سابق (من غير إنجازات أو ساعات أو صور)
+          </label>
+          <button type="submit" disabled={creatingMonth}>{creatingMonth?"بنفتح الشهر…":"افتحي الشهر"}</button>
         </form>}
       </div>}
       <div className="seo-month-label"><CalendarDays size={18}/> اختاري الشهر اللي بتتابعيه</div>
@@ -425,6 +460,20 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
           <span>نتايج SEO معتمدة</span><strong>{snapshot.approved}</strong><small>وافقت عليها ناردين</small>
         </button>
       </div>}
+      {!manager&&period&&period.month_key>="2026-11"&&<section className="seo-flow-focus">
+        <div><span className="seo-target-kicker">MY FOCUS</span>
+          <h2>أعمل إيه دلوقتي؟</h2>
+          <p>3 خطوات واضحة تقدر تبدأ بيهم من غير ما تتوه بين التابات.</p>
+        </div>
+        <div className="seo-flow-focus__actions">
+          <button type="button" onClick={()=>chooseSection("targets")}><Target size={17}/>
+            راجع {snapshot.total} تارجت للشهر</button>
+          <button type="button" onClick={()=>chooseSection("daily")}><Clock3 size={17}/>
+            سجّل ساعات وتقرير اليوم</button>
+          <button type="button" onClick={()=>chooseSection("metrics")}><Activity size={17}/>
+            حدّث مقارنة قبل وبعد</button>
+        </div>
+      </section>}
       <nav className="seo-action-tabs" aria-label="ترتيب شغل SEO">
         <button className={section==="targets"?"selected":""} onClick={()=>chooseSection("targets")}>
           <span className="seo-action-tabs__num">1</span><Target size={20}/><span>التارجت والـDone<small>{manager?"حددي المطلوب":"سجّل اللي خلّصته"}</small></span>
