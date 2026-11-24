@@ -46,6 +46,7 @@ function RowCard({item,kind}: {item: Item;kind: "plan"|"metric"|"research"}) {
 }
 export default function SeoSourceCards({cells,links,comments,quarter}:Props) {
   const [expand,setExpand]=useState(false);
+  const [showResearch,setShowResearch]=useState(false);
   const [query,setQuery]=useState("");
   const extracted=useMemo(()=>{
     const byRow = new Map<number,Map<number,{value:string;address:string}>>();
@@ -84,7 +85,7 @@ export default function SeoSourceCards({cells,links,comments,quarter}:Props) {
         if(values.has(5) && row>=7)take(row,[5,6,7,8,9,10],5,"metric");
       }
       const extra=[...values.keys()].filter(c=>quarter?c>=1:c>=11);
-      if(extra.length && row>=7) {
+      if(extra.length && (quarter || row>=7)) {
         const titleCol=extra[0],cellsHere=extra.filter(c=>values.get(c)?.value);
         take(row,cellsHere,titleCol,"research");
       }
@@ -124,7 +125,10 @@ export default function SeoSourceCards({cells,links,comments,quarter}:Props) {
         <div><h2>التحليل والكلمات والملاحظات</h2><p>المصادر والتفاصيل الموجودة في الشيت الأصلي.</p></div>
         <span className="seo-count-tag">{extracted.research.length} سجل</span>
       </div>
-      <div className="seo-fancy-grid">{extracted.research.filter(contains).map(item=><RowCard key={item.row} item={item} kind="research"/>)}</div>
+      <div className="seo-fancy-grid">{extracted.research.filter(contains).slice(0,showResearch?undefined:6).map(item=><RowCard key={item.row} item={item} kind="research"/>)}</div>
+      {extracted.research.filter(contains).length>6&&<button className="seo-all-toggle" type="button" onClick={()=>setShowResearch(x=>!x)}>
+        {showResearch?"اعرض تفاصيل أقل":"اعرض باقي سجلات التحليل ("+(extracted.research.filter(contains).length-6)+")"}
+      </button>}
     </section>}
     <section className="seo-fancy-more">
       <button type="button" onClick={()=>setExpand(x=>!x)} aria-expanded={expand}>
