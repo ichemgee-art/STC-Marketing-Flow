@@ -736,6 +736,10 @@ const EN_ENTRIES: [string,string][] = [
   ["من تقارير ناردين وافقت عليها","From reports approved by Nardine"],
   ["تنبيه: حملات بعملات مختلفة — متجمعش المبالغ","Warning: multiple currencies — don't sum the amounts"],
   ["أحمد الخولي · Media Buying","Ahmed El Kholy · Media Buying"],
+  // Storage viewer: limited to authorized accounts, including Gerges.
+  ["صفحة جرجس · عرض وتحميل فقط","Gerges's workspace · View & download only"],
+  ["رجوع لشغلي","Back to my workspace"],
+  ["الملفات الخاصة متاحة لناردين وللحسابات المصرح لها بعرض التخزين فقط، وأي فتح بيستخدم رابط مؤقت.","Private files are accessible to Nardine and explicitly authorized storage viewers only. Downloads use temporary links."],
  ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)
