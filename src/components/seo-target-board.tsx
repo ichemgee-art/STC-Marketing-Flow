@@ -70,6 +70,9 @@ export default function SeoTargetBoard({
    finally{setBusy(false);}
  }
  async function saveProgress(target:SeoTarget) {
+   // The manager sets targets and reviews employee progress; only the
+   // assigned specialist should report completed work.
+   if(manager){onError("تسجيل الإنجاز متاح لصاحب الشغل بس، مش لناردين.");return;}
    const n=Number(amount);
    if(!Number.isInteger(n)||n<1||n>1000000){onError("عدد المنجز لازم يكون رقم صحيح أكبر من صفر.");return;}
    if(!day.startsWith(monthKey+"-")){onError("اختار يوم داخل نفس شهر التارجت.");return;}
@@ -94,7 +97,7 @@ export default function SeoTargetBoard({
   <div className="seo-target-header">
    <div><span className="seo-target-kicker">التارجت الرسمي · {monthKey}</span>
     <h2><Target size={23}/> التارجت والمتابعة</h2>
-    <p>ناردين بتحدد المطلوب، وصاحب الشغل بيسجّل اللي خلّصه ويضيف ملاحظته لو حابب.</p>
+    <p>{manager?"انتي بتحددي المطلوب وبتتابعي اللي الموظف خلّصه. تسجيل الـDone والاسكرينات من حساب صاحب الشغل بس.":"ده المطلوب منك من ناردين. سجّل اللي خلّصته بـDone، وحط ملاحظة أو اسكرين لو محتاج."}</p>
    </div>
    <div className="seo-target-header-actions">
     <span className="seo-target-achievement"><CheckCircle2 size={18}/>{monthCompleted} تارجت شهري مكتمل</span>
@@ -118,7 +121,7 @@ export default function SeoTargetBoard({
     <p>الخطة اللي جاية من الإكسيل هتلاقيها تحت في بطاقات «الخطة القديمة». التارجت الجديد بيتسجّل من هنا.</p>
   </div>}
   {!!targets.length&&<>
-    <div className="seo-target-day"><CalendarDays size={18}/><span>اليوم اللي هتسجّل عليه شغلك:</span>
+    <div className="seo-target-day"><CalendarDays size={18}/><span>{manager?"اختاري اليوم عشان تشوفي اللي اتنفّذ:":"اليوم اللي هتسجّل عليه شغلك:"}</span>
       <input type="date" value={day} min={monthKey+"-01"} max={monthKey+"-31"} onChange={e=>setDay(e.target.value)}/>
     </div>
     <div className="seo-live-card-grid">{targets.map(target=>{
@@ -129,17 +132,17 @@ export default function SeoTargetBoard({
       const entries=progress.filter(p=>p.target_id===target.id&&(target.cadence==="monthly"||p.work_date===day));
       return <article key={target.id} className={"seo-live-card"+(completed?" is-done":"")}>
        <div className="seo-live-card-top"><span className={"seo-live-cadence "+target.cadence}>{target.cadence==="daily"?"تارجت يومي":"تارجت شهري"}</span>
-         <span className={completed?"seo-live-badge done":"seo-live-badge"}>{completed?"اتعمل ✓":"لسه شغال"}</span></div>
+         <span className={completed?"seo-live-badge done":"seo-live-badge"}>{completed?"اتعمل ✓":manager?"مستني تنفيذ":"لسه شغال"}</span></div>
        <h3>{target.title}</h3>{target.details&&<p className="seo-live-details">{target.details}</p>}
        <div className="seo-live-figures"><strong>{done} <span>/ {target.target_count}</span></strong><small>{target.target_unit} {target.cadence==="daily"?"في اليوم":"في الشهر"}</small></div>
        <div className="seo-live-track"><div style={{width:pct+"%"}}/></div>
        <div className="seo-live-card-foot"><span>{pct}% من المطلوب {target.cadence==="daily"?"النهارده":""}</span>
          {manager&&<button type="button" className="seo-live-edit" onClick={()=>{setEditing(target);setCreate(false);}}><Pencil size={14}/> تعديل</button>}</div>
        {target.cadence==="daily"&&<p className="seo-target-month-count">إجمالي اللي اتسجّل في الشهر: {all} {target.target_unit}</p>}
-       {!completed&&<button type="button" className="seo-live-done-btn" disabled={busy} onClick={()=>{setActive(active===target.id?null:target.id);setNote("");setAmount("1");}}>
+       {!manager&&!completed&&<button type="button" className="seo-live-done-btn" disabled={busy} onClick={()=>{setActive(active===target.id?null:target.id);setNote("");setAmount("1");}}>
          <ClipboardCheck size={17}/> {active===target.id?"اقفل تسجيل الإنجاز":"سجّل Done / إنجاز"}
        </button>}
-       {active===target.id&&!completed&&<form className="seo-live-progress-form" onSubmit={e=>{e.preventDefault();void saveProgress(target);}}>
+       {!manager&&active===target.id&&!completed&&<form className="seo-live-progress-form" onSubmit={e=>{e.preventDefault();void saveProgress(target);}}>
          <label>عملت كام؟<input type="number" min="1" max={target.target_count-done} value={amount} onChange={e=>setAmount(e.target.value)} required/></label>
          <label>ملاحظة (اختياري)<textarea rows={2} value={note} onChange={e=>setNote(e.target.value)} placeholder="اللي خلّصته أو رابط الشغل…"/></label>
          <button type="submit" disabled={busy}>{busy?"بنسجّل…":"تمام، سجّل الإنجاز"}</button>
@@ -147,7 +150,7 @@ export default function SeoTargetBoard({
        {entries.length>0&&<details className="seo-progress-history"><summary>آخر الإنجازات والملاحظات ({entries.length})</summary>
          {entries.slice(0,12).map(entry=><div key={entry.id}><b>{entry.done_count} {target.target_unit} · {entry.work_date}</b>{entry.note&&<p>{entry.note}</p>}</div>)}
        </details>}
-       {onAttach&&<button type="button" className="seo-live-attach" onClick={()=>onAttach(target.id)}><FileImage size={16}/> ارفع اسكرين للتارجت ده</button>}
+       {!manager&&onAttach&&<button type="button" className="seo-live-attach" onClick={()=>onAttach(target.id)}><FileImage size={16}/> ارفع اسكرين للتارجت ده</button>}
       </article>;
     })}</div>
   </>}
