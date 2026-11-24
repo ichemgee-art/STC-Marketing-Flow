@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Member } from "@/lib/domain";
@@ -38,8 +38,12 @@ export default function SeoDailyReport({
   const [saving,setSaving]=useState(false);
   const [targets,setTargets]=useState<SeoTarget[]>(()=>warm?.targets||[]);
   const [progress,setProgress]=useState<SeoProgress[]>(()=>warm?.progress||[]);
+  const fetchSeq=useRef(0);
+  useEffect(()=>()=>{fetchSeq.current++;},[]);
   const load=useCallback(async()=>{
+    const seq=++fetchSeq.current;
     const t=await supabase.from("stc_seo_targets").select("*").eq("profile_id",profileId);
+    if(seq!==fetchSeq.current)return;
     if(t.error){onError(t.error.message);return;}
     if(!t.data.length){
       setTargets([]);setProgress([]);
@@ -48,6 +52,7 @@ export default function SeoDailyReport({
     }
     const p=await supabase.from("stc_seo_progress").select("*")
       .in("target_id",t.data.map(item=>item.id)).order("work_date",{ascending:false}).limit(1000);
+    if(seq!==fetchSeq.current)return;
     if(p.error){onError(p.error.message);return;}
     const allTargets=t.data as SeoTarget[],allProgress=p.data as SeoProgress[];
     dailyMemory.set(cacheKey,{at:Date.now(),targets:allTargets,progress:allProgress});
