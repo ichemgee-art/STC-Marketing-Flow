@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, CheckCircle2, ChevronDown, Clock3, Send, TrendingDown, TrendingUp, XCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -188,9 +188,13 @@ export default function SeoMetricsBoard({profileId,monthKey,manager,memberId,onN
   const [rows,setRows]=useState<Metric[]>(()=>warm?.rows||[]);
   const [loading,setLoading]=useState(!warm);
   const [showExtra,setShowExtra]=useState(false);
+  const fetchSeq=useRef(0);
+  useEffect(()=>()=>{fetchSeq.current++;},[]);
   const load=useCallback(async()=>{
+    const seq=++fetchSeq.current;
     const r=await supabase.from("stc_seo_metrics").select("*")
       .eq("profile_id",profileId).eq("month_key",monthKey);
+    if(seq!==fetchSeq.current)return;
     if(r.error){onError(r.error.message);setLoading(false);return;}
     const values=r.data as Metric[];
     metricsMemory.set(cacheKey,{at:Date.now(),rows:values});
