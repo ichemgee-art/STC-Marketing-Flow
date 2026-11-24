@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink, FileSpreadsheet, ImageIcon, Maximize2, Plus, UploadCloud, X } from "lucide-react";
+import { Activity, ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileSpreadsheet, ImageIcon, Maximize2, Plus, Target, UploadCloud, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Member } from "@/lib/domain";
 import SeoTargetBoard from "./seo-target-board";
 import SeoSourceCards from "./seo-source-cards";
 import SeoDailyReport from "./seo-daily-report";
+import SeoMetricsBoard from "./seo-metrics-board";
 import "./seo-workspace.css";
 
 type Profile = { id: string; slug: string; display_name: string; brand: string; site_url: string };
@@ -58,7 +59,8 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const [assets,setAssets]=useState<Asset[]>([]);
   const [log,setLog]=useState<Hours[]>([]);
   const [selected,setSelected]=useState<string|null>(null);
-  const [section,setSection]=useState<"monthly"|"hours">("monthly");
+  const [section,setSection]=useState<"targets"|"metrics"|"daily"|"evidence"|"archive">("targets");
+  const [snapshot,setSnapshot]=useState({total:0,completed:0,pending:0,approved:0});
   const [newMonth,setNewMonth]=useState("");
   const [showMonthCreator,setShowMonthCreator]=useState(false);
   const [uploadTarget,setUploadTarget]=useState("");
@@ -80,11 +82,64 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     if(periodsRes.error||logsRes.error){setError((periodsRes.error||logsRes.error)?.message||"في مشكلة في تحميل البيانات.");return;}
     setPeriods(periodsRes.data||[]);
     setLog(logsRes.data||[]);
-    setSelected(old=>old && (periodsRes.data||[]).some(p=>p.id===old) ? old : periodsRes.data?.[0]?.id||null);
+    setSelected(old=>{
+      if(old&&(periodsRes.data||[]).some(p=>p.id===old))return old;
+      let remembered="";
+      try{remembered=sessionStorage.getItem("stc-seo-month-"+member.id+"-"+slug)||"";}catch{}
+      if(remembered&&(periodsRes.data||[]).some(p=>p.id===remembered))return remembered;
+      return periodsRes.data?.find(p=>p.period_kind==="month")?.id||periodsRes.data?.[0]?.id||null;
+    });
     setError("");
-  },[slug]);
+  },[slug,member.id]);
   useEffect(()=>{void refresh();},[refresh]);
   const period = periods.find(p=>p.id===selected)||null;
+  useEffect(()=>{
+    try{
+      const value=sessionStorage.getItem("stc-seo-screen-"+member.id+"-"+slug);
+      if(value&&["targets","metrics","daily","evidence","archive"].includes(value))
+        setSection(value as typeof section);
+    }catch{}
+  },[member.id,slug]);
+  function chooseSection(next:typeof section){
+    setSection(next);
+    try{sessionStorage.setItem("stc-seo-screen-"+member.id+"-"+slug,next);}catch{}
+  }
+  function chooseMonth(id:string){
+    setSelected(id);setZoom(null);setUploadTarget("");
+    try{sessionStorage.setItem("stc-seo-month-"+member.id+"-"+slug,id);}catch{}
+  }
+  const loadSnapshot=useCallback(async()=>{
+    if(!profile||!selected)return;
+    const current=periods.find(p=>p.id===selected);
+    if(!current)return;
+    const [a,b,d]=await Promise.all([
+      supabase.from("stc_seo_targets").select("id,target_count,cadence").eq("profile_id",profile.id).eq("month_key",current.month_key),
+      supabase.from("stc_seo_metrics").select("status").eq("profile_id",profile.id).eq("month_key",current.month_key),
+      supabase.from("stc_seo_progress").select("target_id,done_count,work_date").gte("work_date",current.month_key+"-01").lte("work_date",current.month_key+"-31"),
+    ]);
+    if(a.error||b.error||d.error)return;
+    const targets=a.data||[];
+    const sums=new Map<string,number>();
+    for(const progress of d.data||[])sums.set(progress.target_id,(sums.get(progress.target_id)||0)+progress.done_count);
+    setSnapshot({
+      total:targets.length,
+      completed:targets.filter(t=>t.cadence==="monthly"&&(sums.get(t.id)||0)>=t.target_count).length,
+      pending:(b.data||[]).filter(m=>m.status==="pending_review").length,
+      approved:(b.data||[]).filter(m=>m.status==="approved").length,
+    });
+  },[profile?.id,selected,periods]);
+  useEffect(()=>{void loadSnapshot();},[loadSnapshot]);
+  useEffect(()=>{
+    if(!profile||!selected)return;
+    const channel=supabase.channel("seo-summary-"+member.id+"-"+selected)
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_progress"},()=>void loadSnapshot())
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_targets"},()=>void loadSnapshot())
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_metrics"},()=>void loadSnapshot())
+      .subscribe();
+    const poll=setInterval(()=>void loadSnapshot(),30000);
+    return()=>{clearInterval(poll);void supabase.removeChannel(channel);};
+  },[profile?.id,selected,member.id,loadSnapshot]);
+
   useEffect(()=>{
     if(!profile||!period||period.period_kind!=="month"){setUploadOptions([]);return;}
     let active=true;
@@ -199,79 +254,128 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         </details>}
       </div>
       {error&&<div className="seo-error" role="alert">{error}<button type="button" onClick={()=>setError("")}>×</button></div>}
-      <nav className="seo-main-tabs" aria-label="أقسام SEO">
-        <button className={section==="monthly"?"selected":""} onClick={()=>setSection("monthly")}><CalendarDays size={18}/> التارجت وتقارير الشهور <span>{periods.length}</span></button>
-        <button className={section==="hours"?"selected":""} onClick={()=>setSection("hours")}><Clock3 size={18}/> التقرير اليومي وساعات الشغل</button>
-      </nav>
-      {section==="monthly"?<>
-        {manager&&<div className="seo-month-manager">
-          <button className="seo-target-add" type="button" onClick={()=>setShowMonthCreator(x=>!x)}><Plus size={16}/> افتحي شهر جديد</button>
-          {showMonthCreator&&<form className="seo-new-month" onSubmit={e=>{e.preventDefault();void createMonth();}}>
-            <label>اختاري الشهر<input type="month" value={newMonth} onChange={e=>setNewMonth(e.target.value)} required/></label>
-            <button type="submit">افتحي الشهر</button>
-          </form>}
-        </div>}
-        <div className="seo-month-tabs" role="tablist" aria-label="شهور الشغل">
-          {periods.map(p=><button type="button" role="tab" aria-selected={p.id===selected} key={p.id} className={p.id===selected?"active":""} onClick={()=>{setSelected(p.id);setZoom(null);setUploadTarget("");}}>
-            {p.label}<small>{p.id===period?.id?assets.length:p.image_count} اسكرين</small></button>)}
+      <div className="seo-role-explainer">
+        <div className="seo-role-explainer__symbol">{manager?<Target size={25}/>:<CheckCircle2 size={25}/>}</div>
+        <div>
+          <strong>{manager?"لوحة متابعة ناردين":"دي مساحة شغلك"}</strong>
+          <p>{manager
+            ?"حدّدي التارجت من أول تاب، وراجعي الأرقام اللي مستنية موافقتك من «مؤشرات الموقع». الساعات والاسكرينات كل واحدة في مكانها."
+            :"التارجت اللي ناردين حطّته هتلاقيه في أول تاب. سجّل Done وارفَع الاسكرينات، وسجّل شغلك يوم بيوم. آخر الشهر ابعت نتايج الموقع."}</p>
         </div>
-        {!period&&<div className="seo-empty"><FileSpreadsheet size={34}/><h2>الشهور لسه ما اترفعتش</h2><p>{manager?"اختاري ملف الإكسيل الأصلي من زرار «ارفع الشيت الأصلي»؛ هينقل كل الشهور والاسكرينات.":"ناردين هتضيف شيتاتك هنا، وكل شهر هيظهر بتفاصيله."}</p></div>}
-        {period&&<>
-          <div className="seo-month-welcome">
-            <div><span className="seo-target-kicker">خطة الشهر · {chart}</span><h2>{period.label}</h2>
-              <p>اختار تارجت من الكروت، وسجّل الإنجاز أول بأول. اللي جاي من الإكسيل محفوظ تحت بتصميم جديد.</p>
-            </div>
-            <div className="seo-month-evidence"><ImageIcon size={20}/><strong>{assets.length}</strong><span>اسكرين في الشهر ده</span></div>
-          </div>
-          {period.period_kind==="quarter"
-            ? <SeoSourceCards cells={period.cells||{}} links={period.links||{}} comments={period.comments||{}} quarter/>
-            : <>
-              {profile&&<SeoTargetBoard key={profile.id+"-"+period.month_key} profileId={profile.id}
-                monthKey={period.month_key} manager={manager} memberId={member.id}
-                onError={setError} onNotice={setToast}
-                onAttach={id=>{
-                  setUploadTarget(id);
-                  document.getElementById("seo-photo-upload")?.scrollIntoView({behavior:"smooth",block:"center"});
-                }}/>}
-              <SeoSourceCards cells={period.cells||{}} links={period.links||{}} comments={period.comments||{}} mode="summary"/>
-              <details className="seo-original-archive">
-                <summary><FileSpreadsheet size={19}/> باقي محتوى شيت {period.label} (البطاقات القديمة والملاحظات)</summary>
-                <SeoSourceCards cells={period.cells||{}} links={period.links||{}} comments={period.comments||{}} mode="archive"/>
-              </details>
-            </>}
-          <section className="seo-gallery" id="seo-photo-upload">
-            <div className="seo-section-top"><div><h2><ImageIcon size={20}/> الاسكرينات والـEvidence</h2>
-              <p>ارفع صورة، أو دوس على أي اسكرين عشان تفتح كبيرة وتتنقل بين الصور.</p>
-            </div><span>{assets.length} صورة</span></div>
-            {period.period_kind==="month"&&<div className="seo-gallery-upload">
-              <label>اسكرين جديدة (PNG / JPG / WEBP لحد 10 ميجا)
-                <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingShot}
-                  onChange={e=>{const file=e.target.files?.[0];if(file)void uploadScreenshot(file);e.currentTarget.value="";}}/>
-              </label>
-              <label>تابعة لتارجت معيّن؟ (اختياري)
-                <select value={uploadTarget} onChange={e=>setUploadTarget(e.target.value)}>
-                  <option value="">صورة عامة للشهر</option>
-                  {/*
-                    The target dropdown is populated by the separate live board
-                    through its attach button. The selected target persists here.
-                  */}
-                  {uploadOptions.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}
-                  {uploadTarget&&!uploadOptions.some(item=>item.id===uploadTarget)&&<option value={uploadTarget}>التارجت اللي اخترته</option>}
-                </select>
-              </label>
-              {uploadingShot&&<strong className="seo-photo-status">بنرفع الاسكرين…</strong>}
-            </div>}
-            {period.image_count>0&&screenshots.length===0&&<p className="seo-loading">بنفكّ الصور من التخزين الخاص…</p>}
-            {assets.length===0 && period.image_count===0 && <p className="seo-empty-inline">مفيش اسكرينات مرفوعة للشهر ده لسه.</p>}
-            <div className="seo-gallery-grid">{screenshots.map((asset,i)=><button key={asset.id} type="button" onClick={()=>setZoom(i)} aria-label={"فتح اسكرين "+(i+1)}>
-              <Image src={signed[asset.id]} alt={"اسكرين "+(i+1)+" من "+period.label} width={330} height={180} unoptimized/>
-              <span><Maximize2 size={14}/> اسكرين {i+1}</span>
-            </button>)}</div>
-          </section>
-          <p className="seo-source">مصدر التقارير القديمة: {period.source_filename} · {period.source_sheet}. الصور المرفوعة الجديدة محفوظة في مساحة خاصة.</p>
-        </>}
-      </>:profile&&<SeoDailyReport profileId={profile.id} member={member} entries={log}
-         onRefresh={refresh} onNotice={setToast} onError={setError}/>}
+      </div>
+      {manager&&<div className="seo-month-manager">
+        <button className="seo-target-add" type="button" onClick={()=>setShowMonthCreator(x=>!x)}><Plus size={16}/> افتحي شهر جديد</button>
+        {showMonthCreator&&<form className="seo-new-month" onSubmit={e=>{e.preventDefault();void createMonth();}}>
+          <label>اختاري الشهر<input type="month" value={newMonth} onChange={e=>setNewMonth(e.target.value)} required/></label>
+          <button type="submit">افتحي الشهر</button>
+        </form>}
+      </div>}
+      <div className="seo-month-label"><CalendarDays size={18}/> اختاري الشهر اللي بتتابعيه</div>
+      <div className="seo-month-tabs" role="group" aria-label="شهور شغل السيو">
+        {periods.filter(p=>p.period_kind==="month").map(p=><button type="button" key={p.id}
+          className={p.id===selected?"active":""} onClick={()=>chooseMonth(p.id)}>
+          {p.label}<small>{p.id===period?.id?assets.length:p.image_count} اسكرين</small>
+        </button>)}
+      </div>
+      {period&&<div className="seo-month-welcome">
+        <div><span className="seo-target-kicker">شغل {label} · {chart}</span>
+          <h2>{period.label}</h2>
+          <p>{manager?"التارجت والنتايج والتقرير اليومي متقسمين قدامك بشكل واضح.":"قدامك المطلوب منك في الشهر ده. امشي خطوة خطوة، وكل شغلك هيوصل لناردين."}</p>
+        </div>
+        <div className="seo-month-evidence"><ImageIcon size={20}/><strong>{assets.length}</strong><span>اسكرين محفوظة</span></div>
+      </div>}
+      {period&&<div className="seo-overview-strip">
+        <button type="button" onClick={()=>chooseSection("targets")}>
+          <span>تارجت الشهر</span><strong>{snapshot.total}</strong><small>مطلوب منك</small>
+        </button>
+        <button type="button" onClick={()=>chooseSection("targets")}>
+          <span>تارجت شهري مكتمل</span><strong>{snapshot.completed}</strong><small>من التارجت الشهري</small>
+        </button>
+        <button type="button" className={snapshot.pending>0?"needs-review":""} onClick={()=>chooseSection("metrics")}>
+          <span>مؤشرات مستنية المراجعة</span><strong>{snapshot.pending}</strong><small>{manager?"راجعيهم دلوقتي":"وصلوا لناردين"}</small>
+        </button>
+        <button type="button" onClick={()=>chooseSection("metrics")}>
+          <span>نتايج SEO معتمدة</span><strong>{snapshot.approved}</strong><small>وافقت عليها ناردين</small>
+        </button>
+      </div>}
+      <nav className="seo-action-tabs" aria-label="ترتيب شغل SEO">
+        <button className={section==="targets"?"selected":""} onClick={()=>chooseSection("targets")}>
+          <span className="seo-action-tabs__num">1</span><Target size={20}/><span>التارجت والـDone<small>{manager?"حددي المطلوب":"سجّل اللي خلّصته"}</small></span>
+        </button>
+        <button className={section==="metrics"?"selected":""} onClick={()=>chooseSection("metrics")}>
+          <span className="seo-action-tabs__num">2</span><Activity size={20}/><span>مؤشرات الموقع<small>{manager?"حددي التارجت وراجعي":"ابعت نتايج الشهر"}</small></span>
+        </button>
+        <button className={section==="daily"?"selected":""} onClick={()=>chooseSection("daily")}>
+          <span className="seo-action-tabs__num">3</span><Clock3 size={20}/><span>التقرير اليومي<small>الساعات والشغل</small></span>
+        </button>
+        <button className={section==="evidence"?"selected":""} onClick={()=>chooseSection("evidence")}>
+          <span className="seo-action-tabs__num">4</span><ImageIcon size={20}/><span>الاسكرينات<small>صور الشغل</small></span>
+        </button>
+        <button className={section==="archive"?"selected":""} onClick={()=>chooseSection("archive")}>
+          <FileSpreadsheet size={20}/><span>الشيتات القديمة<small>للمرجع بس</small></span>
+        </button>
+      </nav>
+      {section==="targets"&&period&&profile&&period.period_kind==="month"&&
+        <SeoTargetBoard key={profile.id+"-"+period.month_key} profileId={profile.id}
+          monthKey={period.month_key} manager={manager} memberId={member.id}
+          onError={setError} onNotice={setToast} onAttach={id=>{
+            setUploadTarget(id);chooseSection("evidence");
+          }}/>}
+      {section==="metrics"&&period&&profile&&period.period_kind==="month"&&
+        <SeoMetricsBoard key={"metrics-"+period.month_key} profileId={profile.id}
+          monthKey={period.month_key} manager={manager} onError={setError}
+          onNotice={setToast} onUpdated={loadSnapshot}/>}
+      {section==="daily"&&profile&&
+        <SeoDailyReport key={"daily-"+period?.month_key} profileId={profile.id}
+          member={member} monthKey={period?.month_key||""} entries={log}
+          onRefresh={refresh} onNotice={setToast} onError={setError}/>}
+      {section==="evidence"&&period&&<section className="seo-gallery seo-gallery--main" id="seo-photo-upload">
+        <div className="seo-section-top"><div>
+          <h2><ImageIcon size={22}/> الاسكرينات بتاعة {period.label}</h2>
+          <p>كل اسكرين بتتخزن بشكل خاص، وتقدر تفتحها كبيرة جوا السيستم وتتصفح باقي الصور.</p>
+        </div><span>{assets.length} اسكرين</span></div>
+        {period.period_kind==="month"&&<div className="seo-gallery-upload">
+          <label>ارفع اسكرين جديدة (PNG / JPG / WEBP — لحد 10 ميجا)
+            <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingShot}
+              onChange={e=>{const file=e.target.files?.[0];if(file)void uploadScreenshot(file);e.currentTarget.value="";}}/>
+          </label>
+          <label>الاسكرين دي تابعة لأنهي تارجت؟ (اختياري)
+            <select value={uploadTarget} onChange={e=>setUploadTarget(e.target.value)}>
+              <option value="">اسكرين عامة للشهر</option>
+              {uploadOptions.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}
+              {uploadTarget&&!uploadOptions.some(item=>item.id===uploadTarget)&&
+                <option value={uploadTarget}>التارجت اللي اخترته</option>}
+            </select>
+          </label>
+          {uploadingShot&&<strong className="seo-photo-status">بترفع الاسكرين…</strong>}
+        </div>}
+        {assets.length===0&&<div className="seo-empty-inline">لسه مفيش اسكرينات للشهر ده. ارفع أول اسكرين من فوق.</div>}
+        {assets.length>0&&screenshots.length===0&&<p className="seo-loading">بنفتح الصور من التخزين الخاص…</p>}
+        <div className="seo-gallery-grid">{screenshots.map((asset,i)=><button key={asset.id} type="button"
+          onClick={()=>setZoom(i)} aria-label={"افتح اسكرين "+(i+1)}>
+          <Image src={signed[asset.id]} alt={"اسكرين "+(i+1)+" - "+period.label}
+            width={330} height={180} unoptimized/>
+          <span><Maximize2 size={14}/> {asset.origin==="manual"?"اسكرين مرفوعة":"اسكرين من الإكسيل"} {i+1}
+            {asset.target_id&&uploadOptions.find(t=>t.id===asset.target_id)?.title?
+             " · "+uploadOptions.find(t=>t.id===asset.target_id)?.title:""}</span>
+        </button>)}</div>
+      </section>}
+      {section==="archive"&&<div className="seo-archive-panel">
+        <div className="seo-archive-title"><FileSpreadsheet size={22}/><div>
+          <h2>بيانات الشيتات القديمة</h2>
+          <p>البيانات القديمة معروضة كبطاقات للرجوع ليها، ومش داخلة في التارجت أو الـDone الجديد.</p>
+        </div></div>
+        {period&&<SeoSourceCards key={period.id} cells={period.cells||{}}
+          links={period.links||{}} comments={period.comments||{}} quarter={period.period_kind==="quarter"}/>}
+        {periods.filter(p=>p.period_kind==="quarter").map(p=><details className="seo-quarter-archive" key={p.id}>
+          <summary>تقرير آخر 3 شهور — {p.source_sheet}</summary>
+          <SeoSourceCards cells={p.cells||{}} links={p.links||{}} comments={p.comments||{}} quarter/>
+        </details>)}
+      </div>}
+      {!period&&<div className="seo-empty"><FileSpreadsheet size={36}/>
+        <h2>لسه مفيش شهر متسجل</h2>
+        <p>{manager?"افتحي شهر جديد من فوق وحطي التارجت.":"ناردين هتحدد أول شهر والتارجت، وهيظهرلك هنا."}</p>
+      </div>}
     </main>
     {toast&&<div className="seo-toast" role="status"><CheckCircle2 size={19}/>{toast}</div>}
     {zoom!==null&&screenshots[zoom]&&<div className="seo-lightbox" role="dialog" aria-modal="true" aria-label="اسكرين كبيرة" onClick={()=>setZoom(null)}>
