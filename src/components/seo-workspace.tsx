@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Activity, ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileSpreadsheet, ImageIcon, Maximize2, Plus, Target, UploadCloud, Download, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
+import { getFlowLocation, setFlowLocation } from "@/lib/flow-location";
 import type { Member } from "@/lib/domain";
 import SeoTargetBoard, { clearSeoTargetMemory } from "./seo-target-board";
 import SeoSourceCards from "./seo-source-cards";
@@ -73,6 +74,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const refreshSerial=useRef(0);
   const assetsSerial=useRef(0);
   const [section,setSection]=useState<"targets"|"metrics"|"daily"|"evidence"|"archive">("targets");
+  const [positionReady,setPositionReady]=useState(false);
   const [snapshot,setSnapshot]=useState({total:0,completed:0,pending:0,approved:0});
   const [newMonth,setNewMonth]=useState("");
   const [showMonthCreator,setShowMonthCreator]=useState(false);
@@ -106,6 +108,10 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     seoMemory.set(seoCacheKey,{at:Date.now(),profile:p.data,periods:periodsRes.data||[],
       hours:logsRes.data||[],selectedId:stored?.selectedId||null});
     setSelected(old=>{
+      const last=getFlowLocation(member.id);
+      const fromLink=last.view==="seo"&&last.person===slug&&last.month
+        ?(periodsRes.data||[]).find(p=>p.period_kind==="month"&&p.month_key===last.month):null;
+      if(fromLink)return fromLink.id;
       if(old&&(periodsRes.data||[]).some(p=>p.id===old))return old;
       let remembered="";
       try{remembered=sessionStorage.getItem("stc-seo-month-"+member.id+"-"+slug)||"";}catch{}
@@ -139,20 +145,44 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   },[member.id,profile?.id,refresh]);
   const period = periods.find(p=>p.id===selected)||null;
   useEffect(()=>{
-    try{
+    const nav=getFlowLocation(member.id);
+    if(nav.view==="seo"&&nav.person===slug&&nav.section){
+      setSection(nav.section);
+    }else try{
       const value=sessionStorage.getItem("stc-seo-screen-"+member.id+"-"+slug);
       if(value&&["targets","metrics","daily","evidence","archive"].includes(value))
         setSection(value as typeof section);
     }catch{}
+    setPositionReady(true);
   },[member.id,slug]);
+  useEffect(()=>{
+    if(!positionReady||!period)return;
+    setFlowLocation(member.id,{view:"seo",person:slug,section,month:period.month_key});
+  },[positionReady,member.id,slug,period?.month_key,section]);
+  useEffect(()=>{
+    const onBack=()=>{
+      const nav=getFlowLocation(member.id);
+      if(nav.view!=="seo"||nav.person!==slug)return;
+      if(nav.section)setSection(nav.section);
+      if(nav.month){
+        const found=periods.find(p=>p.period_kind==="month"&&p.month_key===nav.month);
+        if(found)setSelected(found.id);
+      }
+    };
+    window.addEventListener("popstate",onBack);
+    return()=>window.removeEventListener("popstate",onBack);
+  },[member.id,slug,periods]);
   function chooseSection(next:typeof section){
     setSection(next);
+    if(period)setFlowLocation(member.id,{view:"seo",person:slug,section:next,month:period.month_key},"push");
     try{sessionStorage.setItem("stc-seo-screen-"+member.id+"-"+slug,next);}catch{}
   }
   function chooseMonth(id:string){
     setSelected(id);setZoom(null);
     const entry=seoMemory.get(seoCacheKey);
     if(entry)seoMemory.set(seoCacheKey,{...entry,selectedId:id});
+    const next=periods.find(p=>p.id===id);
+    if(next)setFlowLocation(member.id,{view:"seo",person:slug,section,month:next.month_key},"push");
     try{sessionStorage.setItem("stc-seo-month-"+member.id+"-"+slug,id);}catch{}
   }
   const loadSnapshot=useCallback(async()=>{
