@@ -19,6 +19,9 @@ type Metric = {
 type Definition = {
   key: string; label: string; unit: string; hint: string; lowerIsBetter?: boolean;
 };
+const metricsMemory=new Map<string,{at:number;rows:Metric[]}>();
+export function clearSeoMetricsMemory(){metricsMemory.clear();}
+
 const fields: Definition[] = [
   { key: "organic_traffic", label: "Organic Traffic", unit: "زيارة", hint: "زيارات الموقع اللي جاية من نتائج البحث" },
   { key: "impressions", label: "Impressions", unit: "ظهور", hint: "عدد مرات ظهور الموقع في نتائج البحث" },
@@ -175,26 +178,41 @@ function MetricCard({row,def,manager,onSaved,onNotice,onError}:{
   </article>;
 }
 
-export default function SeoMetricsBoard({profileId,monthKey,manager,onNotice,onError,onUpdated}:{
-  profileId:string;monthKey:string;manager:boolean;
+export default function SeoMetricsBoard({profileId,monthKey,manager,memberId,onNotice,onError,onUpdated}:{
+  profileId:string;monthKey:string;manager:boolean;memberId:string;
   onNotice:(text:string)=>void;onError:(text:string)=>void;onUpdated?:()=>void;
 }) {
-  const [rows,setRows]=useState<Metric[]>([]);
-  const [loading,setLoading]=useState(true);
+  const cacheKey=memberId+":"+profileId+":"+monthKey;
+  const recent=metricsMemory.get(cacheKey);
+  const warm=recent&&Date.now()-recent.at<120_000?recent:null;
+  const [rows,setRows]=useState<Metric[]>(()=>warm?.rows||[]);
+  const [loading,setLoading]=useState(!warm);
   const [showExtra,setShowExtra]=useState(false);
   const load=useCallback(async()=>{
     const r=await supabase.from("stc_seo_metrics").select("*")
       .eq("profile_id",profileId).eq("month_key",monthKey);
     if(r.error){onError(r.error.message);setLoading(false);return;}
-    setRows(r.data as Metric[]);setLoading(false);onUpdated?.();
-  },[profileId,monthKey,onError,onUpdated]);
+    const values=r.data as Metric[];
+    metricsMemory.set(cacheKey,{at:Date.now(),rows:values});
+    setRows(values);setLoading(false);onUpdated?.();
+  },[profileId,monthKey,onError,onUpdated,cacheKey]);
   useEffect(()=>{void load();},[load]);
   useEffect(()=>{
     const channel=supabase.channel("seo-metrics-board-"+profileId+"-"+monthKey)
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"stc_seo_metrics"},()=>void load())
       .subscribe();
-    const interval=setInterval(()=>void load(),30000);
-    return()=>{clearInterval(interval);void supabase.removeChannel(channel);};
+    const interval=setInterval(()=>{
+      if(document.visibilityState==="visible")void load();
+    },30000);
+    const resume=()=>{if(document.visibilityState==="visible")void load();};
+    window.addEventListener("focus",resume);
+    document.addEventListener("visibilitychange",resume);
+    return()=>{
+      clearInterval(interval);
+      window.removeEventListener("focus",resume);
+      document.removeEventListener("visibilitychange",resume);
+      void supabase.removeChannel(channel);
+    };
   },[profileId,monthKey,load]);
   const byKey=useMemo(()=>new Map(rows.map(row=>[row.metric_key,row])),[rows]);
   const approved=rows.filter(row=>row.status==="approved").length;
