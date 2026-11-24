@@ -62,6 +62,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const [newMonth,setNewMonth]=useState("");
   const [showMonthCreator,setShowMonthCreator]=useState(false);
   const [uploadTarget,setUploadTarget]=useState("");
+  const [uploadOptions,setUploadOptions]=useState<{id:string;title:string}[]>([]);
   const [uploadingShot,setUploadingShot]=useState(false);
   const [signed,setSigned]=useState<Record<string,string>>({});
   const [zoom,setZoom]=useState<number|null>(null);
@@ -74,7 +75,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     setProfile(p.data);
     const [periodsRes,logsRes]=await Promise.all([
       supabase.from("stc_seo_periods").select("*").eq("profile_id",p.data.id).order("month_key",{ascending:false}),
-      supabase.from("stc_seo_hours").select("*").eq("profile_id",p.data.id).order("work_date",{ascending:false}).limit(120),
+      supabase.from("stc_seo_hours").select("*").eq("profile_id",p.data.id).order("work_date",{ascending:false}).limit(1000),
     ]);
     if(periodsRes.error||logsRes.error){setError((periodsRes.error||logsRes.error)?.message||"في مشكلة في تحميل البيانات.");return;}
     setPeriods(periodsRes.data||[]);
@@ -84,6 +85,19 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   },[slug]);
   useEffect(()=>{void refresh();},[refresh]);
   const period = periods.find(p=>p.id===selected)||null;
+  useEffect(()=>{
+    if(!profile||!period||period.period_kind!=="month"){setUploadOptions([]);return;}
+    let active=true;
+    const load=async()=>{
+      const r=await supabase.from("stc_seo_targets").select("id,title")
+       .eq("profile_id",profile.id).eq("month_key",period.month_key);
+      if(active&&!r.error)setUploadOptions(r.data||[]);
+    };
+    void load();
+    const channel=supabase.channel("seo-screenshots-target-list-"+period.id)
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_targets"},()=>void load()).subscribe();
+    return()=>{active=false;void supabase.removeChannel(channel);};
+  },[profile?.id,period?.id,period?.month_key,period?.period_kind]);
   const entries=useMemo(()=>period?asEntries(period):[],[period]);
   const loadScreenshots=useCallback(async(periodId:string)=>{
     const r=await supabase.from("stc_seo_assets").select("*")
@@ -176,10 +190,13 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     <main className="seo-main">
       <div className="seo-headline"><div><span className="seo-eyebrow">متابعة السيو · {chart}</span><h1>شغل {label} 👋</h1>
         <p>التارجت والمتابعة ببطاقات واضحة، ونتايج SEO، وساعات الشغل بتقرير يومي، والاسكرينات بتتفتح من السيستم.</p></div>
-        {manager&&<div className="seo-upload">
-          <label className={uploading?"seo-uploading":""}><UploadCloud size={20}/>{uploading?"بندخل بيانات الملف…":"ارفع الشيت الأصلي"}
-          <input type="file" accept=".xlsx" disabled={uploading} onChange={e=>{const f=e.target.files?.[0];if(f)void importFile(f);e.currentTarget.value="";}}/></label>
-        </div>}
+        {manager&&<details className="seo-import-more">
+          <summary><FileSpreadsheet size={16}/> استيراد شيت قديم</summary>
+          <div className="seo-upload">
+            <label className={uploading?"seo-uploading":""}><UploadCloud size={18}/>{uploading?"بنستورد…":"اختاري ملف Excel"}
+            <input type="file" accept=".xlsx" disabled={uploading} onChange={e=>{const f=e.target.files?.[0];if(f)void importFile(f);e.currentTarget.value="";}}/></label>
+          </div>
+        </details>}
       </div>
       {error&&<div className="seo-error" role="alert">{error}<button type="button" onClick={()=>setError("")}>×</button></div>}
       <nav className="seo-main-tabs" aria-label="أقسام SEO">
@@ -196,7 +213,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         </div>}
         <div className="seo-month-tabs" role="tablist" aria-label="شهور الشغل">
           {periods.map(p=><button type="button" role="tab" aria-selected={p.id===selected} key={p.id} className={p.id===selected?"active":""} onClick={()=>{setSelected(p.id);setZoom(null);setUploadTarget("");}}>
-            {p.label}<small>{p.image_count} اسكرين</small></button>)}
+            {p.label}<small>{p.id===period?.id?assets.length:p.image_count} اسكرين</small></button>)}
         </div>
         {!period&&<div className="seo-empty"><FileSpreadsheet size={34}/><h2>الشهور لسه ما اترفعتش</h2><p>{manager?"اختاري ملف الإكسيل الأصلي من زرار «ارفع الشيت الأصلي»؛ هينقل كل الشهور والاسكرينات.":"ناردين هتضيف شيتاتك هنا، وكل شهر هيظهر بتفاصيله."}</p></div>}
         {period&&<>
@@ -216,11 +233,11 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
                   setUploadTarget(id);
                   document.getElementById("seo-photo-upload")?.scrollIntoView({behavior:"smooth",block:"center"});
                 }}/>}
-              <div className="seo-source-heading"><FileSpreadsheet size={20}/>
-                <div><strong>محتوى الشيت الأصلي · {period.label}</strong>
-                  <p>رتّبنا خطة الإكسيل ونتايج الموقع والتحليل في بطاقات بدل الجداول القديمة.</p></div>
-              </div>
-              <SeoSourceCards cells={period.cells||{}} links={period.links||{}} comments={period.comments||{}}/>
+              <SeoSourceCards cells={period.cells||{}} links={period.links||{}} comments={period.comments||{}} mode="summary"/>
+              <details className="seo-original-archive">
+                <summary><FileSpreadsheet size={19}/> باقي محتوى شيت {period.label} (البطاقات القديمة والملاحظات)</summary>
+                <SeoSourceCards cells={period.cells||{}} links={period.links||{}} comments={period.comments||{}} mode="archive"/>
+              </details>
             </>}
           <section className="seo-gallery" id="seo-photo-upload">
             <div className="seo-section-top"><div><h2><ImageIcon size={20}/> الاسكرينات والـEvidence</h2>
@@ -238,7 +255,8 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
                     The target dropdown is populated by the separate live board
                     through its attach button. The selected target persists here.
                   */}
-                  {uploadTarget&&<option value={uploadTarget}>التارجت اللي اخترته</option>}
+                  {uploadOptions.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}
+                  {uploadTarget&&!uploadOptions.some(item=>item.id===uploadTarget)&&<option value={uploadTarget}>التارجت اللي اخترته</option>}
                 </select>
               </label>
               {uploadingShot&&<strong className="seo-photo-status">بنرفع الاسكرين…</strong>}
