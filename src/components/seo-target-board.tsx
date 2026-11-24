@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, ClipboardCheck, Pencil, Plus, Target, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -37,9 +37,13 @@ export default function SeoTargetBoard({
  const [day,setDay]=useState(()=>cairoToday().startsWith(monthKey+"-")?cairoToday():monthKey+"-01");
  const [busy,setBusy]=useState(false);
  const [loaded,setLoaded]=useState(!!warm);
+ const fetchSeq=useRef(0);
+ useEffect(()=>()=>{fetchSeq.current++;},[]);
  const load=useCallback(async()=>{
+   const seq=++fetchSeq.current;
    const t=await supabase.from("stc_seo_targets").select("*")
      .eq("profile_id",profileId).eq("month_key",monthKey).order("created_at");
+   if(seq!==fetchSeq.current)return;
    if(t.error){onError(t.error.message);return;}
    const list=t.data as SeoTarget[];
    if(!list.length){
@@ -48,6 +52,7 @@ export default function SeoTargetBoard({
      return;
    }
    const p=await supabase.from("stc_seo_progress").select("*").in("target_id",list.map(x=>x.id)).order("created_at",{ascending:false});
+   if(seq!==fetchSeq.current)return;
    if(p.error){onError(p.error.message);return;}
    const entries=p.data as SeoProgress[];
    targetMemory.set(cacheKey,{at:Date.now(),targets:list,progress:entries});
