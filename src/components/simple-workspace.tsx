@@ -225,9 +225,18 @@ export default function SimpleWorkspace(){
     const error=t.error||p.error||n.error;
     if(error){setErr(error.message);return;}
     const list=t.data as Task[];
-    setMember(m.data);setTeam(p.data);setTasks(list);setNotices(n.data);setErr("");
+    // Keep only actionable alerts. Deleted task history is in stc_events.
+    // A single "deleted" receipt remains visible for the affected employee.
+    const taskStates = new Map(list.map(task => [task.id, task.status]));
+    const visibleNotices = (n.data as Notice[]).filter(notice => {
+      if (notice.kind === "deleted" || notice.kind === "unassigned") return true;
+      const status = taskStates.get(notice.task_id);
+      if (!status) return false;
+      return notice.kind !== "waiting_review" || status === "waiting_review";
+    });
+    setMember(m.data);setTeam(p.data);setTasks(list);setNotices(visibleNotices);setErr("");
     setSelected(prev=>prev?list.find(x=>x.id===prev.id)||null:null);
-    cache.set(userId,{tasks:list,team:p.data,notices:n.data});
+    cache.set(userId,{tasks:list,team:p.data,notices:visibleNotices});
   },[userId]);
   useEffect(()=>{void refresh();},[refresh]);
   useEffect(()=>{
