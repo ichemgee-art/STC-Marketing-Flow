@@ -28,7 +28,7 @@ export default function SeoTargetBoard({
  const [active,setActive]=useState<string|null>(null);
  const [amount,setAmount]=useState("1");
  const [note,setNote]=useState("");
- const [day,setDay]=useState(cairoToday);
+ const [day,setDay]=useState(()=>cairoToday().startsWith(monthKey+"-")?cairoToday():monthKey+"-01");
  const [busy,setBusy]=useState(false);
  const [loaded,setLoaded]=useState(false);
  const load=useCallback(async()=>{
