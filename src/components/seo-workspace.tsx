@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { Activity, ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileSpreadsheet, ImageIcon, Maximize2, Plus, Target, UploadCloud, X } from "lucide-react";
+import { Activity, ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileSpreadsheet, ImageIcon, Maximize2, Plus, Target, UploadCloud, Download, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
 import type { Member } from "@/lib/domain";
@@ -76,6 +76,8 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const [newMonth,setNewMonth]=useState("");
   const [showMonthCreator,setShowMonthCreator]=useState(false);
   const [uploadingShot,setUploadingShot]=useState(false);
+  const [removingShot,setRemovingShot]=useState<string|null>(null);
+  const [downloadingShot,setDownloadingShot]=useState<string|null>(null);
   const [signed,setSigned]=useState<Record<string,string>>({});
   const [zoom,setZoom]=useState<number|null>(null);
   const [uploading,setUploading]=useState(false);
@@ -282,6 +284,49 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     }catch(e){setError(e instanceof Error?e.message:"حصلت مشكلة في رفع الاسكرين.");}
     finally{setUploadingShot(false);}
   }
+  async function downloadScreenshot(asset:Asset){
+    if(!manager)return;
+    setDownloadingShot(asset.id);setError("");
+    try{
+      const result=await supabase.storage.from("stc-seo-evidence").download(asset.object_path);
+      if(result.error||!result.data)throw result.error||new Error("ملف الصورة مش متاح.");
+      const filename=asset.filename||"screenshot.png";
+      const localUrl=URL.createObjectURL(result.data);
+      const link=document.createElement("a");
+      link.href=localUrl;link.download=filename;
+      document.body.appendChild(link);link.click();link.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(localUrl),60_000);
+      setToast("الصورة اتحمّلت على جهازك.");
+    }catch(e){
+      const message=e instanceof Error?e.message:"مش قادرين نحمّل الصورة.";
+      setError(message);showToast(message,"error");
+    }finally{setDownloadingShot(null);}
+  }
+  async function removeScreenshot(asset:Asset){
+    if(manager||asset.origin!=="manual"||asset.uploaded_by!==member.id){
+      setError("تقدر تمسح بس الاسكرينات اللي إنت رفعتها بنفسك.");return;
+    }
+    if(!window.confirm("متأكد إنك عايز تمسح الاسكرين دي نهائيًا من شهر "+(period?.label||"الشغل")+"؟"))return;
+    setRemovingShot(asset.id);setError("");
+    try{
+      // Delete the actual Storage object via the Storage API (not SQL).
+      // RLS only permits the profile owner to delete their manual uploads.
+      const removed=await supabase.storage.from("stc-seo-evidence").remove([asset.object_path]);
+      if(removed.error)throw removed.error;
+      const row=await supabase.from("stc_seo_assets").delete()
+        .eq("id",asset.id).eq("uploaded_by",member.id).eq("origin","manual").select("id");
+      if(row.error)throw row.error;
+      if(!row.data?.length)throw new Error("اتمسح الملف، بس محتاجين نحدّث سجل الاسكرينات.");
+      setZoom(null);
+      if(period)await loadScreenshots(period.id);
+      window.dispatchEvent(new Event("stc:storage-changed"));
+      showToast("الاسكرين اتمسحت من الشهر ومن التخزين.","delete");
+    }catch(e){
+      const message=e instanceof Error?e.message:"حصلت مشكلة في حذف الاسكرين.";
+      setError(message);showToast(message,"error");
+      if(period)await loadScreenshots(period.id);
+    }finally{setRemovingShot(null);}
+  }
   const screenshots = assets.filter(a=>!!signed[a.id]);
   const label = profile?.display_name|| (slug==="sandra"?"ساندرا":"محمد عمر");
   const chart = slug==="sandra" ? "iChem" : "STC";
@@ -389,12 +434,23 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         </div>}
         {assets.length===0&&<div className="seo-empty-inline">{manager?"لسه الموظف مارفعش اسكرينات للشهر ده.":"لسه مفيش اسكرينات للشهر ده. ارفع أول اسكرين من فوق."}</div>}
         {assets.length>0&&screenshots.length===0&&<p className="seo-loading">بنفتح الصور من التخزين الخاص…</p>}
-        <div className="seo-gallery-grid">{screenshots.map((asset,i)=><button key={asset.id} type="button"
-          onClick={()=>setZoom(i)} aria-label={"افتح اسكرين "+(i+1)}>
-          <Image src={signed[asset.id]} alt={"اسكرين "+(i+1)+" - "+period.label}
-            width={330} height={180} unoptimized/>
-          <span><Maximize2 size={14}/> اسكرين {i+1} · {period.label}</span>
-        </button>)}</div>
+        <div className="seo-gallery-grid">{screenshots.map((asset,i)=><div className="seo-gallery-photo" key={asset.id}>
+          <button className="seo-gallery-photo__preview" type="button"
+            onClick={()=>setZoom(i)} aria-label={"افتح اسكرين "+(i+1)}>
+            <Image src={signed[asset.id]} alt={"اسكرين "+(i+1)+" - "+period.label}
+              width={330} height={180} unoptimized/>
+            <span><Maximize2 size={14}/> اسكرين {i+1} · {period.label}</span>
+          </button>
+          {manager&&<button className="seo-gallery-photo__action" type="button"
+            disabled={downloadingShot===asset.id} onClick={()=>void downloadScreenshot(asset)}>
+            <Download size={16}/>{downloadingShot===asset.id?"بنحمّل…":"تحميل الصورة"}
+          </button>}
+          {!manager&&asset.origin==="manual"&&asset.uploaded_by===member.id&&
+            <button className="seo-gallery-photo__action seo-gallery-photo__action--delete" type="button"
+              disabled={removingShot===asset.id} onClick={()=>void removeScreenshot(asset)}>
+              <Trash2 size={16}/>{removingShot===asset.id?"بنمسح…":"امسح الاسكرين"}
+            </button>}
+        </div>)}</div>
       </section>}
       {section==="archive"&&<div className="seo-archive-panel">
         <div className="seo-archive-title"><FileSpreadsheet size={22}/><div>
@@ -414,7 +470,16 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       </div>}
     </main>
     {zoom!==null&&screenshots[zoom]&&<div className="seo-lightbox" role="dialog" aria-modal="true" aria-label="اسكرين كبيرة" onClick={()=>setZoom(null)}>
-      <header><span>{period?.label} — اسكرين {zoom+1} من {screenshots.length}</span><button type="button" onClick={()=>setZoom(null)} aria-label="إغلاق الاسكرين"><X size={24}/></button></header>
+      <header><span>{period?.label} — اسكرين {zoom+1} من {screenshots.length}</span>
+        <div className="seo-lightbox-actions">
+          {manager&&<button type="button" className="seo-lightbox-download" disabled={downloadingShot===screenshots[zoom].id}
+            onClick={e=>{e.stopPropagation();void downloadScreenshot(screenshots[zoom]);}}><Download size={18}/> تحميل</button>}
+          {!manager&&screenshots[zoom].origin==="manual"&&screenshots[zoom].uploaded_by===member.id&&
+            <button type="button" className="seo-lightbox-delete" disabled={removingShot===screenshots[zoom].id}
+              onClick={e=>{e.stopPropagation();void removeScreenshot(screenshots[zoom]);}}><Trash2 size={18}/> حذف</button>}
+          <button type="button" onClick={()=>setZoom(null)} aria-label="إغلاق الاسكرين"><X size={24}/></button>
+        </div>
+      </header>
       <div className="seo-lightbox-stage" onClick={e=>e.stopPropagation()}>
         {screenshots.length>1&&<button className="seo-lightbox-prev" onClick={()=>setZoom((zoom-1+screenshots.length)%screenshots.length)} aria-label="الصورة اللي قبلها"><ChevronRight size={29}/></button>}
         <Image src={signed[screenshots[zoom].id]} alt="صورة التقرير الأصلية" width={1400} height={1000} unoptimized/>
