@@ -626,3 +626,13 @@
   .seo-metrics-counter>div{flex:1;min-width:0}
   .seo-archive-panel{padding:15px}
 }
+
+/* Specialist-entered SEO metric comparisons — before vs after */
+.seo-metric-input-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.seo-metric-difference{display:flex;align-items:center;gap:8px;background:#eaf7ef;color:#176b48;line-height:1.65;padding:10px 12px;border-radius:10px;font-size:12px;font-weight:700}
+.seo-metric-difference svg{flex-shrink:0}
+.seo-metric-difference strong{font-weight:900}
+.seo-metric-difference.is-negative{background:#fff1e8;color:#9f5839}
+.seo-metric-difference.is-neutral{background:#f2f5f8;color:#63758a}
+.seo-metric-pair>div>span{color:#576e87;font-weight:900;font-size:13px}
+@media(max-width:430px){.seo-metric-input-pair{grid-template-columns:1fr}}
