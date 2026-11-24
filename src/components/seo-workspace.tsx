@@ -5,10 +5,10 @@ import Image from "next/image";
 import { Activity, ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileSpreadsheet, ImageIcon, Maximize2, Plus, Target, UploadCloud, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Member } from "@/lib/domain";
-import SeoTargetBoard from "./seo-target-board";
+import SeoTargetBoard, { clearSeoTargetMemory } from "./seo-target-board";
 import SeoSourceCards from "./seo-source-cards";
 import SeoDailyReport from "./seo-daily-report";
-import SeoMetricsBoard from "./seo-metrics-board";
+import SeoMetricsBoard, { clearSeoMetricsMemory } from "./seo-metrics-board";
 import "./seo-workspace.css";
 
 type Profile = { id: string; slug: string; display_name: string; brand: string; site_url: string };
@@ -28,7 +28,7 @@ type Entry = { address: string; value: string; row: number; column: number; link
 type SeoCacheEntry = { at:number;profile:Profile;periods:Period[];hours:Hours[];selectedId:string|null };
 const seoMemory = new Map<string,SeoCacheEntry>();
 const SEO_CACHE_TTL=120_000;
-export function clearSeoDataCache(){seoMemory.clear();}
+export function clearSeoDataCache(){seoMemory.clear();clearSeoTargetMemory();clearSeoMetricsMemory();}
 
 function sheetColumn(ref: string) {
   const name = ref.match(/^[A-Z]+/)?.[0] ?? "";
@@ -389,7 +389,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
             setUploadTarget(id);chooseSection("evidence");
           }}/>}
       {section==="metrics"&&period&&profile&&period.period_kind==="month"&&
-        <SeoMetricsBoard key={"metrics-"+period.month_key} profileId={profile.id}
+        <SeoMetricsBoard key={"metrics-"+period.month_key} profileId={profile.id} memberId={member.id}
           monthKey={period.month_key} manager={manager} onError={setError}
           onNotice={setToast} onUpdated={loadSnapshot}/>}
       {section==="daily"&&profile&&
