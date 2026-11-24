@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "@/components/simple-workspace.css";
 export const metadata: Metadata = {
   title: "STC Marketing Flow",
   description: "STC team workspace and review workflow",
