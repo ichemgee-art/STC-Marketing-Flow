@@ -244,7 +244,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
               {uploadingShot&&<strong className="seo-photo-status">بنرفع الاسكرين…</strong>}
             </div>}
             {period.image_count>0&&screenshots.length===0&&<p className="seo-loading">بنفكّ الصور من التخزين الخاص…</p>}
-            {period.image_count===0&&<p className="seo-empty-inline">مفيش اسكرينات في الشيت ده.</p>}
+            {assets.length===0 && period.image_count===0 && <p className="seo-empty-inline">مفيش اسكرينات مرفوعة للشهر ده لسه.</p>}
             <div className="seo-gallery-grid">{screenshots.map((asset,i)=><button key={asset.id} type="button" onClick={()=>setZoom(i)} aria-label={"فتح اسكرين "+(i+1)}>
               <Image src={signed[asset.id]} alt={"اسكرين "+(i+1)+" من "+period.label} width={330} height={180} unoptimized/>
               <span><Maximize2 size={14}/> اسكرين {i+1}</span>
@@ -253,7 +253,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
           <p className="seo-source">مصدر التقارير القديمة: {period.source_filename} · {period.source_sheet}. الصور المرفوعة الجديدة محفوظة في مساحة خاصة.</p>
         </>}
       </>:profile&&<SeoDailyReport profileId={profile.id} member={member} entries={log}
-         onRefresh={refresh} onNotice={setToast} onError={setError}/>
+         onRefresh={refresh} onNotice={setToast} onError={setError}/>}
     </main>
     {toast&&<div className="seo-toast" role="status"><CheckCircle2 size={19}/>{toast}</div>}
     {zoom!==null&&screenshots[zoom]&&<div className="seo-lightbox" role="dialog" aria-modal="true" aria-label="اسكرين كبيرة" onClick={()=>setZoom(null)}>
