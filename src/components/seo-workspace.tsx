@@ -10,6 +10,7 @@ import SeoTargetBoard, { clearSeoTargetMemory } from "./seo-target-board";
 import SeoSourceCards from "./seo-source-cards";
 import SeoDailyReport, { clearSeoDailyMemory } from "./seo-daily-report";
 import SeoMetricsBoard, { clearSeoMetricsMemory } from "./seo-metrics-board";
+import SeoHistoricalView from "./seo-historical-view";
 import "./seo-workspace.css";
 
 type Profile = { id: string; slug: string; display_name: string; brand: string; site_url: string };
@@ -409,13 +410,25 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         </button>
       </nav>
       {section==="targets"&&period&&profile&&period.period_kind==="month"&&
-        <SeoTargetBoard key={profile.id+"-"+period.month_key} profileId={profile.id}
-          monthKey={period.month_key} manager={manager} memberId={member.id}
-          onError={setError} onNotice={setToast}/>}
+        (period.month_key<"2026-11"
+          ?<SeoHistoricalView key={"historical-targets-"+period.id} slug={slug} monthKey={period.month_key}
+             monthLabel={period.label} cells={period.cells||{}} mode="targets"
+             photos={screenshots.map(asset=>({id:asset.id,url:signed[asset.id],filename:asset.filename}))}
+             expectedPhotos={period.image_count} onGallery={()=>chooseSection("evidence")}
+             onOpenPhoto={id=>{const idx=screenshots.findIndex(asset=>asset.id===id);if(idx>=0)setZoom(idx);}}/>
+          :<SeoTargetBoard key={profile.id+"-"+period.month_key} profileId={profile.id}
+             monthKey={period.month_key} manager={manager} memberId={member.id}
+             onError={setError} onNotice={setToast}/>)}
       {section==="metrics"&&period&&profile&&period.period_kind==="month"&&
-        <SeoMetricsBoard key={"metrics-"+period.month_key} profileId={profile.id} memberId={member.id}
-          monthKey={period.month_key} manager={manager} onError={setError}
-          onNotice={setToast} onUpdated={loadSnapshot}/>}
+        (period.month_key<"2026-11"
+          ?<SeoHistoricalView key={"historical-metrics-"+period.id} slug={slug} monthKey={period.month_key}
+             monthLabel={period.label} cells={period.cells||{}} mode="metrics"
+             photos={screenshots.map(asset=>({id:asset.id,url:signed[asset.id],filename:asset.filename}))}
+             expectedPhotos={period.image_count} onGallery={()=>chooseSection("evidence")}
+             onOpenPhoto={id=>{const idx=screenshots.findIndex(asset=>asset.id===id);if(idx>=0)setZoom(idx);}}/>
+          :<SeoMetricsBoard key={"metrics-"+period.month_key} profileId={profile.id} memberId={member.id}
+             monthKey={period.month_key} manager={manager} onError={setError}
+             onNotice={setToast} onUpdated={loadSnapshot}/>)};}
       {section==="daily"&&profile&&
         <SeoDailyReport key={"daily-"+period?.month_key} profileId={profile.id}
           member={member} monthKey={period?.month_key||""} entries={log}
