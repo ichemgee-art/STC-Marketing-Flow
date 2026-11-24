@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import type { Member } from "@/lib/domain";
 import SeoTargetBoard, { clearSeoTargetMemory } from "./seo-target-board";
 import SeoSourceCards from "./seo-source-cards";
-import SeoDailyReport from "./seo-daily-report";
+import SeoDailyReport, { clearSeoDailyMemory } from "./seo-daily-report";
 import SeoMetricsBoard, { clearSeoMetricsMemory } from "./seo-metrics-board";
 import "./seo-workspace.css";
 
@@ -28,7 +28,7 @@ type Entry = { address: string; value: string; row: number; column: number; link
 type SeoCacheEntry = { at:number;profile:Profile;periods:Period[];hours:Hours[];selectedId:string|null };
 const seoMemory = new Map<string,SeoCacheEntry>();
 const SEO_CACHE_TTL=120_000;
-export function clearSeoDataCache(){seoMemory.clear();clearSeoTargetMemory();clearSeoMetricsMemory();}
+export function clearSeoDataCache(){seoMemory.clear();clearSeoTargetMemory();clearSeoMetricsMemory();clearSeoDailyMemory();}
 
 function sheetColumn(ref: string) {
   const name = ref.match(/^[A-Z]+/)?.[0] ?? "";
