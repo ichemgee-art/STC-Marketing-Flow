@@ -212,6 +212,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     setToast("الشهر الجديد اتفتح. دلوقتي ناردين تقدر تحط التارجت.");
   }
   async function uploadScreenshot(file:File) {
+    if(manager){setError("رفع الاسكرينات متاح لصاحب الشغل، انتي بتشوفيها من هنا.");return;}
     if(!profile||!period){setError("اختار الشهر الأول.");return;}
     if(!["image/png","image/jpeg","image/webp"].includes(file.type)){setError("الاسكرين لازم يكون PNG أو JPG أو WEBP.");return;}
     if(file.size>10*1024*1024){setError("حجم الاسكرين لازم يكون أقل من 10 ميجا.");return;}
@@ -332,9 +333,9 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       {section==="evidence"&&period&&<section className="seo-gallery seo-gallery--main" id="seo-photo-upload">
         <div className="seo-section-top"><div>
           <h2><ImageIcon size={22}/> الاسكرينات بتاعة {period.label}</h2>
-          <p>كل اسكرين بتتخزن بشكل خاص، وتقدر تفتحها كبيرة جوا السيستم وتتصفح باقي الصور.</p>
+          <p>{manager?"الاسكرينات اللي محمد أو ساندرا رفعوها؛ تقدري تفتحيها وتراجعيها هنا.":"ارفع صور شغلك، وافتح أي اسكرين كبيرة من جوه السيستم."}</p>
         </div><span>{assets.length} اسكرين</span></div>
-        {period.period_kind==="month"&&<div className="seo-gallery-upload">
+        {!manager&&period.period_kind==="month"&&<div className="seo-gallery-upload">
           <label>ارفع اسكرين جديدة (PNG / JPG / WEBP — لحد 10 ميجا)
             <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingShot}
               onChange={e=>{const file=e.target.files?.[0];if(file)void uploadScreenshot(file);e.currentTarget.value="";}}/>
@@ -349,7 +350,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
           </label>
           {uploadingShot&&<strong className="seo-photo-status">بترفع الاسكرين…</strong>}
         </div>}
-        {assets.length===0&&<div className="seo-empty-inline">لسه مفيش اسكرينات للشهر ده. ارفع أول اسكرين من فوق.</div>}
+        {assets.length===0&&<div className="seo-empty-inline">{manager?"لسه الموظف مارفعش اسكرينات للشهر ده.":"لسه مفيش اسكرينات للشهر ده. ارفع أول اسكرين من فوق."}</div>}
         {assets.length>0&&screenshots.length===0&&<p className="seo-loading">بنفتح الصور من التخزين الخاص…</p>}
         <div className="seo-gallery-grid">{screenshots.map((asset,i)=><button key={asset.id} type="button"
           onClick={()=>setZoom(i)} aria-label={"افتح اسكرين "+(i+1)}>
