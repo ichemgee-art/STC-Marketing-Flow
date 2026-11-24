@@ -203,3 +203,10 @@
 .easy-seo-links>div{grid-template-columns:1fr}
 .easy-seo-links button{min-height:70px}
 }
+/* Nardine's separate manager-only Storage/Files dashboard */
+.easy-storage-entry{display:inline-flex;align-items:center;gap:8px;justify-content:center;
+min-height:39px;padding:6px 13px;background:#fff9e7;color:#745916;
+border:1px solid #eed58c;border-radius:12px;font-size:12px;font-weight:900}
+.easy-storage-entry:hover{background:#ffefc0;border-color:#e9b92e}
+@media(max-width:650px){.easy-storage-entry{width:39px;height:39px;padding:0}
+.easy-storage-entry>span{display:none}}
