@@ -5,6 +5,9 @@ import Image from "next/image";
 import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink, FileSpreadsheet, ImageIcon, Maximize2, Plus, UploadCloud, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Member } from "@/lib/domain";
+import SeoTargetBoard from "./seo-target-board";
+import SeoSourceCards from "./seo-source-cards";
+import SeoDailyReport from "./seo-daily-report";
 import "./seo-workspace.css";
 
 type Profile = { id: string; slug: string; display_name: string; brand: string; site_url: string };
@@ -14,7 +17,11 @@ type Period = {
   cells: Record<string, string>; links: Record<string, string>; comments: Record<string, string>;
   image_count: number;
 };
-type Asset = { id: string; period_id: string; filename: string; position_index: number; anchor_row: number; anchor_col: number; object_path: string; mime_type: string };
+type Asset = {
+ id: string; period_id: string; filename: string; position_index: number; anchor_row: number;
+ anchor_col: number; object_path: string; mime_type: string;
+ target_id?: string | null; origin?: "workbook" | "manual"; uploaded_by?: string | null;
+};
 type Hours = { id: string; profile_id: string; work_date: string; start_minutes: number; end_minutes: number; activities: string; created_by: string };
 type Entry = { address: string; value: string; row: number; column: number; link?: string; comment?: string };
 function sheetColumn(ref: string) {
@@ -44,31 +51,6 @@ function timeText(min: number) { return String(Math.floor(min / 60)).padStart(2,
 function mins(value: string) { const [h, m] = value.split(":").map(Number); return h * 60 + m; }
 function hoursText(min: number) { return Math.floor(min / 60) + " ساعة" + (min % 60 ? " و" + (min % 60) + " دقيقة" : ""); }
 
-function SourceCell({entry}: {entry: Entry}) {
-  const link = entry.link && isHttp(entry.link) ? entry.link : isHttp(entry.value) ? entry.value : null;
-  return <div className="seo-cell" dir="auto">
-    <span className="seo-cell__value">{entry.value}</span>
-    {link && <a href={link} target="_blank" rel="noopener noreferrer" title="فتح الرابط من الشيت الأصلي" onClick={e => e.stopPropagation()}><ExternalLink size={14}/></a>}
-    {entry.comment && <small title={entry.comment}>ملاحظة من الإكسيل: {entry.comment}</small>}
-  </div>;
-}
-function SourceRows({title,entries,range}: {title:string;entries:Entry[];range:[number,number]}) {
-  const rows = useMemo(() => makeRows(entries,range[0],range[1]),[entries,range]);
-  const cols = range[1] - range[0] + 1;
-  return <section className="seo-data-section"><h3>{title}<span>{rows.length} سطر فيه بيانات</span></h3>
-    {rows.length === 0 ? <p className="seo-empty-inline">لسه مفيش بيانات مكتوبة في الجزء ده من الشيت.</p> :
-      <div className="seo-data-scroll"><table className="seo-original-table"><thead><tr><th>صف</th>
-        {Array.from({length:cols},(_,i)=><th key={i}>{String.fromCharCode(64+range[0]+i)}</th>)}
-      </tr></thead><tbody>
-      {rows.map(([r,cells])=><tr key={r}><th>{r}</th>
-        {Array.from({length:cols},(_,i)=> {
-          const col=range[0]+i;const entry=cells.find(x=>x.column===col);
-          return <td key={col}>{entry ? <SourceCell entry={entry}/> : <span className="seo-cell-blank">—</span>}</td>;
-        })}
-      </tr>)}</tbody></table></div>}
-  </section>;
-}
-
 export default function SeoWorkspace({slug,member,onBack}: {slug: string;member: Member;onBack:()=>void}) {
   const manager=member.role === "manager";
   const [profile,setProfile]=useState<Profile|null>(null);
@@ -77,15 +59,13 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const [log,setLog]=useState<Hours[]>([]);
   const [selected,setSelected]=useState<string|null>(null);
   const [section,setSection]=useState<"monthly"|"hours">("monthly");
-  const [showAll,setShowAll]=useState(false);
+  const [newMonth,setNewMonth]=useState("");
+  const [showMonthCreator,setShowMonthCreator]=useState(false);
+  const [uploadTarget,setUploadTarget]=useState("");
+  const [uploadingShot,setUploadingShot]=useState(false);
   const [signed,setSigned]=useState<Record<string,string>>({});
   const [zoom,setZoom]=useState<number|null>(null);
-  const [start,setStart]=useState("09:00");
-  const [end,setEnd]=useState("17:00");
-  const [workDate,setWorkDate]=useState(new Date().toISOString().slice(0,10));
-  const [activity,setActivity]=useState("");
   const [uploading,setUploading]=useState(false);
-  const [busy,setBusy]=useState(false);
   const [toast,setToast]=useState("");
   const [error,setError]=useState("");
   const refresh=useCallback(async()=>{
@@ -105,27 +85,29 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   useEffect(()=>{void refresh();},[refresh]);
   const period = periods.find(p=>p.id===selected)||null;
   const entries=useMemo(()=>period?asEntries(period):[],[period]);
-  const dataFirst=entries.length?Math.min(...entries.map(e=>e.column)):1;
-  const dataLast=entries.length?Math.max(...entries.map(e=>e.column)):1;
+  const loadScreenshots=useCallback(async(periodId:string)=>{
+    const r=await supabase.from("stc_seo_assets").select("*")
+      .eq("period_id",periodId).order("position_index");
+    if(r.error){setError(r.error.message);return;}
+    const items=(r.data||[]) as Asset[];
+    setAssets(items);
+    // Supabase rejects createSignedUrls([]) with "body/paths must NOT have fewer than 1 items".
+    if(items.length===0){setSigned({});return;}
+    const response=await supabase.storage.from("stc-seo-evidence")
+      .createSignedUrls(items.map(a=>a.object_path),3600);
+    if(response.error){setError("مش قادرين نفتح صور التقرير: "+response.error.message);setSigned({});return;}
+    const urls:Record<string,string>={};
+    items.forEach((asset,i)=>{
+      const url=response.data?.[i]?.signedUrl;
+      if(url)urls[asset.id]=url;
+    });
+    setSigned(urls);
+  },[]);
   useEffect(()=>{
     if(!period){setAssets([]);setSigned({});return;}
-    let alive=true;
-    const load=async()=>{
-      const r=await supabase.from("stc_seo_assets").select("*").eq("period_id",period.id).order("position_index");
-      if(!alive)return;
-      if(r.error){setError(r.error.message);return;}
-      const data=r.data as Asset[];
-      setAssets(data);
-      const links=await supabase.storage.from("stc-seo-evidence").createSignedUrls(data.map(a=>a.object_path),3600);
-      if(!alive)return;
-      if(links.error){setError(links.error.message);return;}
-      const result:Record<string,string>={};
-      data.forEach((asset,i)=>{const url=links.data?.[i]?.signedUrl;if(url)result[asset.id]=url;});
-      setSigned(result);
-    };
-    void load();
-    return()=>{alive=false;};
-  },[period]);
+    setAssets([]);setSigned({});
+    void loadScreenshots(period.id);
+  },[period?.id,loadScreenshots]);
   useEffect(()=>{
     if(!toast)return;
     const id=setTimeout(()=>setToast(""),4200);
@@ -145,31 +127,44 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     }catch(e){setError(e instanceof Error?e.message:"حصلت مشكلة في رفع الشيت.");}
     finally{setUploading(false);}
   }
-  async function saveHours(){
-    if(!profile)return;
-    const a=mins(start),b=mins(end);
-    if(!workDate||!Number.isInteger(a)||!Number.isInteger(b)||a<0||b>1440||b<=a){setError("اتأكد من وقت البداية والنهاية، لازم النهاية تكون بعد البداية.");return;}
-    if(activity.trim().length<2){setError("اكتب باختصار عملت إيه خلال الفترة دي.");return;}
-    if(log.some(h=>h.work_date===workDate&&a<h.end_minutes&&b>h.start_minutes)){
-      setError("الفترة دي متداخلة مع فترة اتسجلت قبل كده.");return;
-    }
-    setBusy(true);setError("");
+  async function createMonth() {
+    if(!profile||!manager)return;
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(newMonth)){setError("اختاري شهر صحيح.");return;}
+    if(periods.some(p=>p.month_key===newMonth)){setError("الشهر ده موجود بالفعل، اختاريه من التابات.");return;}
+    const date=new Date(newMonth+"-01T12:00:00Z");
+    const label=new Intl.DateTimeFormat("ar-EG",{month:"long",year:"numeric",timeZone:"UTC"}).format(date);
+    const r=await supabase.from("stc_seo_periods").insert({
+      profile_id:profile.id,source_sheet:"from-system-"+newMonth,
+      source_filename:"خطة من السيستم",source_sha256:"manual:"+slug+":"+newMonth,
+      month_key:newMonth,label,period_kind:"month",cells:{},links:{},comments:{},image_count:0,
+    });
+    if(r.error){setError(r.error.message);return;}
+    setShowMonthCreator(false);setNewMonth("");await refresh();
+    setToast("الشهر الجديد اتفتح. دلوقتي ناردين تقدر تحط التارجت.");
+  }
+  async function uploadScreenshot(file:File) {
+    if(!profile||!period){setError("اختار الشهر الأول.");return;}
+    if(!["image/png","image/jpeg","image/webp"].includes(file.type)){setError("الاسكرين لازم يكون PNG أو JPG أو WEBP.");return;}
+    if(file.size>10*1024*1024){setError("حجم الاسكرين لازم يكون أقل من 10 ميجا.");return;}
+    setUploadingShot(true);setError("");
+    const ext=file.type==="image/png"?"png":file.type==="image/webp"?"webp":"jpg";
+    const objectPath=slug+"/manual/"+period.id+"/"+member.id+"/"+crypto.randomUUID()+"."+ext;
     try{
-      const insert=await supabase.from("stc_seo_hours").insert({
-        profile_id:profile.id,work_date:workDate,start_minutes:a,end_minutes:b,activities:activity.trim(),created_by:member.id,
+      const up=await supabase.storage.from("stc-seo-evidence").upload(
+        objectPath,file,{contentType:file.type,upsert:false});
+      if(up.error)throw up.error;
+      const position=(assets.length?Math.max(...assets.map(a=>a.position_index)):-1)+1;
+      const added=await supabase.from("stc_seo_assets").insert({
+        period_id:period.id,position_index:position,anchor_row:0,anchor_col:0,
+        filename:file.name,object_path:objectPath,mime_type:file.type,
+        size_bytes:file.size,target_id:uploadTarget||null,uploaded_by:member.id,origin:"manual",
       });
-      if(insert.error)throw insert.error;
-      setActivity("");await refresh();setToast("تمام! ساعاتك وشغلك اتحفظوا.");
-    }catch(e){setError(e instanceof Error?e.message:"مقدرناش نحفظ الساعات.");}
-    finally{setBusy(false);}
+      if(added.error)throw added.error;
+      await loadScreenshots(period.id);
+      setToast("الاسكرين اتحفظت، وتقدر تفتحها كبيرة من جوه السيستم.");
+    }catch(e){setError(e instanceof Error?e.message:"حصلت مشكلة في رفع الاسكرين.");}
+    finally{setUploadingShot(false);}
   }
-  async function deleteHours(id:string) {
-    if(!window.confirm("تمسح تسجيل الساعات ده؟"))return;
-    const r=await supabase.from("stc_seo_hours").delete().eq("id",id);
-    if(r.error)setError(r.error.message);
-    else{await refresh();setToast("التسجيل اتمسح.");}
-  }
-  const totalMinutes=log.reduce((n,h)=>n+h.end_minutes-h.start_minutes,0);
   const screenshots = assets.filter(a=>!!signed[a.id]);
   const label = profile?.display_name|| (slug==="sandra"?"ساندرا":"محمد عمر");
   const chart = slug==="sandra" ? "iChem" : "STC";
@@ -180,7 +175,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     </header>
     <main className="seo-main">
       <div className="seo-headline"><div><span className="seo-eyebrow">متابعة السيو · {chart}</span><h1>شغل {label} 👋</h1>
-        <p>كل شهر لوحده: التارجت، اللي اتعمل، أرقام الموقع، وكل الاسكرينات الأصلية من الإكسيل.</p></div>
+        <p>التارجت والمتابعة ببطاقات واضحة، ونتايج SEO، وساعات الشغل بتقرير يومي، والاسكرينات بتتفتح من السيستم.</p></div>
         {manager&&<div className="seo-upload">
           <label className={uploading?"seo-uploading":""}><UploadCloud size={20}/>{uploading?"بندخل بيانات الملف…":"ارفع الشيت الأصلي"}
           <input type="file" accept=".xlsx" disabled={uploading} onChange={e=>{const f=e.target.files?.[0];if(f)void importFile(f);e.currentTarget.value="";}}/></label>
@@ -188,30 +183,66 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       </div>
       {error&&<div className="seo-error" role="alert">{error}<button type="button" onClick={()=>setError("")}>×</button></div>}
       <nav className="seo-main-tabs" aria-label="أقسام SEO">
-        <button className={section==="monthly"?"selected":""} onClick={()=>setSection("monthly")}><CalendarDays size={18}/> تقارير الشهور <span>{periods.length}</span></button>
-        <button className={section==="hours"?"selected":""} onClick={()=>setSection("hours")}><Clock3 size={18}/> ساعات الشغل</button>
+        <button className={section==="monthly"?"selected":""} onClick={()=>setSection("monthly")}><CalendarDays size={18}/> التارجت وتقارير الشهور <span>{periods.length}</span></button>
+        <button className={section==="hours"?"selected":""} onClick={()=>setSection("hours")}><Clock3 size={18}/> التقرير اليومي وساعات الشغل</button>
       </nav>
       {section==="monthly"?<>
+        {manager&&<div className="seo-month-manager">
+          <button className="seo-target-add" type="button" onClick={()=>setShowMonthCreator(x=>!x)}><Plus size={16}/> افتحي شهر جديد</button>
+          {showMonthCreator&&<form className="seo-new-month" onSubmit={e=>{e.preventDefault();void createMonth();}}>
+            <label>اختاري الشهر<input type="month" value={newMonth} onChange={e=>setNewMonth(e.target.value)} required/></label>
+            <button type="submit">افتحي الشهر</button>
+          </form>}
+        </div>}
         <div className="seo-month-tabs" role="tablist" aria-label="شهور الشغل">
-          {periods.map(p=><button type="button" role="tab" aria-selected={p.id===selected} key={p.id} className={p.id===selected?"active":""} onClick={()=>{setSelected(p.id);setZoom(null);setShowAll(false);}}>
+          {periods.map(p=><button type="button" role="tab" aria-selected={p.id===selected} key={p.id} className={p.id===selected?"active":""} onClick={()=>{setSelected(p.id);setZoom(null);setUploadTarget("");}}>
             {p.label}<small>{p.image_count} اسكرين</small></button>)}
         </div>
         {!period&&<div className="seo-empty"><FileSpreadsheet size={34}/><h2>الشهور لسه ما اترفعتش</h2><p>{manager?"اختاري ملف الإكسيل الأصلي من زرار «ارفع الشيت الأصلي»؛ هينقل كل الشهور والاسكرينات.":"ناردين هتضيف شيتاتك هنا، وكل شهر هيظهر بتفاصيله."}</p></div>}
         {period&&<>
-          <div className="seo-month-summary">
-            <div><span>الشهر</span><strong>{period.label}</strong></div>
-            <div><span>خلايا فيها بيانات</span><strong>{entries.length}</strong></div>
-            <div><span>الاسكرينات الأصلية</span><strong>{period.image_count}</strong></div>
-            <div><span>المصدر</span><strong>{period.source_sheet}</strong></div>
+          <div className="seo-month-welcome">
+            <div><span className="seo-target-kicker">خطة الشهر · {chart}</span><h2>{period.label}</h2>
+              <p>اختار تارجت من الكروت، وسجّل الإنجاز أول بأول. اللي جاي من الإكسيل محفوظ تحت بتصميم جديد.</p>
+            </div>
+            <div className="seo-month-evidence"><ImageIcon size={20}/><strong>{assets.length}</strong><span>اسكرين في الشهر ده</span></div>
           </div>
-          {slug==="sandra"&&period.month_key==="2026-10"&&<div className="seo-caution"><AlertTriangle size={17}/> أرقام أكتوبر في الشيت متشابهة مع سبتمبر. معروضين زي المصدر، بس محتاجين مراجعة قبل اعتماد النتايج.</div>}
-          {period.period_kind==="quarter"?<SourceRows title="مقارنة الـ3 شهور" entries={entries} range={[2,7]}/> :
-            <>
-              <SourceRows title="خطة الشهر والتارجت" entries={entries} range={[1,4]}/>
-              <SourceRows title="مؤشرات SEO ونتايج الموقع" entries={entries} range={[5,10]}/>
-              {dataLast>10&&<SourceRows title="ملاحظات التحليل والكلمات والمصادر" entries={entries} range={[11,Math.min(dataLast,20)]}/>}
+          {period.period_kind==="quarter"
+            ? <SeoSourceCards cells={period.cells||{}} links={period.links||{}} comments={period.comments||{}} quarter/>
+            : <>
+              {profile&&<SeoTargetBoard key={profile.id+"-"+period.month_key} profileId={profile.id}
+                monthKey={period.month_key} manager={manager} memberId={member.id}
+                onError={setError} onNotice={setToast}
+                onAttach={id=>{
+                  setUploadTarget(id);
+                  document.getElementById("seo-photo-upload")?.scrollIntoView({behavior:"smooth",block:"center"});
+                }}/>}
+              <div className="seo-source-heading"><FileSpreadsheet size={20}/>
+                <div><strong>محتوى الشيت الأصلي · {period.label}</strong>
+                  <p>رتّبنا خطة الإكسيل ونتايج الموقع والتحليل في بطاقات بدل الجداول القديمة.</p></div>
+              </div>
+              <SeoSourceCards cells={period.cells||{}} links={period.links||{}} comments={period.comments||{}}/>
             </>}
-          <section className="seo-gallery"><div className="seo-section-top"><div><h2><ImageIcon size={20}/> الاسكرينات</h2><p>دوس على أي صورة عشان تتفتح كبيرة جوه السيستم، وتقدر تتنقل بين الصور.</p></div><span>{screenshots.length} صورة</span></div>
+          <section className="seo-gallery" id="seo-photo-upload">
+            <div className="seo-section-top"><div><h2><ImageIcon size={20}/> الاسكرينات والـEvidence</h2>
+              <p>ارفع صورة، أو دوس على أي اسكرين عشان تفتح كبيرة وتتنقل بين الصور.</p>
+            </div><span>{assets.length} صورة</span></div>
+            {period.period_kind==="month"&&<div className="seo-gallery-upload">
+              <label>اسكرين جديدة (PNG / JPG / WEBP لحد 10 ميجا)
+                <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingShot}
+                  onChange={e=>{const file=e.target.files?.[0];if(file)void uploadScreenshot(file);e.currentTarget.value="";}}/>
+              </label>
+              <label>تابعة لتارجت معيّن؟ (اختياري)
+                <select value={uploadTarget} onChange={e=>setUploadTarget(e.target.value)}>
+                  <option value="">صورة عامة للشهر</option>
+                  {/*
+                    The target dropdown is populated by the separate live board
+                    through its attach button. The selected target persists here.
+                  */}
+                  {uploadTarget&&<option value={uploadTarget}>التارجت اللي اخترته</option>}
+                </select>
+              </label>
+              {uploadingShot&&<strong className="seo-photo-status">بنرفع الاسكرين…</strong>}
+            </div>}
             {period.image_count>0&&screenshots.length===0&&<p className="seo-loading">بنفكّ الصور من التخزين الخاص…</p>}
             {period.image_count===0&&<p className="seo-empty-inline">مفيش اسكرينات في الشيت ده.</p>}
             <div className="seo-gallery-grid">{screenshots.map((asset,i)=><button key={asset.id} type="button" onClick={()=>setZoom(i)} aria-label={"فتح اسكرين "+(i+1)}>
@@ -219,22 +250,10 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
               <span><Maximize2 size={14}/> اسكرين {i+1}</span>
             </button>)}</div>
           </section>
-          <button className="seo-all-toggle" onClick={()=>setShowAll(!showAll)}>{showAll?"إخفاء تفاصيل الخلايا":"عرض كل الخلايا الأصلية زي ما هي من Excel"}</button>
-          {showAll&&<SourceRows title="كل البيانات الأصلية بالترتيب" entries={entries} range={[dataFirst,Math.min(dataLast,26)]}/>}
-          <div className="seo-source">المصدر: {period.source_filename} / {period.source_sheet} · كل الملاحظات والروابط الأساسية محفوظة في الشيت.</div>
+          <p className="seo-source">مصدر التقارير القديمة: {period.source_filename} · {period.source_sheet}. الصور المرفوعة الجديدة محفوظة في مساحة خاصة.</p>
         </>}
-      </>:<section className="seo-hours">
-        <div className="seo-section-top"><div><h2><Clock3 size={21}/> سجل ساعات الشغل</h2><p>اكتب من الساعة كام لكام، وإيه اللي خلصته في الفترة دي. ممكن تسجل أكتر من فترة في اليوم.</p></div><div className="seo-hours-total">{hoursText(totalMinutes)}<small>إجمالي المسجل</small></div></div>
-        <form className="seo-hours-form" onSubmit={e=>{e.preventDefault();void saveHours();}}>
-          <label>اليوم<input type="date" value={workDate} onChange={e=>setWorkDate(e.target.value)} required/></label>
-          <label>بدأت الساعة<input type="time" value={start} onChange={e=>setStart(e.target.value)} required/></label>
-          <label>خلصت الساعة<input type="time" value={end} onChange={e=>setEnd(e.target.value)} required/></label>
-          <label className="seo-hours-wide">عملت إيه خلال الوقت ده؟<textarea rows={3} placeholder="مثلاً: حدّثت صفحات منتجات، عملت Keyword Research، وراجعت Search Console…" value={activity} onChange={e=>setActivity(e.target.value)} required/></label>
-          <button type="submit" disabled={busy}><Plus size={18}/>{busy?"بنسجّل…":"سجّل الساعات"}</button>
-        </form>
-        <div className="seo-hours-list">{log.map(h=><div className="seo-hours-entry" key={h.id}><div><strong>{h.work_date}</strong><span>{timeText(h.start_minutes)} - {timeText(h.end_minutes)} · {hoursText(h.end_minutes-h.start_minutes)}</span><p>{h.activities}</p></div>{(manager||h.created_by===member.id)&&<button type="button" onClick={()=>void deleteHours(h.id)} aria-label="مسح الساعات">×</button>}</div>)}</div>
-        {!log.length&&<div className="seo-empty-inline">لسه مفيش ساعات شغل متسجلة.</div>}
-      </section>}
+      </>:profile&&<SeoDailyReport profileId={profile.id} member={member} entries={log}
+         onRefresh={refresh} onNotice={setToast} onError={setError}/>
     </main>
     {toast&&<div className="seo-toast" role="status"><CheckCircle2 size={19}/>{toast}</div>}
     {zoom!==null&&screenshots[zoom]&&<div className="seo-lightbox" role="dialog" aria-modal="true" aria-label="اسكرين كبيرة" onClick={()=>setZoom(null)}>
