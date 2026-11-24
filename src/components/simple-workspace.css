@@ -256,3 +256,10 @@ border:1px solid #eed58c;border-radius:12px;font-size:12px;font-weight:900}
 .flow-history-item small{font-size:11px;color:#8294a8}
 @media(max-width:850px){.flow-inbox-list{grid-template-columns:1fr}.flow-focus-list{grid-template-columns:1fr}}
 @media(max-width:650px){.flow-review-inbox,.flow-focus{padding:14px}.flow-inbox-title h2{font-size:17px}.flow-focus-title strong{font-size:15px}.flow-filters{gap:3px}.flow-filters button{padding:6px 9px;font-size:11px}}
+
+/* Media Buying: a separate team department, never mixed with SEO or content tasks */
+.easy-department-heading--media{margin-top:24px}
+.easy-media-entry{margin-bottom:16px}
+.easy-media-entry button>span:first-child{display:inline-flex;align-items:center;gap:9px;font-weight:900}
+.easy-media-entry button>span:first-child svg{color:#a87b21}
+.easy-media-entry .easy-seo-pending{background:#fff2d1;color:#8b6320}

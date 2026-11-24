@@ -2,13 +2,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import type { Session } from "@supabase/supabase-js";
-import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, LogOut, MessageCircle, Pencil, Plus, Send, Trash2, X, CalendarDays, UserRound, AlertCircle, ListTodo, HardDrive, Sparkles, Filter, History } from "lucide-react";
+import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, LogOut, MessageCircle, Pencil, Plus, Send, Trash2, X, CalendarDays, UserRound, AlertCircle, ListTodo, HardDrive, Sparkles, Filter, History, Megaphone } from "lucide-react";
 import { supabase, configured } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
 import { confirmInCurrentLanguage } from "./app-language-provider";
 import { clearFlowLocation, getFlowLocation, setFlowLocation } from "@/lib/flow-location";
 import type { Task, Member, Notice, Attachment, Comment } from "@/lib/domain";
 import SeoWorkspace, { clearSeoDataCache } from "./seo-workspace";
+import MediaBuyerWorkspace, { clearMediaBuyerCache } from "./media-buyer-workspace";
 import StorageDashboard, { clearStorageManagerCache } from "./storage-dashboard";
 
 const cache = new Map<string, { tasks: Task[]; team: Member[]; notices: Notice[]; updatedAt: number }>();
@@ -244,6 +245,9 @@ export default function SimpleWorkspace(){
   const [member,setMember]=useState<Member|null>(null),[team,setTeam]=useState<Member[]>([]);
   const [tasks,setTasks]=useState<Task[]>([]),[notices,setNotices]=useState<Notice[]>([]);
   const [seoPeople,setSeoPeople]=useState<{id:string;slug:string;member_id:string|null;display_name:string;brand:string}[]>([]);
+  const [mediaPeople,setMediaPeople]=useState<{id:string;slug:string;member_id:string|null;display_name:string}[]>([]);
+  const [mediaView,setMediaView]=useState(false);
+  const [mediaPending,setMediaPending]=useState(0);
   const [seoView,setSeoView]=useState<string|null>(null);
   const [storageView,setStorageView]=useState(false);
   const [seoPending,setSeoPending]=useState<Record<string,number>>({});
@@ -267,9 +271,10 @@ export default function SimpleWorkspace(){
     if(!userId){
       refreshSerial.current++;
       cache.clear();
-      clearStorageManagerCache();clearSeoDataCache();
+      clearStorageManagerCache();clearSeoDataCache();clearMediaBuyerCache();
       setMember(null);setTeam([]);setTasks([]);setNotices([]);
-      setSeoPeople([]);setSeoView(null);setStorageView(false);setSeoPending({});setSeoReviews([]);setFlowFilter("all");
+      setSeoPeople([]);setMediaPeople([]);setSeoView(null);setMediaView(false);setStorageView(false);
+      setSeoPending({});setSeoReviews([]);setMediaPending(0);setFlowFilter("all");
       pendingTaskId.current=null;setSelected(null);return;
     }
     const prev=cache.get(userId);
@@ -287,6 +292,7 @@ export default function SimpleWorkspace(){
     setReviewOnly(last.view==="tasks"&&!!last.review);
     pendingTaskId.current=last.view==="tasks"?last.task||null:null;
     setSeoView(last.view==="seo"?last.person||null:null);
+    setMediaView(last.view==="media");
     setStorageView(last.view==="storage");
   },[userId]);
   const refresh=useCallback(async()=>{
@@ -296,14 +302,15 @@ export default function SimpleWorkspace(){
     if(activeUser.current!==userId||serial!==refreshSerial.current)return;
     if(m.error){setErr(m.error.message);return;}
     if(!m.data?.active){setMember(null);setErr("الحساب مش متفعل. كلم ناردين.");return;}
-    const [t,p,n,sp]=await Promise.all([
+    const [t,p,n,sp,mp]=await Promise.all([
       supabase.from("stc_tasks").select("*").is("deleted_at",null).order("updated_at",{ascending:false}).limit(1000),
       supabase.from("stc_members").select("*").eq("active",true),
       supabase.from("stc_notifications").select("*").order("created_at",{ascending:false}).limit(80),
       supabase.from("stc_seo_profiles").select("id,slug,member_id,display_name,brand"),
+      supabase.from("stc_media_profiles").select("id,slug,member_id,display_name"),
     ]);
     if(activeUser.current!==userId||serial!==refreshSerial.current)return;
-    const error=t.error||p.error||n.error||sp.error;
+    const error=t.error||p.error||n.error||sp.error||mp.error;
     if(error){setErr(error.message);return;}
     const list=t.data as Task[];
     // Keep only actionable alerts. Deleted task history is in stc_events.
@@ -316,11 +323,14 @@ export default function SimpleWorkspace(){
       return notice.kind !== "waiting_review" || status === "waiting_review";
     });
     setMember(m.data);setTeam(p.data);setTasks(list);setNotices(visibleNotices);
-    setSeoPeople(sp.data||[]);setErr("");
+    setSeoPeople(sp.data||[]);setMediaPeople(mp.data||[]);setErr("");
     if(m.data.role==="manager"){
       const pending=await supabase.from("stc_seo_metrics")
        .select("id,profile_id,metric_key,month_key,before_value,after_value,status")
        .eq("status","pending_review");
+      const mediaQueue=await supabase.from("stc_media_results").select("id").eq("status","pending_review");
+      if(activeUser.current===userId&&serial===refreshSerial.current&&!mediaQueue.error)
+        setMediaPending(mediaQueue.data?.length||0);
       if(activeUser.current===userId&&serial===refreshSerial.current&&!pending.error){
         const count:Record<string,number>={};
         for(const item of pending.data||[])count[item.profile_id]=(count[item.profile_id]||0)+1;
@@ -341,6 +351,8 @@ export default function SimpleWorkspace(){
     const ch=supabase.channel("simple-"+userId)
       .on("postgres_changes",{event:"*",schema:"public",table:"stc_tasks"},()=>void refresh())
       .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_metrics"},()=>void refresh())
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_results"},()=>void refresh())
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_campaigns"},()=>void refresh())
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"stc_notifications",filter:"recipient_id=eq."+userId},payload=>{
         const n=payload.new as Notice;
         const message=n.kind==="waiting_review"?"سلّم التاسك ومستني مراجعتك"
@@ -373,8 +385,9 @@ export default function SimpleWorkspace(){
   },[userId,refresh,announce]);
   const manager=member?.role==="manager";
   const people=useMemo(()=>team.filter(p=>p.role==="member"&&p.active
-    && !seoPeople.some(sp=>sp.member_id===p.id) && !["Sandra","Mohamed Omar"].includes(p.display_name)
-  ),[team,seoPeople]);
+    && !seoPeople.some(sp=>sp.member_id===p.id) && !mediaPeople.some(mp=>mp.member_id===p.id)
+    && !["Sandra","Mohamed Omar","Ahmed El Kholy"].includes(p.display_name)
+  ),[team,seoPeople,mediaPeople]);
   const reviewTasks=tasks.filter(t=>t.status==="waiting_review");
   const today=cairoDay();
   const scoped=tasks.filter(t=>(!manager||tab==="all"||t.assignee_id===tab)&&(!reviewOnly||t.status==="waiting_review"));
@@ -412,15 +425,19 @@ export default function SimpleWorkspace(){
     if(userId)setFlowLocation(userId,{view:"tasks",tab,review:reviewOnly});
   }
   function enterSeo(slug:string,section?:"metrics",month?:string){
-    setSeoView(slug);setStorageView(false);
+    setSeoView(slug);setMediaView(false);setStorageView(false);
     if(userId)setFlowLocation(userId,{view:"seo",person:slug,section,month},"push");
   }
+  function enterMedia(){
+    setMediaView(true);setSeoView(null);setStorageView(false);
+    if(userId)setFlowLocation(userId,{view:"media"},"push");
+  }
   function enterStorage(){
-    setStorageView(true);setSeoView(null);
+    setStorageView(true);setMediaView(false);setSeoView(null);
     if(userId)setFlowLocation(userId,{view:"storage"},"push");
   }
   function returnToTasks(){
-    setSeoView(null);setStorageView(false);
+    setSeoView(null);setMediaView(false);setStorageView(false);
     if(userId)setFlowLocation(userId,{view:"tasks",tab,review:reviewOnly},"push");
     void refresh();
   }
@@ -429,8 +446,8 @@ export default function SimpleWorkspace(){
     if(r.error){setErr(r.error.message);return;}
     refreshSerial.current++;
     clearFlowLocation(id);
-    cache.clear();clearStorageManagerCache();clearSeoDataCache();
-    setStorageView(false);setSeoView(null);
+    cache.clear();clearStorageManagerCache();clearSeoDataCache();clearMediaBuyerCache();
+    setStorageView(false);setSeoView(null);setMediaView(false);
     if(id)cache.delete(id);setMember(null);setTasks([]);setTeam([]);setNotices([]);
   }
   async function clickNotice(n:Notice){
@@ -445,6 +462,7 @@ export default function SimpleWorkspace(){
     const pop=()=>{
       const saved=getFlowLocation(userId);
       setStorageView(saved.view==="storage");
+      setMediaView(saved.view==="media");
       setSeoView(saved.view==="seo"?saved.person||null:null);
       setCurrentTab(saved.view==="tasks"?saved.tab||"all":"all");
       setReviewOnly(saved.view==="tasks"&&!!saved.review);
@@ -456,6 +474,7 @@ export default function SimpleWorkspace(){
     return()=>window.removeEventListener("popstate",pop);
   },[userId,tasks]);
   const assignedSeo=seoPeople.find(p=>p.member_id===member?.id)?.slug||null;
+  const assignedMedia=mediaPeople.some(p=>p.member_id===member?.id);
   if(!ready)return <div className="easy-loading">بنفتح مساحة الشغل…</div>;
   if(!session)return <main className="easy-login" dir="rtl">
     <div className="easy-login-brand"><Image src="/stc-logo.png" width={175} height={110} priority alt="STC"/><h1>شغلنا كله في مكان واحد.</h1><p>ناردين تبعت التاسك، تخلصه، وهي تراجعه وتوافق عليه.</p></div>
@@ -473,6 +492,9 @@ export default function SimpleWorkspace(){
   </main>;
   if(member&&manager&&storageView)return <StorageDashboard userId={member.id}
     onBack={returnToTasks}/>;
+  if(member&&((manager&&mediaView)||assignedMedia))return <MediaBuyerWorkspace
+    key={member.id+"-media"} member={member}
+    onBack={()=>{if(manager)returnToTasks();else void logout();}}/>;
   if(member&&((manager&&seoView)||assignedSeo))return <SeoWorkspace
     key={(manager?seoView:assignedSeo)||""} slug={(manager?seoView:assignedSeo)||""} member={member}
     onBack={() => {if(manager)returnToTasks();else void logout();}}
@@ -498,13 +520,17 @@ export default function SimpleWorkspace(){
           <div className="flow-inbox-title"><div><span className="easy-eyebrow">REVIEW INBOX</span>
             <h2>صندوق مراجعة ناردين</h2>
             <p>التسليمات من فريق المحتوى ومؤشرات الـSEO في مكان واحد.</p></div>
-            <strong>{reviewTasks.length+seoReviews.length} مستنيين مراجعتك</strong>
+            <strong>{reviewTasks.length+seoReviews.length+mediaPending} مستنيين مراجعتك</strong>
           </div>
-          {reviewTasks.length+seoReviews.length?<div className="flow-inbox-list">
+          {reviewTasks.length+seoReviews.length+mediaPending?<div className="flow-inbox-list">
             {reviewTasks.slice(0,4).map(t=><button type="button" key={t.id} onClick={()=>openTask(t)}>
               <span className="flow-kind">Task</span><span><b>{t.title}</b>
                 <small>{team.find(p=>p.id===t.assignee_id)?.display_name||"من التيم"}</small></span>
               <ChevronLeft size={17}/></button>)}
+            {mediaPending>0&&<button type="button" onClick={enterMedia}>
+              <span className="flow-kind seo">ADS</span><span><b>نتايج حملات أحمد الخولي</b>
+                <small>{mediaPending} تقرير مستني مراجعتك</small></span><ChevronLeft size={17}/>
+            </button>}
             {seoReviews.slice(0,4).map(k=>{
               const person=seoPeople.find(p=>p.id===k.profile_id);
               return <button type="button" key={k.id} onClick={()=>person&&enterSeo(person.slug,"metrics",k.month_key)}>
@@ -533,8 +559,21 @@ export default function SimpleWorkspace(){
             </button>)}
           </div>
         </div>
-        <div className="easy-department-heading easy-department-heading--content">
+        <div className="easy-department-heading easy-department-heading--media">
           <span className="easy-department-number">02</span>
+          <div><strong>قسم Media Buying والإعلانات</strong>
+            <p>أحمد الخولي · الحملات، هدف كل إعلان، الميزانية اليومية، مدة التشغيل، والنتايج.</p></div>
+        </div>
+        <div className="easy-seo-links easy-media-entry" aria-label="قسم Media Buying">
+          <div><button type="button" onClick={enterMedia}>
+            <span><Megaphone size={19}/> أحمد الخولي — Media Buyer</span>
+            <small>Campaign Briefs · Daily Results · Performance</small>
+            {mediaPending>0&&<b className="easy-seo-pending">{mediaPending} نتيجة للمراجعة</b>}
+            <ChevronLeft size={18}/>
+          </button></div>
+        </div>
+        <div className="easy-department-heading easy-department-heading--content">
+          <span className="easy-department-number">03</span>
           <div><strong>قسم المحتوى والتصميم</strong>
             <p>جرجس وفاطمة وإسراء · التاسكات المعتادة والتسليم والموافقة.</p></div>
         </div>

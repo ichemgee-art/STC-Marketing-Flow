@@ -6,7 +6,7 @@
  * A URL can be bookmarked/refreshed, with permissions checked separately.
  */
 export type FlowLocation = {
-  view:"tasks"|"seo"|"storage";
+  view:"tasks"|"seo"|"storage"|"media";
   person?:string;
   section?:"targets"|"metrics"|"daily"|"evidence"|"archive";
   month?:string;
@@ -20,7 +20,7 @@ const validSlug=(s:string|null):s is string=>!!s&&s.length<=128&&/^[a-z0-9_-]+$/
 const validMonth=(s:string|null):s is string=>!!s&&/^\d{4}-(0[1-9]|1[0-2])$/.test(s);
 function parse(search:URLSearchParams):FlowLocation {
   const v=search.get("flow");
-  const view:FlowLocation["view"]=v==="seo"||v==="storage"?v:"tasks";
+  const view:FlowLocation["view"]=v==="seo"||v==="storage"||v==="media"?v:"tasks";
   const location:FlowLocation={view};
   if(view==="seo"){
     const person=search.get("person"),section=search.get("section"),month=search.get("month");
