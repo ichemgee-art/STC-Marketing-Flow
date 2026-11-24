@@ -4,6 +4,7 @@ import Image from "next/image";
 import type { Session } from "@supabase/supabase-js";
 import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, LogOut, MessageCircle, Pencil, Plus, Send, Trash2, X, CalendarDays, UserRound, AlertCircle, ListTodo, HardDrive } from "lucide-react";
 import { supabase, configured } from "@/lib/supabase";
+import { showToast } from "@/lib/toasts";
 import type { Task, Member, Notice, Attachment, Comment } from "@/lib/domain";
 import SeoWorkspace, { clearSeoDataCache } from "./seo-workspace";
 import StorageDashboard, { clearStorageManagerCache } from "./storage-dashboard";
@@ -51,7 +52,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
   async function run(fn:()=>Promise<void>,message:string,shouldClose=true){
     setBusy(true);setErr("");
     try{await fn();await refresh();notify(message);if(shouldClose)close();else await getExtra();}
-    catch(e){setErr(e instanceof Error?e.message:"حصلت مشكلة، جرّب تاني.");}
+    catch(e){const message=e instanceof Error?e.message:"حصلت مشكلة، جرّب تاني.";setErr(message);showToast(message,"error");}
     finally{setBusy(false);}
   }
   async function change(status:Task["status"]){
@@ -175,7 +176,7 @@ function CreateDialog({people,initial,close,refresh,notify}:{people:Member[];ini
           });
           if(r.error)throw r.error;
           await refresh();notify("التاسك اتبعت لصاحبه بنجاح!");close();
-        }catch(e){setErr(e instanceof Error?e.message:"حصلت مشكلة، جرّبي تاني.");}finally{setBusy(false);}})();
+        }catch(e){const message=e instanceof Error?e.message:"حصلت مشكلة، جرّبي تاني.";setErr(message);showToast(message,"error");}finally{setBusy(false);}})();
       }}>
         <label>اسم التاسك<input name="title" required maxLength={300} placeholder="مثلاً: بوست عن منتج جديد"/></label>
         <label>مين هيعمله؟<select name="assignee" defaultValue={people.some(p=>p.id===initial)?initial:people[0]?.id} required>{people.map(p=><option key={p.id} value={p.id}>{p.display_name}</option>)}</select></label>
@@ -200,18 +201,16 @@ export default function SimpleWorkspace(){
   const [tab,setCurrentTab]=useState("all"),[reviewOnly,setReviewOnly]=useState(false);
   const [selected,setSelected]=useState<Task|null>(null),[creating,setCreating]=useState(false);
   const [showNotices,setShowNotices]=useState(false),[online,setOnline]=useState(false);
-  const [err,setErr]=useState(""),[busy,setBusy]=useState(false),[toast,setToast]=useState("");
-  const toastSerial=useRef(0);
+  const [err,setErr]=useState(""),[busy,setBusy]=useState(false);
   const activeUser=useRef<string|null>(null);
   const refreshSerial=useRef(0);
   const userId=session?.user.id||null;
-  const announce=useCallback((message:string)=>{setToast(message);toastSerial.current++;},[]);
+  const announce=useCallback((message:string)=>showToast(message,/اتمسح|اتمسحت|مسح|حذف/.test(message)?"delete":"success"),[]);
   useEffect(()=>{
     void supabase.auth.getSession().then(({data,error})=>{if(error)setErr(error.message);activeUser.current=data.session?.user.id||null;setSession(data.session);setReady(true);});
     const {data}=supabase.auth.onAuthStateChange((_ev,s)=>{activeUser.current=s?.user.id||null;setSession(s);setReady(true);});
     return ()=>data.subscription.unsubscribe();
   },[]);
-  useEffect(()=>{if(!toast)return;const id=toastSerial.current;const timer=setTimeout(()=>{if(id===toastSerial.current)setToast("");},5500);return()=>clearTimeout(timer);},[toast]);
   useEffect(()=>{
     if(!userId){
       refreshSerial.current++;
@@ -325,7 +324,7 @@ export default function SimpleWorkspace(){
   }
   async function clickNotice(n:Notice){
     const r=await supabase.from("stc_notifications").update({read_at:new Date().toISOString()}).eq("id",n.id);
-    if(r.error){setErr(r.error.message);return;}
+    if(r.error){setErr(r.error.message);showToast(r.error.message,"error");return;}
     const task=tasks.find(x=>x.id===n.task_id);
     if(task){setSelected(task);setShowNotices(false);}
     await refresh();
@@ -405,7 +404,6 @@ export default function SimpleWorkspace(){
       <div className="easy-grid">{visible.map(task=><Tile key={task.id} task={task} manager={!!manager} who={people.find(p=>p.id===task.assignee_id)?.display_name} open={()=>setSelected(task)}/>)}</div>
       {!visible.length&&<div className="easy-empty"><ListTodo size={34}/><h3>{reviewOnly?"مفيش تاسكات مستنية مراجعتك ✨":manager?"لسه مفيش تاسكات هنا":"لسه مفيش تاسكات عندك"}</h3><p>{reviewOnly?"كل التسليمات متراجعة دلوقتي.":manager?"ابعتِ تاسك جديد وهيظهر هنا.":"أول ما ناردين تبعتلك تاسك هتلاقيه هنا."}</p></div>}
     </main>
-    {toast&&<div className="easy-toast" role="status" aria-live="polite"><CheckCircle2 size={22}/><span>{toast}</span><button className="easy-icon" onClick={()=>setToast("")} aria-label="قفل"><X size={16}/></button></div>}
     {showNotices&&<aside className="easy-notifications"><div className="easy-notification-top"><strong>الإشعارات {unread>0?"("+unread+" جديد)":""}</strong><button className="easy-icon" onClick={()=>setShowNotices(false)}><X size={18}/></button></div>
       {!notices.length&&<p>مفيش إشعارات لسه.</p>}
       {notices.map(n=><button key={n.id} className={"easy-notification "+(!n.read_at?"unread":"")} onClick={()=>void clickNotice(n)}><b>{n.kind==="waiting_review"?"تاسك مستني مراجعتك":n.kind==="approved"?"التاسك اتعمد ✓":n.kind==="changes_requested"?"مطلوب تعديل":n.kind==="deleted"?"التاسك اتمسح":n.kind==="updated"?"التاسك اتعدل":"تحديث جديد"}</b><span>{n.actor_name?n.actor_name+" · ":""}{n.task_title||tasks.find(t=>t.id===n.task_id)?.title||"تاسك"}</span><small>{new Date(n.created_at).toLocaleString("ar-EG",{timeZone:"Africa/Cairo"})}</small></button>)}
