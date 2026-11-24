@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Activity, ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileSpreadsheet, ImageIcon, Maximize2, Plus, Target, UploadCloud, Download, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
+import { confirmInCurrentLanguage } from "./app-language-provider";
 import { getFlowLocation, setFlowLocation } from "@/lib/flow-location";
 import type { Member } from "@/lib/domain";
 import SeoTargetBoard, { clearSeoTargetMemory } from "./seo-target-board";
@@ -371,7 +372,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     if(manager||asset.origin!=="manual"||asset.uploaded_by!==member.id){
       setError("تقدر تمسح بس الاسكرينات اللي إنت رفعتها بنفسك.");return;
     }
-    if(!window.confirm("متأكد إنك عايز تمسح الاسكرين دي نهائيًا من شهر "+(period?.label||"الشغل")+"؟"))return;
+    if(!confirmInCurrentLanguage("متأكد إنك عايز تمسح الاسكرين دي نهائيًا من شهر "+(period?.label||"الشغل")+"؟"))return;
     setRemovingShot(asset.id);setError("");
     try{
       // Delete the actual Storage object via the Storage API (not SQL).

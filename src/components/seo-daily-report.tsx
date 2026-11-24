@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { confirmInCurrentLanguage } from "./app-language-provider";
 import type { Member } from "@/lib/domain";
 import type { SeoProgress, SeoTarget } from "./seo-target-board";
 
@@ -106,7 +107,7 @@ export default function SeoDailyReport({
   }
   async function removeHours(id:string){
     if(manager){onError("حساب ناردين للمتابعة، مش لتسجيل أو مسح ساعات الموظف.");return;}
-    if(!window.confirm("متأكد إنك عايز تمسح فترة الساعات دي؟"))return;
+    if(!confirmInCurrentLanguage("متأكد إنك عايز تمسح فترة الساعات دي؟"))return;
     const r=await supabase.from("stc_seo_hours").delete().eq("id",id);
     if(r.error)onError(r.error.message);
     else{await onRefresh();onNotice("اتمسحت الفترة دي من التقرير.");}

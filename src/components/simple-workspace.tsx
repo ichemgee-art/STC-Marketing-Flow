@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, LogOut, MessageCircle, Pencil, Plus, Send, Trash2, X, CalendarDays, UserRound, AlertCircle, ListTodo, HardDrive, Sparkles, Filter, History } from "lucide-react";
 import { supabase, configured } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
+import { confirmInCurrentLanguage } from "./app-language-provider";
 import { clearFlowLocation, getFlowLocation, setFlowLocation } from "@/lib/flow-location";
 import type { Task, Member, Notice, Attachment, Comment } from "@/lib/domain";
 import SeoWorkspace, { clearSeoDataCache } from "./seo-workspace";
@@ -107,7 +108,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
     },"التعديل اتحفظ وظهر عند صاحب التاسك.");
   }
   async function remove(){
-    if(!window.confirm("متأكدة إنك عايزة تمسحي التاسك من عند الكل؟ هيختفي من القوائم، بس سجل الحذف محفوظ."))return;
+    if(!confirmInCurrentLanguage("متأكدة إنك عايزة تمسحي التاسك من عند الكل؟ هيختفي من القوائم، بس سجل الحذف محفوظ."))return;
     await run(async()=>{
       const r=await supabase.from("stc_tasks").update({deleted_at:new Date().toISOString(),deleted_by:member.id})
         .eq("id",task.id).eq("version",task.version).is("deleted_at",null).select("id");
