@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Activity, ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileSpreadsheet, ImageIcon, Maximize2, Plus, Target, UploadCloud, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { showToast } from "@/lib/toasts";
 import type { Member } from "@/lib/domain";
 import SeoTargetBoard, { clearSeoTargetMemory } from "./seo-target-board";
 import SeoSourceCards from "./seo-source-cards";
@@ -78,7 +79,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const [signed,setSigned]=useState<Record<string,string>>({});
   const [zoom,setZoom]=useState<number|null>(null);
   const [uploading,setUploading]=useState(false);
-  const [toast,setToast]=useState("");
+  const setToast=useCallback((message:string)=>showToast(message,/اتمسح|اتمسحت|مسح|حذف/.test(message)?"delete":"success"),[]);
   const [error,setError]=useState("");
   useEffect(()=>{
     mounted.current=true;
@@ -226,11 +227,6 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       void supabase.removeChannel(listen);
     };
   },[period?.id,loadScreenshots,member.id]);
-  useEffect(()=>{
-    if(!toast)return;
-    const id=setTimeout(()=>setToast(""),4200);
-    return()=>clearTimeout(id);
-  },[toast]);
   async function importFile(file:File) {
     setUploading(true);setError("");
     try{
@@ -417,7 +413,6 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         <p>{manager?"افتحي شهر جديد من فوق وحطي التارجت.":"ناردين هتحدد أول شهر والتارجت، وهيظهرلك هنا."}</p>
       </div>}
     </main>
-    {toast&&<div className="seo-toast" role="status"><CheckCircle2 size={19}/>{toast}</div>}
     {zoom!==null&&screenshots[zoom]&&<div className="seo-lightbox" role="dialog" aria-modal="true" aria-label="اسكرين كبيرة" onClick={()=>setZoom(null)}>
       <header><span>{period?.label} — اسكرين {zoom+1} من {screenshots.length}</span><button type="button" onClick={()=>setZoom(null)} aria-label="إغلاق الاسكرين"><X size={24}/></button></header>
       <div className="seo-lightbox-stage" onClick={e=>e.stopPropagation()}>
