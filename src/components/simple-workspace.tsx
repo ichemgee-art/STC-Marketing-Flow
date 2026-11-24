@@ -5,7 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, LogOut, MessageCircle, Pencil, Plus, Send, Trash2, X, CalendarDays, UserRound, AlertCircle, ListTodo, HardDrive } from "lucide-react";
 import { supabase, configured } from "@/lib/supabase";
 import type { Task, Member, Notice, Attachment, Comment } from "@/lib/domain";
-import SeoWorkspace from "./seo-workspace";
+import SeoWorkspace, { clearSeoDataCache } from "./seo-workspace";
 import StorageDashboard, { clearStorageManagerCache } from "./storage-dashboard";
 
 const cache = new Map<string, { tasks: Task[]; team: Member[]; notices: Notice[]; updatedAt: number }>();
@@ -101,6 +101,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
       if(a.error)throw a.error;
       const b=await supabase.from("stc_attachments").insert({task_id:task.id,object_path:path,filename:file.name,size:file.size});
       if(b.error){await supabase.storage.from("stc-task-files").remove([path]);throw b.error;}
+      window.dispatchEvent(new Event("stc:storage-changed"));
     },"الملف اترفع على التاسك.",false);
   }
   async function download(file:Attachment){
@@ -215,7 +216,7 @@ export default function SimpleWorkspace(){
     if(!userId){
       refreshSerial.current++;
       cache.clear();
-      clearStorageManagerCache();
+      clearStorageManagerCache();clearSeoDataCache();
       setMember(null);setTeam([]);setTasks([]);setNotices([]);
       setSeoPeople([]);setSeoView(null);setStorageView(false);setSeoPending({});
       setSelected(null);return;
@@ -318,7 +319,7 @@ export default function SimpleWorkspace(){
     const id=userId;const r=await supabase.auth.signOut();
     if(r.error){setErr(r.error.message);return;}
     refreshSerial.current++;
-    cache.clear();clearStorageManagerCache();
+    cache.clear();clearStorageManagerCache();clearSeoDataCache();
     setStorageView(false);setSeoView(null);
     if(id)cache.delete(id);setMember(null);setTasks([]);setTeam([]);setNotices([]);
   }
