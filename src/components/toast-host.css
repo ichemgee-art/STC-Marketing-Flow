@@ -1,0 +1,14 @@
+/* One small elegant notification system, shared across marketing and SEO. */
+.stc-toast-stack{position:fixed;top:91px;inset-inline-end:24px;z-index:350;display:grid;gap:10px;pointer-events:none;max-width:min(410px,calc(100vw - 26px));width:100%}
+.stc-toast-card{--accent:#398760;position:relative;display:flex;align-items:center;gap:12px;min-height:77px;width:100%;padding:13px 13px 16px 15px;color:#263b55;background:#fff;border:1px solid #dee8f0;border-radius:15px;box-shadow:0 13px 45px #1e334634;overflow:hidden;pointer-events:auto;animation:stc-toast-arrive .24s ease both;font-family:Cairo,Tahoma,Arial,sans-serif}
+.stc-toast-card--delete{--accent:#c17f2a}.stc-toast-card--info{--accent:#4e79aa}.stc-toast-card--error{--accent:#b3524b}
+.stc-toast-card__symbol{width:41px;height:41px;min-width:41px;display:grid;place-items:center;color:var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 12%,white)}
+.stc-toast-card__copy{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.stc-toast-card__copy strong{font-size:13px;font-weight:900;line-height:1.5}
+.stc-toast-card__copy span{font-size:12px;color:#637991;line-height:1.7;overflow-wrap:anywhere;white-space:pre-wrap}
+.stc-toast-card__dismiss{display:grid;place-items:center;flex-shrink:0;width:30px;height:30px;min-height:30px;background:#f1f5f8;color:#76879b;border:0;border-radius:9px;cursor:pointer;padding:0}
+.stc-toast-card__dismiss:hover{background:#e5edf4;color:#253a55}
+.stc-toast-card__stripe{position:absolute;inset-block-end:0;inset-inline:0;background:var(--accent);height:3px;opacity:.88}
+@keyframes stc-toast-arrive{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:680px){.stc-toast-stack{top:75px;inset-inline-end:13px;max-width:calc(100vw - 26px)}.stc-toast-card{padding:11px 12px 15px;min-height:68px}.stc-toast-card__copy span{font-size:11.5px}}
+@media(prefers-reduced-motion:reduce){.stc-toast-card{animation:none}}
