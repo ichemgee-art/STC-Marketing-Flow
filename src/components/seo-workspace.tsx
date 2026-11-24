@@ -189,10 +189,13 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     if(!profile||!selected)return;
     const current=periods.find(p=>p.id===selected);
     if(!current)return;
+    const nextMonth=new Date(current.month_key+"-01T00:00:00Z");
+    nextMonth.setUTCMonth(nextMonth.getUTCMonth()+1);
+    const endExclusive=nextMonth.toISOString().slice(0,10);
     const [a,b,d]=await Promise.all([
       supabase.from("stc_seo_targets").select("id,target_count,cadence").eq("profile_id",profile.id).eq("month_key",current.month_key),
       supabase.from("stc_seo_metrics").select("status").eq("profile_id",profile.id).eq("month_key",current.month_key),
-      supabase.from("stc_seo_progress").select("target_id,done_count,work_date").gte("work_date",current.month_key+"-01").lte("work_date",current.month_key+"-31"),
+      supabase.from("stc_seo_progress").select("target_id,done_count,work_date").gte("work_date",current.month_key+"-01").lt("work_date",endExclusive),
     ]);
     if(a.error||b.error||d.error)return;
     const targets=a.data||[];
