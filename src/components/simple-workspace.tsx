@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, LogOut, MessageCircle, Pencil, Plus, Send, Trash2, X, CalendarDays, UserRound, AlertCircle, ListTodo } from "lucide-react";
 import { supabase, configured } from "@/lib/supabase";
 import type { Task, Member, Notice, Attachment, Comment } from "@/lib/domain";
+import SeoWorkspace from "./seo-workspace";
 
 const cache = new Map<string, { tasks: Task[]; team: Member[]; notices: Notice[] }>();
 const stage = (s: Task["status"]) => ({
@@ -189,6 +190,8 @@ export default function SimpleWorkspace(){
   const [session,setSession]=useState<Session|null>(null),[ready,setReady]=useState(false);
   const [member,setMember]=useState<Member|null>(null),[team,setTeam]=useState<Member[]>([]);
   const [tasks,setTasks]=useState<Task[]>([]),[notices,setNotices]=useState<Notice[]>([]);
+  const [seoPeople,setSeoPeople]=useState<{slug:string;member_id:string|null;display_name:string;brand:string}[]>([]);
+  const [seoView,setSeoView]=useState<string|null>(null);
   const [tab,setCurrentTab]=useState("all"),[reviewOnly,setReviewOnly]=useState(false);
   const [selected,setSelected]=useState<Task|null>(null),[creating,setCreating]=useState(false);
   const [showNotices,setShowNotices]=useState(false),[online,setOnline]=useState(false);
@@ -204,7 +207,7 @@ export default function SimpleWorkspace(){
   },[]);
   useEffect(()=>{if(!toast)return;const id=toastSerial.current;const timer=setTimeout(()=>{if(id===toastSerial.current)setToast("");},5500);return()=>clearTimeout(timer);},[toast]);
   useEffect(()=>{
-    if(!userId){setMember(null);setTeam([]);setTasks([]);setNotices([]);setSelected(null);return;}
+    if(!userId){setMember(null);setTeam([]);setTasks([]);setNotices([]);setSeoPeople([]);setSeoView(null);setSelected(null);return;}
     const prev=cache.get(userId);
     if(prev){setTasks(prev.tasks);setTeam(prev.team);setNotices(prev.notices);}
     try{setCurrentTab(sessionStorage.getItem("stc-simple-tab-"+userId)||"all");}catch{setCurrentTab("all");}
@@ -216,13 +219,14 @@ export default function SimpleWorkspace(){
     if(activeUser.current!==userId)return;
     if(m.error){setErr(m.error.message);return;}
     if(!m.data?.active){setMember(null);setErr("الحساب مش متفعل. كلم ناردين.");return;}
-    const [t,p,n]=await Promise.all([
+    const [t,p,n,sp]=await Promise.all([
       supabase.from("stc_tasks").select("*").is("deleted_at",null).order("updated_at",{ascending:false}).limit(1000),
       supabase.from("stc_members").select("*").eq("active",true),
       supabase.from("stc_notifications").select("*").order("created_at",{ascending:false}).limit(80),
+      supabase.from("stc_seo_profiles").select("slug,member_id,display_name,brand"),
     ]);
     if(activeUser.current!==userId)return;
-    const error=t.error||p.error||n.error;
+    const error=t.error||p.error||n.error||sp.error;
     if(error){setErr(error.message);return;}
     const list=t.data as Task[];
     // Keep only actionable alerts. Deleted task history is in stc_events.
@@ -234,7 +238,8 @@ export default function SimpleWorkspace(){
       if (!status) return false;
       return notice.kind !== "waiting_review" || status === "waiting_review";
     });
-    setMember(m.data);setTeam(p.data);setTasks(list);setNotices(visibleNotices);setErr("");
+    setMember(m.data);setTeam(p.data);setTasks(list);setNotices(visibleNotices);
+    setSeoPeople(sp.data||[]);setErr("");
     setSelected(prev=>prev?list.find(x=>x.id===prev.id)||null:null);
     cache.set(userId,{tasks:list,team:p.data,notices:visibleNotices});
   },[userId]);
@@ -258,7 +263,9 @@ export default function SimpleWorkspace(){
     return()=>{void supabase.removeChannel(ch);clearInterval(poll);setOnline(false);};
   },[userId,refresh,announce]);
   const manager=member?.role==="manager";
-  const people=useMemo(()=>team.filter(p=>p.role==="member"&&p.active),[team]);
+  const people=useMemo(()=>team.filter(p=>p.role==="member"&&p.active
+    && !seoPeople.some(sp=>sp.member_id===p.id) && !["Sandra","Mohamed Omar"].includes(p.display_name)
+  ),[team,seoPeople]);
   const reviewTasks=tasks.filter(t=>t.status==="waiting_review");
   const visible=tasks.filter(t=>(!manager||tab==="all"||t.assignee_id===tab)&&(!reviewOnly||t.status==="waiting_review"));
   const unread=notices.filter(n=>!n.read_at).length;
@@ -275,6 +282,7 @@ export default function SimpleWorkspace(){
     if(task){setSelected(task);setShowNotices(false);}
     await refresh();
   }
+  const assignedSeo=seoPeople.find(p=>p.member_id===member?.id)?.slug||null;
   if(!ready)return <div className="easy-loading">بنفتح مساحة الشغل…</div>;
   if(!session)return <main className="easy-login" dir="rtl">
     <div className="easy-login-brand"><Image src="/stc-logo.png" width={175} height={110} priority alt="STC"/><h1>شغلنا كله في مكان واحد.</h1><p>ناردين تبعت التاسك، تخلصه، وهي تراجعه وتوافق عليه.</p></div>
@@ -290,6 +298,10 @@ export default function SimpleWorkspace(){
       </form>{err&&<p className="easy-error" role="alert">{err}</p>}
     </section>
   </main>;
+  if(member&&(seoView||assignedSeo))return <SeoWorkspace
+    key={seoView||assignedSeo||""} slug={seoView||assignedSeo||""} member={member}
+    onBack={() => {if(manager)setSeoView(null);else void logout();}}
+  />;
   return <div className="easy-shell" dir="rtl">
     <header className="easy-header"><div className="easy-brand"><Image src="/stc-logo.png" width={112} height={62} alt="STC"/><div><strong>Marketing Flow</strong><small>{manager?"متابعة شغل التيم":"تاسكاتي"}</small></div></div>
       <div className="easy-header-buttons"><span className={online?"easy-online":"easy-offline"}>{online?"متصل":"بيوصل…"}</span>
@@ -310,7 +322,16 @@ export default function SimpleWorkspace(){
           <span className="easy-review-copy"><strong>{reviewTasks.length?"في "+reviewTasks.length+" تاسك مستني مراجعتك":"مفيش حاجة مستنية مراجعتك دلوقتي"}</strong><small>{reviewTasks.length?"دوسي هنا عشان تراجعي وتوافقي":"لما حد يسلّم تاسك هتلاقيه هنا"}</small></span>
           <b>{reviewTasks.length}</b><ChevronLeft size={19}/>
         </button>
-        <nav className="easy-tabs" aria-label="أسماء التيم">
+        <div className="easy-seo-links" aria-label="فريق السيو">
+          <strong>فريق الـSEO</strong>
+          <div>
+            {seoPeople.map(p=><button type="button" key={p.slug} onClick={()=>setSeoView(p.slug)}>
+              <span>{p.display_name}</span><small>{p.brand} · التارجت وتقارير الشهور وساعات الشغل</small>
+              <ChevronLeft size={18}/>
+            </button>)}
+          </div>
+        </div>
+                <nav className="easy-tabs" aria-label="أسماء التيم">
           <button className={"easy-tab "+(tab==="all"&&!reviewOnly?"active":"")} onClick={()=>choose("all")}><ListTodo size={18}/> كل التيم <b>{tasks.length}</b></button>
           {people.map((p,i)=><button key={p.id} className={"easy-tab easy-tab--"+i+" "+(tab===p.id&&!reviewOnly?"active":"")} onClick={()=>choose(p.id)}><span>{first(p.display_name).charAt(0)}</span>{p.display_name}<b>{tasks.filter(t=>t.assignee_id===p.id).length}</b></button>)}
         </nav>
