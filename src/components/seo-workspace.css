@@ -636,3 +636,18 @@
 .seo-metric-difference.is-neutral{background:#f2f5f8;color:#63758a}
 .seo-metric-pair>div>span{color:#576e87;font-weight:900;font-size:13px}
 @media(max-width:430px){.seo-metric-input-pair{grid-template-columns:1fr}}
+
+/* Monthly screenshots: employee delete their own manual image; manager downloads images */
+.seo-gallery-photo{display:flex;flex-direction:column;min-width:0;border-radius:13px;background:#fff;border:1px solid #dfe7ef;overflow:hidden}
+.seo-gallery-photo__preview{padding:8px!important;border:0!important;border-radius:0!important;width:100%;background:#fff!important;display:flex;flex-direction:column;text-align:start;gap:7px;flex:1}
+.seo-gallery-photo__preview img{width:100%;height:151px;object-fit:contain;background:#f2f5f9;border-radius:8px}
+.seo-gallery-photo__preview span{display:inline-flex;align-items:center;gap:6px;padding:2px 4px 7px;font-size:11px;color:#546f87}
+.seo-gallery-photo__action{border:0;border-top:1px solid #e5ecf4;padding:9px 11px;min-height:42px;background:#f7f9fc;color:#365a7b;font:inherit;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}
+.seo-gallery-photo__action:hover{background:#e7eff7}
+.seo-gallery-photo__action--delete{color:#aa4847;background:#fff5f4}
+.seo-gallery-photo__action--delete:hover{background:#ffe8e5}
+.seo-gallery-photo__action:disabled{cursor:wait;opacity:.5}
+.seo-lightbox-actions{display:flex;align-items:center;gap:9px}
+.seo-lightbox-actions .seo-lightbox-download,.seo-lightbox-actions .seo-lightbox-delete{width:auto;padding:0 11px;display:inline-flex;gap:7px;font-size:12px;font-weight:800;white-space:nowrap}
+.seo-lightbox-actions .seo-lightbox-delete{color:#ffe3dc;border-color:#ffb0a033}
+@media(max-width:600px){.seo-gallery-photo__preview img{height:120px}.seo-lightbox-actions{gap:5px}.seo-lightbox-actions .seo-lightbox-download,.seo-lightbox-actions .seo-lightbox-delete{padding:0 7px;font-size:11px}}
