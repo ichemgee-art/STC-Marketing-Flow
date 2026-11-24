@@ -260,3 +260,58 @@
  .seo-gallery-upload label{min-width:0;width:100%}
  .seo-new-month{flex-wrap:wrap}
 }
+
+/* Compact, low-clutter source and import controls */
+.seo-import-more {
+  position: relative;
+  max-width: 260px;
+  border: 1px solid #dfe6ee;
+  border-radius: 12px;
+  background: white;
+  padding: 0;
+  color: #647990;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.seo-import-more summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 15px;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+.seo-import-more summary::-webkit-details-marker {display:none}
+.seo-import-more[open]{border-color:#f3b820;background:#fffdf8}
+.seo-import-more .seo-upload{padding:0 13px 13px}
+.seo-import-more .seo-upload label{font-size:11.5px;padding:8px 11px;min-width:185px}
+.seo-original-archive{
+  margin: 18px 0 27px;
+  padding: 0;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e2e9f0;
+  box-shadow: 0 5px 17px #24395009;
+}
+.seo-original-archive > summary{
+  font-size: 13.5px;
+  color: #405b78;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 15px 19px;
+  list-style: none;
+}
+.seo-original-archive > summary::-webkit-details-marker{display:none}
+.seo-original-archive[open]{padding-bottom:17px}
+.seo-original-archive > .seo-structured{padding:0 19px}
+.seo-original-archive .seo-fancy-more{margin-top:19px}
+@media(max-width:650px){
+ .seo-import-more{width:100%;max-width:none}
+ .seo-original-archive > summary{padding:13px 14px;font-size:12.5px}
+ .seo-original-archive > .seo-structured{padding:0 12px}
+}
