@@ -190,8 +190,9 @@ export default function SimpleWorkspace(){
   const [session,setSession]=useState<Session|null>(null),[ready,setReady]=useState(false);
   const [member,setMember]=useState<Member|null>(null),[team,setTeam]=useState<Member[]>([]);
   const [tasks,setTasks]=useState<Task[]>([]),[notices,setNotices]=useState<Notice[]>([]);
-  const [seoPeople,setSeoPeople]=useState<{slug:string;member_id:string|null;display_name:string;brand:string}[]>([]);
+  const [seoPeople,setSeoPeople]=useState<{id:string;slug:string;member_id:string|null;display_name:string;brand:string}[]>([]);
   const [seoView,setSeoView]=useState<string|null>(null);
+  const [seoPending,setSeoPending]=useState<Record<string,number>>({});
   const [tab,setCurrentTab]=useState("all"),[reviewOnly,setReviewOnly]=useState(false);
   const [selected,setSelected]=useState<Task|null>(null),[creating,setCreating]=useState(false);
   const [showNotices,setShowNotices]=useState(false),[online,setOnline]=useState(false);
@@ -207,7 +208,7 @@ export default function SimpleWorkspace(){
   },[]);
   useEffect(()=>{if(!toast)return;const id=toastSerial.current;const timer=setTimeout(()=>{if(id===toastSerial.current)setToast("");},5500);return()=>clearTimeout(timer);},[toast]);
   useEffect(()=>{
-    if(!userId){setMember(null);setTeam([]);setTasks([]);setNotices([]);setSeoPeople([]);setSeoView(null);setSelected(null);return;}
+    if(!userId){setMember(null);setTeam([]);setTasks([]);setNotices([]);setSeoPeople([]);setSeoView(null);setSeoPending({});setSelected(null);return;}
     const prev=cache.get(userId);
     if(prev){setTasks(prev.tasks);setTeam(prev.team);setNotices(prev.notices);}
     try{setCurrentTab(sessionStorage.getItem("stc-simple-tab-"+userId)||"all");}catch{setCurrentTab("all");}
@@ -223,7 +224,7 @@ export default function SimpleWorkspace(){
       supabase.from("stc_tasks").select("*").is("deleted_at",null).order("updated_at",{ascending:false}).limit(1000),
       supabase.from("stc_members").select("*").eq("active",true),
       supabase.from("stc_notifications").select("*").order("created_at",{ascending:false}).limit(80),
-      supabase.from("stc_seo_profiles").select("slug,member_id,display_name,brand"),
+      supabase.from("stc_seo_profiles").select("id,slug,member_id,display_name,brand"),
     ]);
     if(activeUser.current!==userId)return;
     const error=t.error||p.error||n.error||sp.error;
@@ -240,6 +241,14 @@ export default function SimpleWorkspace(){
     });
     setMember(m.data);setTeam(p.data);setTasks(list);setNotices(visibleNotices);
     setSeoPeople(sp.data||[]);setErr("");
+    if(m.data.role==="manager"){
+      const pending=await supabase.from("stc_seo_metrics").select("profile_id,status").eq("status","pending_review");
+      if(activeUser.current===userId&&!pending.error){
+        const count:Record<string,number>={};
+        for(const item of pending.data||[])count[item.profile_id]=(count[item.profile_id]||0)+1;
+        setSeoPending(count);
+      }
+    }
     setSelected(prev=>prev?list.find(x=>x.id===prev.id)||null:null);
     cache.set(userId,{tasks:list,team:p.data,notices:visibleNotices});
   },[userId]);
@@ -248,6 +257,7 @@ export default function SimpleWorkspace(){
     if(!userId)return;
     const ch=supabase.channel("simple-"+userId)
       .on("postgres_changes",{event:"*",schema:"public",table:"stc_tasks"},()=>void refresh())
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_metrics"},()=>void refresh())
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"stc_notifications",filter:"recipient_id=eq."+userId},payload=>{
         const n=payload.new as Notice;
         const message=n.kind==="waiting_review"?"سلّم التاسك ومستني مراجعتك"
@@ -322,16 +332,26 @@ export default function SimpleWorkspace(){
           <span className="easy-review-copy"><strong>{reviewTasks.length?"في "+reviewTasks.length+" تاسك مستني مراجعتك":"مفيش حاجة مستنية مراجعتك دلوقتي"}</strong><small>{reviewTasks.length?"دوسي هنا عشان تراجعي وتوافقي":"لما حد يسلّم تاسك هتلاقيه هنا"}</small></span>
           <b>{reviewTasks.length}</b><ChevronLeft size={19}/>
         </button>
+        <div className="easy-department-heading">
+          <span className="easy-department-number">01</span>
+          <div><strong>قسم الـSEO ومواقع الشركة</strong>
+            <p>ساندرا ومحمد عمر · التارجت ومؤشرات الموقع وساعات الشغل منفصلة عن باقي التاسكات.</p></div>
+        </div>
         <div className="easy-seo-links" aria-label="فريق السيو">
-          <strong>فريق الـSEO</strong>
           <div>
             {seoPeople.map(p=><button type="button" key={p.slug} onClick={()=>setSeoView(p.slug)}>
-              <span>{p.display_name}</span><small>{p.brand} · التارجت وتقارير الشهور وساعات الشغل</small>
+              <span>{p.display_name}</span><small>{p.brand} · التارجت · تقرير اليوم · الاسكرينات</small>
+              {seoPending[p.id]>0&&<b className="easy-seo-pending">{seoPending[p.id]} مستني مراجعة</b>}
               <ChevronLeft size={18}/>
             </button>)}
           </div>
         </div>
-                <nav className="easy-tabs" aria-label="أسماء التيم">
+        <div className="easy-department-heading easy-department-heading--content">
+          <span className="easy-department-number">02</span>
+          <div><strong>قسم المحتوى والتصميم</strong>
+            <p>جرجس وفاطمة وإسراء · التاسكات المعتادة والتسليم والموافقة.</p></div>
+        </div>
+        <nav className="easy-tabs" aria-label="أسماء تيم المحتوى والتصميم">
           <button className={"easy-tab "+(tab==="all"&&!reviewOnly?"active":"")} onClick={()=>choose("all")}><ListTodo size={18}/> كل التيم <b>{tasks.length}</b></button>
           {people.map((p,i)=><button key={p.id} className={"easy-tab easy-tab--"+i+" "+(tab===p.id&&!reviewOnly?"active":"")} onClick={()=>choose(p.id)}><span>{first(p.display_name).charAt(0)}</span>{p.display_name}<b>{tasks.filter(t=>t.assignee_id===p.id).length}</b></button>)}
         </nav>
