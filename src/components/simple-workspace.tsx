@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, LogOut, MessageCircle, Pencil, Plus, Send, Trash2, X, CalendarDays, UserRound, AlertCircle, ListTodo, HardDrive } from "lucide-react";
 import { supabase, configured } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
+import { clearFlowLocation, getFlowLocation, setFlowLocation } from "@/lib/flow-location";
 import type { Task, Member, Notice, Attachment, Comment } from "@/lib/domain";
 import SeoWorkspace, { clearSeoDataCache } from "./seo-workspace";
 import StorageDashboard, { clearStorageManagerCache } from "./storage-dashboard";
@@ -204,6 +205,7 @@ export default function SimpleWorkspace(){
   const [err,setErr]=useState(""),[busy,setBusy]=useState(false);
   const activeUser=useRef<string|null>(null);
   const refreshSerial=useRef(0);
+  const pendingTaskId=useRef<string|null>(null);
   const userId=session?.user.id||null;
   const announce=useCallback((message:string)=>showToast(message,/اتمسح|اتمسحت|مسح|حذف/.test(message)?"delete":"success"),[]);
   useEffect(()=>{
@@ -218,7 +220,7 @@ export default function SimpleWorkspace(){
       clearStorageManagerCache();clearSeoDataCache();
       setMember(null);setTeam([]);setTasks([]);setNotices([]);
       setSeoPeople([]);setSeoView(null);setStorageView(false);setSeoPending({});
-      setSelected(null);return;
+      pendingTaskId.current=null;setSelected(null);return;
     }
     const prev=cache.get(userId);
     if(prev && Date.now()-prev.updatedAt<TASK_CACHE_TTL_MS){
@@ -227,8 +229,12 @@ export default function SimpleWorkspace(){
       setTasks([]);setNotices([]);setTeam([]);
       if(prev)cache.delete(userId);
     }
-    try{setCurrentTab(sessionStorage.getItem("stc-simple-tab-"+userId)||"all");}catch{setCurrentTab("all");}
-    setReviewOnly(false);
+    const last=getFlowLocation(userId);
+    setCurrentTab(last.view==="tasks"?(last.tab||"all"):"all");
+    setReviewOnly(last.view==="tasks"&&!!last.review);
+    pendingTaskId.current=last.view==="tasks"?last.task||null:null;
+    setSeoView(last.view==="seo"?last.person||null:null);
+    setStorageView(last.view==="storage");
   },[userId]);
   const refresh=useCallback(async()=>{
     if(!userId)return;
@@ -267,7 +273,11 @@ export default function SimpleWorkspace(){
       }
     }
     if(activeUser.current!==userId||serial!==refreshSerial.current)return;
-    setSelected(prev=>prev?list.find(x=>x.id===prev.id)||null:null);
+    setSelected(prev=>{
+      const id=prev?.id||pendingTaskId.current;
+      pendingTaskId.current=null;
+      return id?list.find(x=>x.id===id)||null:null;
+    });
     cache.set(userId,{tasks:list,team:p.data,notices:visibleNotices,updatedAt:Date.now()});
   },[userId]);
   useEffect(()=>{void refresh();},[refresh]);
@@ -313,11 +323,39 @@ export default function SimpleWorkspace(){
   const reviewTasks=tasks.filter(t=>t.status==="waiting_review");
   const visible=tasks.filter(t=>(!manager||tab==="all"||t.assignee_id===tab)&&(!reviewOnly||t.status==="waiting_review"));
   const unread=notices.filter(n=>!n.read_at).length;
-  function choose(id:string,review=false){setCurrentTab(id);setReviewOnly(review);if(userId)try{sessionStorage.setItem("stc-simple-tab-"+userId,id);}catch{}}
+  function choose(id:string,review=false){
+    setCurrentTab(id);setReviewOnly(review);
+    if(userId){
+      setFlowLocation(userId,{view:"tasks",tab:id,review}, "push");
+      try{sessionStorage.setItem("stc-simple-tab-"+userId,id);}catch{}
+    }
+  }
+  function openTask(task:Task){
+    setSelected(task);
+    if(userId)setFlowLocation(userId,{view:"tasks",tab,review:reviewOnly,task:task.id},"push");
+  }
+  function closeTask(){
+    setSelected(null);pendingTaskId.current=null;
+    if(userId)setFlowLocation(userId,{view:"tasks",tab,review:reviewOnly});
+  }
+  function enterSeo(slug:string){
+    setSeoView(slug);setStorageView(false);
+    if(userId)setFlowLocation(userId,{view:"seo",person:slug},"push");
+  }
+  function enterStorage(){
+    setStorageView(true);setSeoView(null);
+    if(userId)setFlowLocation(userId,{view:"storage"},"push");
+  }
+  function returnToTasks(){
+    setSeoView(null);setStorageView(false);
+    if(userId)setFlowLocation(userId,{view:"tasks",tab,review:reviewOnly},"push");
+    void refresh();
+  }
   async function logout(){
     const id=userId;const r=await supabase.auth.signOut();
     if(r.error){setErr(r.error.message);return;}
     refreshSerial.current++;
+    clearFlowLocation(id);
     cache.clear();clearStorageManagerCache();clearSeoDataCache();
     setStorageView(false);setSeoView(null);
     if(id)cache.delete(id);setMember(null);setTasks([]);setTeam([]);setNotices([]);
@@ -326,9 +364,24 @@ export default function SimpleWorkspace(){
     const r=await supabase.from("stc_notifications").update({read_at:new Date().toISOString()}).eq("id",n.id);
     if(r.error){setErr(r.error.message);showToast(r.error.message,"error");return;}
     const task=tasks.find(x=>x.id===n.task_id);
-    if(task){setSelected(task);setShowNotices(false);}
+    if(task){openTask(task);setShowNotices(false);}
     await refresh();
   }
+  useEffect(()=>{
+    if(!userId)return;
+    const pop=()=>{
+      const saved=getFlowLocation(userId);
+      setStorageView(saved.view==="storage");
+      setSeoView(saved.view==="seo"?saved.person||null:null);
+      setCurrentTab(saved.view==="tasks"?saved.tab||"all":"all");
+      setReviewOnly(saved.view==="tasks"&&!!saved.review);
+      const id=saved.view==="tasks"?saved.task:null;
+      setSelected(id?tasks.find(t=>t.id===id)||null:null);
+      if(id&&!tasks.some(t=>t.id===id))pendingTaskId.current=id;
+    };
+    window.addEventListener("popstate",pop);
+    return()=>window.removeEventListener("popstate",pop);
+  },[userId,tasks]);
   const assignedSeo=seoPeople.find(p=>p.member_id===member?.id)?.slug||null;
   if(!ready)return <div className="easy-loading">بنفتح مساحة الشغل…</div>;
   if(!session)return <main className="easy-login" dir="rtl">
@@ -346,15 +399,15 @@ export default function SimpleWorkspace(){
     </section>
   </main>;
   if(member&&manager&&storageView)return <StorageDashboard userId={member.id}
-    onBack={()=>{setStorageView(false);void refresh();}}/>;
-  if(member&&(seoView||assignedSeo))return <SeoWorkspace
-    key={seoView||assignedSeo||""} slug={seoView||assignedSeo||""} member={member}
-    onBack={() => {if(manager)setSeoView(null);else void logout();}}
+    onBack={returnToTasks}/>;
+  if(member&&((manager&&seoView)||assignedSeo))return <SeoWorkspace
+    key={(manager?seoView:assignedSeo)||""} slug={(manager?seoView:assignedSeo)||""} member={member}
+    onBack={() => {if(manager)returnToTasks();else void logout();}}
   />;
   return <div className="easy-shell" dir="rtl">
     <header className="easy-header"><div className="easy-brand"><Image src="/stc-logo.png" width={112} height={62} alt="STC"/><div><strong>Marketing Flow</strong><small>{manager?"متابعة شغل التيم":"تاسكاتي"}</small></div></div>
       <div className="easy-header-buttons"><span className={online?"easy-online":"easy-offline"}>{online?"متصل":"بيوصل…"}</span>
-        {manager&&<button type="button" className="easy-storage-entry" onClick={()=>setStorageView(true)}
+        {manager&&<button type="button" className="easy-storage-entry" onClick={enterStorage}
           title="متابعة استهلاك Supabase Storage"><HardDrive size={18}/><span>التخزين والملفات</span></button>}
         <button className="easy-icon easy-bell" onClick={()=>setShowNotices(v=>!v)} aria-label="الإشعارات" title="الإشعارات"><Bell size={21}/>{unread>0&&<i>{unread}</i>}</button>
         <button className="easy-icon easy-logout" onClick={()=>void logout()} title="خروج"><LogOut size={19}/><span>خروج</span></button>
@@ -380,7 +433,7 @@ export default function SimpleWorkspace(){
         </div>
         <div className="easy-seo-links" aria-label="فريق السيو">
           <div>
-            {seoPeople.map(p=><button type="button" key={p.slug} onClick={()=>setSeoView(p.slug)}>
+            {seoPeople.map(p=><button type="button" key={p.slug} onClick={()=>enterSeo(p.slug)}>
               <span>{p.display_name}</span><small>{p.brand} · التارجت · تقرير اليوم · الاسكرينات</small>
               {seoPending[p.id]>0&&<b className="easy-seo-pending">{seoPending[p.id]} مستني مراجعة</b>}
               <ChevronLeft size={18}/>
@@ -401,7 +454,7 @@ export default function SimpleWorkspace(){
       <div className="easy-section-heading"><h2>{reviewOnly?"مستنية مراجعتك":manager?(tab==="all"?"كل التاسكات":"تاسكات "+(people.find(p=>p.id===tab)?.display_name||"التيم")):"التاسكات بتاعتك"} <span>{visible.length}</span></h2>
         <p>{reviewOnly?"راجعي أي كارت واضغطي موافقة أو رجّعيه للتعديل.":"كل كارت فيه المطلوب وحالة التاسك وميعاد التسليم."}</p>
       </div>
-      <div className="easy-grid">{visible.map(task=><Tile key={task.id} task={task} manager={!!manager} who={people.find(p=>p.id===task.assignee_id)?.display_name} open={()=>setSelected(task)}/>)}</div>
+      <div className="easy-grid">{visible.map(task=><Tile key={task.id} task={task} manager={!!manager} who={people.find(p=>p.id===task.assignee_id)?.display_name} open={()=>openTask(task)}/>)}</div>
       {!visible.length&&<div className="easy-empty"><ListTodo size={34}/><h3>{reviewOnly?"مفيش تاسكات مستنية مراجعتك ✨":manager?"لسه مفيش تاسكات هنا":"لسه مفيش تاسكات عندك"}</h3><p>{reviewOnly?"كل التسليمات متراجعة دلوقتي.":manager?"ابعتِ تاسك جديد وهيظهر هنا.":"أول ما ناردين تبعتلك تاسك هتلاقيه هنا."}</p></div>}
     </main>
     {showNotices&&<aside className="easy-notifications"><div className="easy-notification-top"><strong>الإشعارات {unread>0?"("+unread+" جديد)":""}</strong><button className="easy-icon" onClick={()=>setShowNotices(false)}><X size={18}/></button></div>
@@ -409,7 +462,7 @@ export default function SimpleWorkspace(){
       {notices.map(n=><button key={n.id} className={"easy-notification "+(!n.read_at?"unread":"")} onClick={()=>void clickNotice(n)}><b>{n.kind==="waiting_review"?"تاسك مستني مراجعتك":n.kind==="approved"?"التاسك اتعمد ✓":n.kind==="changes_requested"?"مطلوب تعديل":n.kind==="deleted"?"التاسك اتمسح":n.kind==="updated"?"التاسك اتعدل":"تحديث جديد"}</b><span>{n.actor_name?n.actor_name+" · ":""}{n.task_title||tasks.find(t=>t.id===n.task_id)?.title||"تاسك"}</span><small>{new Date(n.created_at).toLocaleString("ar-EG",{timeZone:"Africa/Cairo"})}</small></button>)}
       {unread>0&&<button className="easy-read-all" onClick={()=>void(async()=>{const r=await supabase.from("stc_notifications").update({read_at:new Date().toISOString()}).is("read_at",null);if(r.error)setErr(r.error.message);else await refresh();})()}><CheckCheck size={17}/> علّمي الكل مقروء</button>}
     </aside>}
-    {selected&&member&&<TaskDialog task={selected} member={member} team={team} close={()=>setSelected(null)} refresh={refresh} notify={announce}/>}
+    {selected&&member&&<TaskDialog task={selected} member={member} team={team} close={closeTask} refresh={refresh} notify={announce}/>}
     {creating&&<CreateDialog people={people} initial={tab} close={()=>setCreating(false)} refresh={refresh} notify={announce}/>}
   </div>;
 }
