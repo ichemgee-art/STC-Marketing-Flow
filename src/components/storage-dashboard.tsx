@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Archive, ArrowRight, Cloud, Database, Download, File, FileImage, FileSpreadsheet, Folder, HardDrive, Image as ImageIcon, RefreshCw, Search, ShieldCheck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import BrandLockup from "./brand-lockup";
 import "./storage-dashboard.css";
 
 type StorageBucket = {
@@ -150,7 +151,7 @@ export default function StorageDashboard({userId,onBack}:{
 
   return <div className="storage-screen" dir="rtl">
     <header className="storage-top">
-      <div className="storage-title-icon"><HardDrive size={24}/></div>
+      <BrandLockup size="compact"/>
       <div className="storage-top-copy"><strong>التخزين والملفات</strong><small>لوحة ناردين · Supabase Storage</small></div>
       <button type="button" className="storage-back" onClick={onBack}><ArrowRight size={18}/> رجوع للتيم</button>
     </header>

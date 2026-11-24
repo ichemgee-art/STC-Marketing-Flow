@@ -10,6 +10,7 @@ import {
 import type { Member } from "@/lib/domain";
 import { supabase } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
+import BrandLockup from "./brand-lockup";
 import "./media-buyer-workspace.css";
 
 type Profile={id:string;slug:string;display_name:string;member_id:string|null};
@@ -388,7 +389,7 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
  const budgetPct=plannedBudget>0?Math.max(0,Math.min(100,summary.spent/plannedBudget*100)):0;
  const todayAlready=selectedCampaign?campaignReports.find(r=>r.report_date===today()):null;
  return <div className="media-workspace" dir="rtl">
-  <header className="media-topbar"><div className="media-topbar-mark"><Megaphone size={22}/></div>
+  <header className="media-topbar"><BrandLockup size="compact"/>
    <div className="media-topbar-name"><strong>Media Buying</strong>
     <small>STC Marketing Flow · Ahmed El Kholy</small></div>
    <div className="media-topbar-actions">

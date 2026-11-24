@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
+import BrandLockup from "./brand-lockup";
 import type { Session } from "@supabase/supabase-js";
 import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, LogOut, MessageCircle, Pencil, Plus, Send, Trash2, X, CalendarDays, UserRound, AlertCircle, ListTodo, HardDrive, Sparkles, Filter, History, Megaphone } from "lucide-react";
 import { supabase, configured } from "@/lib/supabase";
@@ -477,7 +477,7 @@ export default function SimpleWorkspace(){
   const assignedMedia=mediaPeople.some(p=>p.member_id===member?.id);
   if(!ready)return <div className="easy-loading">بنفتح مساحة الشغل…</div>;
   if(!session)return <main className="easy-login" dir="rtl">
-    <div className="easy-login-brand"><Image src="/stc-logo.png" width={175} height={110} priority alt="STC"/><h1>شغلنا كله في مكان واحد.</h1><p>ناردين تبعت التاسك، تخلصه، وهي تراجعه وتوافق عليه.</p></div>
+    <div className="easy-login-brand"><BrandLockup size="large"/><h1>شغلنا كله في مكان واحد.</h1><p>ناردين تبعت التاسك، تخلصه، وهي تراجعه وتوافق عليه.</p></div>
     <section className="easy-login-form"><span className="easy-eyebrow">STC MARKETING FLOW</span><h2>أهلاً بيك 👋</h2><p>سجّل دخول عشان تشوف التاسكات بتاعتك.</p>
       <form className="easy-form" onSubmit={e=>{
         e.preventDefault();const f=new FormData(e.currentTarget);
@@ -500,7 +500,7 @@ export default function SimpleWorkspace(){
     onBack={() => {if(manager)returnToTasks();else void logout();}}
   />;
   return <div className="easy-shell" dir="rtl">
-    <header className="easy-header"><div className="easy-brand"><Image src="/stc-logo.png" width={112} height={62} alt="STC"/><div><strong>Marketing Flow</strong><small>{manager?"متابعة شغل التيم":"تاسكاتي"}</small></div></div>
+    <header className="easy-header"><div className="easy-brand"><BrandLockup/><div><strong>Marketing Flow</strong><small>{manager?"متابعة شغل التيم":"تاسكاتي"}</small></div></div>
       <div className="easy-header-buttons"><span className={online?"easy-online":"easy-offline"}>{online?"متصل":"بيوصل…"}</span>
         {manager&&<button type="button" className="easy-storage-entry" onClick={enterStorage}
           title="متابعة استهلاك Supabase Storage"><HardDrive size={18}/><span>التخزين والملفات</span></button>}

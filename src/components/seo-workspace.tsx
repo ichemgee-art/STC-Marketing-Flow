@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import BrandLockup from "./brand-lockup";
 import { Activity, ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileSpreadsheet, ImageIcon, Maximize2, Plus, Target, UploadCloud, Download, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
@@ -398,7 +399,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const chart = slug==="sandra" ? "iChem" : "STC";
   return <div className="seo-shell" dir="rtl">
     <header className="seo-topbar">
-      <div className="seo-brand"><Image src="/stc-logo.png" alt="STC" width={105} height={59}/><div><strong>{label} · SEO</strong><small>{chart} — {profile?.site_url||"SEO"}</small></div></div>
+      <div className="seo-brand"><BrandLockup size="compact"/><div><strong>{label} · SEO</strong><small>{chart} — {profile?.site_url||"SEO"}</small></div></div>
       <button type="button" onClick={onBack} className="seo-back"><ArrowRight size={18}/>{manager?"رجوع للتيم":"خروج"}</button>
     </header>
     <main className="seo-main">
