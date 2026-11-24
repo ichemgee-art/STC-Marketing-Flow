@@ -8,6 +8,7 @@ type Props = {
   links: Record<string, string>;
   comments: Record<string, string>;
   quarter?: boolean;
+  mode?: "all" | "summary" | "archive";
 };
 type Item = { label: string; values: { heading: string; value: string; href?: string; note?: string }[]; row: number };
 function colNumber(address: string) {
@@ -44,7 +45,7 @@ function RowCard({item,kind}: {item: Item;kind: "plan"|"metric"|"research"}) {
     </div>
   </article>;
 }
-export default function SeoSourceCards({cells,links,comments,quarter}:Props) {
+export default function SeoSourceCards({cells,links,comments,quarter,mode="all"}:Props) {
   const [expand,setExpand]=useState(false);
   const [showResearch,setShowResearch]=useState(false);
   const [query,setQuery]=useState("");
@@ -105,22 +106,22 @@ export default function SeoSourceCards({cells,links,comments,quarter}:Props) {
   },[cells,links,comments,quarter]);
   const contains=(item:Item)=>!query.trim()||(item.label+" "+item.values.map(v=>v.value).join(" ")).toLowerCase().includes(query.trim().toLowerCase());
   return <div className="seo-structured">
-    <section className="seo-fancy-section">
+    {(mode!=="summary")&&<section className="seo-fancy-section">
       <div className="seo-fancy-section__heading"><span className="seo-section-emblem"><Target size={20}/></span>
         <div><h2>{quarter?"مقارنة الـ3 شهور":"الخطة والتارجت اللي في الشيت"}</h2><p>كل عنصر متعرض في كارت منفصل بدل جدول الإكسيل. الأرقام هي اللي كانت مكتوبة فعلًا.</p></div>
         <span className="seo-count-tag">{(quarter?extracted.research:extracted.plan).length} عنصر</span>
       </div>
       <div className="seo-fancy-grid">{(quarter?extracted.research:extracted.plan).filter(contains).map(item=><RowCard key={item.row} item={item} kind="plan"/>)}</div>
       {(quarter?extracted.research:extracted.plan).length===0&&<div className="seo-no-records">مش متسجل تارجت واضح في الجزء ده من الشيت.</div>}
-    </section>
-    {!quarter&&<section className="seo-fancy-section">
+    </section>}
+    {!quarter&&mode!=="archive"&&<section className="seo-fancy-section">
       <div className="seo-fancy-section__heading"><span className="seo-section-emblem seo-section-emblem--blue"><BarChart3 size={20}/></span>
         <div><h2>نتايج الموقع وSEO Performance</h2><p>الـKPIs الموجودة في المصدر، من غير افتراض إن الخانات الفاضية = صفر.</p></div>
         <span className="seo-count-tag">{extracted.metric.length} مؤشر</span>
       </div>
       <div className="seo-fancy-grid seo-fancy-grid--metric">{extracted.metric.filter(contains).map(item=><RowCard key={item.row} item={item} kind="metric"/>)}</div>
     </section>}
-    {!quarter&&extracted.research.length>0&&<section className="seo-fancy-section">
+    {!quarter&&mode!=="summary"&&extracted.research.length>0&&<section className="seo-fancy-section">
       <div className="seo-fancy-section__heading"><span className="seo-section-emblem seo-section-emblem--purple"><BookOpen size={20}/></span>
         <div><h2>التحليل والكلمات والملاحظات</h2><p>المصادر والتفاصيل الموجودة في الشيت الأصلي.</p></div>
         <span className="seo-count-tag">{extracted.research.length} سجل</span>
@@ -130,7 +131,7 @@ export default function SeoSourceCards({cells,links,comments,quarter}:Props) {
         {showResearch?"اعرض تفاصيل أقل":"اعرض باقي سجلات التحليل ("+(extracted.research.filter(contains).length-6)+")"}
       </button>}
     </section>}
-    <section className="seo-fancy-more">
+    {mode!=="summary"&&<section className="seo-fancy-more">
       <button type="button" onClick={()=>setExpand(x=>!x)} aria-expanded={expand}>
         <FileText size={17}/>{expand?"اقفل باقي تفاصيل التقرير":"شوف باقي التفاصيل الأصلية اللي في التقرير"}
         <ChevronDown size={16}/>
@@ -142,6 +143,6 @@ export default function SeoSourceCards({cells,links,comments,quarter}:Props) {
         <div className="seo-fancy-grid">{extracted.remaining.filter(contains).map(item=><RowCard key={item.row} item={item} kind="research"/>)}</div>
         {!extracted.remaining.length&&<p className="seo-no-records"><CheckCircle2 size={17}/> كل التفاصيل اتوزعت على البطاقات فوق.</p>}
       </div>}
-    </section>
+    </section>}
   </div>;
 }
