@@ -260,8 +260,8 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         <div>
           <strong>{manager?"لوحة متابعة ناردين":"دي مساحة شغلك"}</strong>
           <p>{manager
-            ?"حدّدي التارجت من أول تاب، وراجعي الأرقام اللي مستنية موافقتك من «مؤشرات الموقع». الساعات والاسكرينات كل واحدة في مكانها."
-            :"التارجت اللي ناردين حطّته هتلاقيه في أول تاب. سجّل Done وارفَع الاسكرينات، وسجّل شغلك يوم بيوم. آخر الشهر ابعت نتايج الموقع."}</p>
+            ?"حدّدي تارجت الشغل في أول تاب. في «مؤشرات الموقع» الموظف بيدخل أرقام قبل وبعد، وانتي بتراجعيها وتوافقي عليها. الساعات والاسكرينات كل واحدة في مكانها."
+            :"التارجت اللي ناردين حطّته هتلاقيه في أول تاب. سجّل Done وارفَع الاسكرينات، وسجّل شغلك يوم بيوم. آخر الشهر اكتب رقمي قبل وبعد لكل مؤشر وابعتهم للمراجعة."}</p>
         </div>
       </div>
       {manager&&<div className="seo-month-manager">
@@ -304,7 +304,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
           <span className="seo-action-tabs__num">1</span><Target size={20}/><span>التارجت والـDone<small>{manager?"حددي المطلوب":"سجّل اللي خلّصته"}</small></span>
         </button>
         <button className={section==="metrics"?"selected":""} onClick={()=>chooseSection("metrics")}>
-          <span className="seo-action-tabs__num">2</span><Activity size={20}/><span>مؤشرات الموقع<small>{manager?"حددي التارجت وراجعي":"ابعت نتايج الشهر"}</small></span>
+          <span className="seo-action-tabs__num">2</span><Activity size={20}/><span>مؤشرات الموقع<small>{manager?"راجعي أرقام قبل وبعد":"اكتب قبل وبعد"}</small></span>
         </button>
         <button className={section==="daily"?"selected":""} onClick={()=>chooseSection("daily")}>
           <span className="seo-action-tabs__num">3</span><Clock3 size={20}/><span>التقرير اليومي<small>الساعات والشغل</small></span>
