@@ -14,6 +14,9 @@ const cairoToday=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Cairo",ye
 const formatTime=(minutes:number)=>String(Math.floor(minutes/60)).padStart(2,"0")+":"+String(minutes%60).padStart(2,"0");
 const asMinutes=(value:string)=>{const [hours,minutes]=value.split(":").map(Number);return hours*60+minutes;};
 const timeLabel=(m:number)=>Math.floor(m/60)+" ساعة"+(m%60?" و"+m%60+" دقيقة":"");
+const dailyMemory=new Map<string,{at:number;targets:SeoTarget[];progress:SeoProgress[]}>();
+export function clearSeoDailyMemory(){dailyMemory.clear();}
+
 
 export default function SeoDailyReport({
   profileId, member, monthKey, entries, onRefresh, onNotice, onError,
@@ -22,6 +25,9 @@ export default function SeoDailyReport({
   onRefresh:()=>Promise<void>; onNotice:(message:string)=>void; onError:(message:string)=>void;
 }) {
   const manager=member.role==="manager";
+  const cacheKey=member.id+":"+profileId+":"+monthKey;
+  const recent=dailyMemory.get(cacheKey);
+  const warm=recent&&Date.now()-recent.at<120_000?recent:null;
   const [date,setDate]=useState(()=>{
     const now=cairoToday();
     return monthKey&&now.startsWith(monthKey+"-")?now:monthKey?monthKey+"-01":now;
@@ -30,24 +36,39 @@ export default function SeoDailyReport({
   const [end,setEnd]=useState("17:00");
   const [activity,setActivity]=useState("");
   const [saving,setSaving]=useState(false);
-  const [targets,setTargets]=useState<SeoTarget[]>([]);
-  const [progress,setProgress]=useState<SeoProgress[]>([]);
+  const [targets,setTargets]=useState<SeoTarget[]>(()=>warm?.targets||[]);
+  const [progress,setProgress]=useState<SeoProgress[]>(()=>warm?.progress||[]);
   const load=useCallback(async()=>{
     const t=await supabase.from("stc_seo_targets").select("*").eq("profile_id",profileId);
     if(t.error){onError(t.error.message);return;}
-    setTargets(t.data as SeoTarget[]);
-    if(!t.data.length){setProgress([]);return;}
+    if(!t.data.length){
+      setTargets([]);setProgress([]);
+      dailyMemory.set(cacheKey,{at:Date.now(),targets:[],progress:[]});
+      return;
+    }
     const p=await supabase.from("stc_seo_progress").select("*")
       .in("target_id",t.data.map(item=>item.id)).order("work_date",{ascending:false}).limit(1000);
     if(p.error){onError(p.error.message);return;}
-    setProgress(p.data as SeoProgress[]);
-  },[profileId,onError]);
+    const allTargets=t.data as SeoTarget[],allProgress=p.data as SeoProgress[];
+    dailyMemory.set(cacheKey,{at:Date.now(),targets:allTargets,progress:allProgress});
+    setTargets(allTargets);setProgress(allProgress);
+  },[profileId,onError,cacheKey]);
   useEffect(()=>{void load();},[load]);
   useEffect(()=>{
     const channel=supabase.channel("seo-daily-"+profileId)
       .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_progress"},()=>void load())
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_targets"},()=>void load())
       .subscribe();
-    return()=>{void supabase.removeChannel(channel);};
+    const resume=()=>{if(document.visibilityState==="visible")void load();};
+    const interval=setInterval(()=>{if(document.visibilityState==="visible")void load();},60000);
+    window.addEventListener("focus",resume);
+    document.addEventListener("visibilitychange",resume);
+    return()=>{
+      clearInterval(interval);
+      window.removeEventListener("focus",resume);
+      document.removeEventListener("visibilitychange",resume);
+      void supabase.removeChannel(channel);
+    };
   },[profileId,load]);
   const monthEntries=entries.filter(e=>!monthKey||e.work_date.startsWith(monthKey+"-"));
   const days=useMemo(()=>[...new Set([date,...monthEntries.map(e=>e.work_date),...progress.filter(e=>!monthKey||e.work_date.startsWith(monthKey+"-")).map(e=>e.work_date)])].sort().reverse(),[date,monthEntries,progress,monthKey]);
