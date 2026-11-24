@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Activity, ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileSpreadsheet, ImageIcon, Maximize2, Plus, Target, UploadCloud, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -25,6 +25,11 @@ type Asset = {
 };
 type Hours = { id: string; profile_id: string; work_date: string; start_minutes: number; end_minutes: number; activities: string; created_by: string };
 type Entry = { address: string; value: string; row: number; column: number; link?: string; comment?: string };
+type SeoCacheEntry = { at:number;profile:Profile;periods:Period[];hours:Hours[];selectedId:string|null };
+const seoMemory = new Map<string,SeoCacheEntry>();
+const SEO_CACHE_TTL=120_000;
+export function clearSeoDataCache(){seoMemory.clear();}
+
 function sheetColumn(ref: string) {
   const name = ref.match(/^[A-Z]+/)?.[0] ?? "";
   let v = 0;
@@ -54,11 +59,17 @@ function hoursText(min: number) { return Math.floor(min / 60) + " ساعة" + (m
 
 export default function SeoWorkspace({slug,member,onBack}: {slug: string;member: Member;onBack:()=>void}) {
   const manager=member.role === "manager";
-  const [profile,setProfile]=useState<Profile|null>(null);
-  const [periods,setPeriods]=useState<Period[]>([]);
+  const seoCacheKey=member.id+":"+slug;
+  const cached=seoMemory.get(seoCacheKey);
+  const warm=cached && Date.now()-cached.at<SEO_CACHE_TTL?cached:null;
+  const [profile,setProfile]=useState<Profile|null>(()=>warm?.profile||null);
+  const [periods,setPeriods]=useState<Period[]>(()=>warm?.periods||[]);
   const [assets,setAssets]=useState<Asset[]>([]);
-  const [log,setLog]=useState<Hours[]>([]);
-  const [selected,setSelected]=useState<string|null>(null);
+  const [log,setLog]=useState<Hours[]>(()=>warm?.hours||[]);
+  const [selected,setSelected]=useState<string|null>(()=>warm?.selectedId||null);
+  const mounted=useRef(true);
+  const refreshSerial=useRef(0);
+  const assetsSerial=useRef(0);
   const [section,setSection]=useState<"targets"|"metrics"|"daily"|"evidence"|"archive">("targets");
   const [snapshot,setSnapshot]=useState({total:0,completed:0,pending:0,approved:0});
   const [newMonth,setNewMonth]=useState("");
@@ -71,17 +82,27 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const [uploading,setUploading]=useState(false);
   const [toast,setToast]=useState("");
   const [error,setError]=useState("");
+  useEffect(()=>{
+    mounted.current=true;
+    return()=>{mounted.current=false;refreshSerial.current++;assetsSerial.current++;};
+  },[]);
   const refresh=useCallback(async()=>{
+    const serial=++refreshSerial.current;
     const p=await supabase.from("stc_seo_profiles").select("*").eq("slug",slug).single();
+    if(serial!==refreshSerial.current||!mounted.current)return;
     if(p.error || !p.data){setError(p.error?.message||"مش لاقيين حساب الشخص ده.");return;}
     setProfile(p.data);
     const [periodsRes,logsRes]=await Promise.all([
       supabase.from("stc_seo_periods").select("*").eq("profile_id",p.data.id).order("month_key",{ascending:false}),
       supabase.from("stc_seo_hours").select("*").eq("profile_id",p.data.id).order("work_date",{ascending:false}).limit(1000),
     ]);
+    if(serial!==refreshSerial.current||!mounted.current)return;
     if(periodsRes.error||logsRes.error){setError((periodsRes.error||logsRes.error)?.message||"في مشكلة في تحميل البيانات.");return;}
     setPeriods(periodsRes.data||[]);
     setLog(logsRes.data||[]);
+    const stored=seoMemory.get(seoCacheKey);
+    seoMemory.set(seoCacheKey,{at:Date.now(),profile:p.data,periods:periodsRes.data||[],
+      hours:logsRes.data||[],selectedId:stored?.selectedId||null});
     setSelected(old=>{
       if(old&&(periodsRes.data||[]).some(p=>p.id===old))return old;
       let remembered="";
@@ -90,8 +111,30 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       return periodsRes.data?.find(p=>p.period_kind==="month")?.id||periodsRes.data?.[0]?.id||null;
     });
     setError("");
-  },[slug,member.id]);
+  },[slug,member.id,seoCacheKey]);
   useEffect(()=>{void refresh();},[refresh]);
+  useEffect(()=>{
+    const onResume=()=>{if(document.visibilityState==="visible")void refresh();};
+    const onNet=()=>void refresh();
+    window.addEventListener("focus",onResume);
+    window.addEventListener("online",onNet);
+    document.addEventListener("visibilitychange",onResume);
+    const timer=setInterval(()=>{if(document.visibilityState==="visible")void refresh();},60000);
+    return()=>{
+      clearInterval(timer);
+      window.removeEventListener("focus",onResume);
+      window.removeEventListener("online",onNet);
+      document.removeEventListener("visibilitychange",onResume);
+    };
+  },[refresh]);
+  useEffect(()=>{
+    if(!profile)return;
+    const changes=supabase.channel("seo-base-"+member.id+"-"+profile.id)
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_hours"},()=>void refresh())
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_periods"},()=>void refresh())
+      .subscribe(state=>{if(state==="SUBSCRIBED")void refresh();});
+    return()=>{void supabase.removeChannel(changes);};
+  },[member.id,profile?.id,refresh]);
   const period = periods.find(p=>p.id===selected)||null;
   useEffect(()=>{
     try{
@@ -106,6 +149,8 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   }
   function chooseMonth(id:string){
     setSelected(id);setZoom(null);setUploadTarget("");
+    const entry=seoMemory.get(seoCacheKey);
+    if(entry)seoMemory.set(seoCacheKey,{...entry,selectedId:id});
     try{sessionStorage.setItem("stc-seo-month-"+member.id+"-"+slug,id);}catch{}
   }
   const loadSnapshot=useCallback(async()=>{
@@ -155,8 +200,10 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   },[profile?.id,period?.id,period?.month_key,period?.period_kind]);
   const entries=useMemo(()=>period?asEntries(period):[],[period]);
   const loadScreenshots=useCallback(async(periodId:string)=>{
+    const serial=++assetsSerial.current;
     const r=await supabase.from("stc_seo_assets").select("*")
       .eq("period_id",periodId).order("position_index");
+    if(serial!==assetsSerial.current||!mounted.current)return;
     if(r.error){setError(r.error.message);return;}
     const items=(r.data||[]) as Asset[];
     setAssets(items);
@@ -164,6 +211,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     if(items.length===0){setSigned({});return;}
     const response=await supabase.storage.from("stc-seo-evidence")
       .createSignedUrls(items.map(a=>a.object_path),3600);
+    if(serial!==assetsSerial.current||!mounted.current)return;
     if(response.error){setError("مش قادرين نفتح صور التقرير: "+response.error.message);setSigned({});return;}
     const urls:Record<string,string>={};
     items.forEach((asset,i)=>{
@@ -173,10 +221,26 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     setSigned(urls);
   },[]);
   useEffect(()=>{
-    if(!period){setAssets([]);setSigned({});return;}
+    if(!period){assetsSerial.current++;setAssets([]);setSigned({});return;}
+    assetsSerial.current++;
     setAssets([]);setSigned({});
     void loadScreenshots(period.id);
-  },[period?.id,loadScreenshots]);
+    const listen=supabase.channel("seo-assets-"+member.id+"-"+period.id)
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_assets",
+        filter:"period_id=eq."+period.id},()=>void loadScreenshots(period.id))
+      .subscribe(state=>{if(state==="SUBSCRIBED")void loadScreenshots(period.id);});
+    const onResume=()=>{if(document.visibilityState==="visible")void loadScreenshots(period.id);};
+    const timer=setInterval(()=>{if(document.visibilityState==="visible")void loadScreenshots(period.id);},180000);
+    window.addEventListener("focus",onResume);
+    document.addEventListener("visibilitychange",onResume);
+    return()=>{
+      assetsSerial.current++;
+      clearInterval(timer);
+      window.removeEventListener("focus",onResume);
+      document.removeEventListener("visibilitychange",onResume);
+      void supabase.removeChannel(listen);
+    };
+  },[period?.id,loadScreenshots,member.id]);
   useEffect(()=>{
     if(!toast)return;
     const id=setTimeout(()=>setToast(""),4200);
@@ -192,6 +256,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       const payload=await res.json();
       if(!res.ok)throw new Error(payload.error||"الرفع فشل.");
       await refresh();
+      window.dispatchEvent(new Event("stc:storage-changed"));
       setToast("اتحفظ " + payload.sheets + " شيت ومعاهم " + payload.totalImages + " اسكرين. تقدري تفتحيهم جوه السيستم.");
     }catch(e){setError(e instanceof Error?e.message:"حصلت مشكلة في رفع الشيت.");}
     finally{setUploading(false);}
@@ -231,6 +296,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       });
       if(added.error)throw added.error;
       await loadScreenshots(period.id);
+      window.dispatchEvent(new Event("stc:storage-changed"));
       setToast("الاسكرين اتحفظت، وتقدر تفتحها كبيرة من جوه السيستم.");
     }catch(e){setError(e instanceof Error?e.message:"حصلت مشكلة في رفع الاسكرين.");}
     finally{setUploadingShot(false);}
