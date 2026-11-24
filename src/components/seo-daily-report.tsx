@@ -79,6 +79,7 @@ export default function SeoDailyReport({
     finally {setSaving(false);}
   }
   async function removeHours(id:string){
+    if(manager){onError("حساب ناردين للمتابعة، مش لتسجيل أو مسح ساعات الموظف.");return;}
     if(!window.confirm("متأكد إنك عايز تمسح فترة الساعات دي؟"))return;
     const r=await supabase.from("stc_seo_hours").delete().eq("id",id);
     if(r.error)onError(r.error.message);
@@ -116,7 +117,7 @@ export default function SeoDailyReport({
           <div className="seo-daily-time">{formatTime(row.start_minutes)} – {formatTime(row.end_minutes)}
             <small>{timeLabel(row.end_minutes-row.start_minutes)}</small></div>
           <p>{row.activities}</p>
-          {(manager||row.created_by===member.id)&&<button type="button" onClick={()=>void removeHours(row.id)} aria-label="امسح الفترة"><Trash2 size={16}/></button>}
+          {!manager&&row.created_by===member.id&&<button type="button" onClick={()=>void removeHours(row.id)} aria-label="امسح الفترة"><Trash2 size={16}/></button>}
         </article>)}</div>
       </div>
       <div className="seo-daily-block">
