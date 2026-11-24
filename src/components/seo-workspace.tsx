@@ -408,7 +408,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         </div>
         <div className="seo-month-evidence"><ImageIcon size={20}/><strong>{assets.length}</strong><span>اسكرين محفوظة</span></div>
       </div>}
-      {period&&<div className="seo-overview-strip">
+      {period&&period.month_key>="2026-11"&&<div className="seo-overview-strip">
         <button type="button" onClick={()=>chooseSection("targets")}>
           <span>تارجت الشهر</span><strong>{snapshot.total}</strong><small>مطلوب منك</small>
         </button>
