@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2, ClipboardCheck, FileImage, Pencil, Plus, Target, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ClipboardCheck, Pencil, Plus, Target, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export type SeoTarget = {
@@ -19,10 +19,10 @@ function sumFor(t:SeoTarget,logs:SeoProgress[],day:string) {
 }
 function countAll(id:string, logs:SeoProgress[]) {return logs.filter(x=>x.target_id===id).reduce((sum,x)=>sum+x.done_count,0);}
 export default function SeoTargetBoard({
- profileId,monthKey,manager,memberId,onNotice,onError,onAttach
+ profileId,monthKey,manager,memberId,onNotice,onError
 }:{
  profileId:string;monthKey:string;manager:boolean;memberId:string;
- onNotice:(text:string)=>void;onError:(text:string)=>void;onAttach?:(targetId:string)=>void;
+ onNotice:(text:string)=>void;onError:(text:string)=>void;
 }) {
  const cacheKey=memberId+":"+profileId+":"+monthKey;
  const recent=targetMemory.get(cacheKey);
@@ -114,7 +114,7 @@ export default function SeoTargetBoard({
   <div className="seo-target-header">
    <div><span className="seo-target-kicker">التارجت الرسمي · {monthKey}</span>
     <h2><Target size={23}/> التارجت والمتابعة</h2>
-    <p>{manager?"انتي بتحددي المطلوب وبتتابعي اللي الموظف خلّصه. تسجيل الـDone والاسكرينات من حساب صاحب الشغل بس.":"ده المطلوب منك من ناردين. سجّل اللي خلّصته بـDone، وحط ملاحظة أو اسكرين لو محتاج."}</p>
+    <p>{manager?"انتي بتحددي المطلوب وبتتابعي اللي الموظف خلّصه. الاسكرينات بتتجمع في تاب الشهر بعيد عن التارجت.":"ده المطلوب منك من ناردين. سجّل اللي خلّصته بـDone مع ملاحظة اختيارية، وارفع الصور في تاب اسكرينات الشهر."}</p>
    </div>
    <div className="seo-target-header-actions">
     <span className="seo-target-achievement"><CheckCircle2 size={18}/>{monthCompleted} تارجت شهري مكتمل</span>
@@ -167,7 +167,6 @@ export default function SeoTargetBoard({
        {entries.length>0&&<details className="seo-progress-history"><summary>آخر الإنجازات والملاحظات ({entries.length})</summary>
          {entries.slice(0,12).map(entry=><div key={entry.id}><b>{entry.done_count} {target.target_unit} · {entry.work_date}</b>{entry.note&&<p>{entry.note}</p>}</div>)}
        </details>}
-       {!manager&&onAttach&&<button type="button" className="seo-live-attach" onClick={()=>onAttach(target.id)}><FileImage size={16}/> ارفع اسكرين للتارجت ده</button>}
       </article>;
     })}</div>
   </>}
