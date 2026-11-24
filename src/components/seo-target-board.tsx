@@ -10,6 +10,9 @@ export type SeoTarget = {
 export type SeoProgress = {
   id:string;target_id:string;work_date:string;done_count:number;note:string;created_by:string;created_at:string;
 };
+const targetMemory = new Map<string,{at:number;targets:SeoTarget[];progress:SeoProgress[]}>();
+export function clearSeoTargetMemory(){targetMemory.clear();}
+
 function cairoToday() {return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Cairo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
 function sumFor(t:SeoTarget,logs:SeoProgress[],day:string) {
   return logs.filter(p=>p.target_id===t.id&&(t.cadence==="monthly"||p.work_date===day)).reduce((n,p)=>n+p.done_count,0);
@@ -21,8 +24,11 @@ export default function SeoTargetBoard({
  profileId:string;monthKey:string;manager:boolean;memberId:string;
  onNotice:(text:string)=>void;onError:(text:string)=>void;onAttach?:(targetId:string)=>void;
 }) {
- const [targets,setTargets]=useState<SeoTarget[]>([]);
- const [progress,setProgress]=useState<SeoProgress[]>([]);
+ const cacheKey=memberId+":"+profileId+":"+monthKey;
+ const recent=targetMemory.get(cacheKey);
+ const warm=recent&&Date.now()-recent.at<120_000?recent:null;
+ const [targets,setTargets]=useState<SeoTarget[]>(()=>warm?.targets||[]);
+ const [progress,setProgress]=useState<SeoProgress[]>(()=>warm?.progress||[]);
  const [create,setCreate]=useState(false);
  const [editing,setEditing]=useState<SeoTarget|null>(null);
  const [active,setActive]=useState<string|null>(null);
@@ -30,19 +36,30 @@ export default function SeoTargetBoard({
  const [note,setNote]=useState("");
  const [day,setDay]=useState(()=>cairoToday().startsWith(monthKey+"-")?cairoToday():monthKey+"-01");
  const [busy,setBusy]=useState(false);
- const [loaded,setLoaded]=useState(false);
+ const [loaded,setLoaded]=useState(!!warm);
  const load=useCallback(async()=>{
    const t=await supabase.from("stc_seo_targets").select("*")
      .eq("profile_id",profileId).eq("month_key",monthKey).order("created_at");
    if(t.error){onError(t.error.message);return;}
    const list=t.data as SeoTarget[];
-   setTargets(list);setLoaded(true);
-   if(!list.length){setProgress([]);return;}
+   if(!list.length){
+     setTargets([]);setProgress([]);setLoaded(true);
+     targetMemory.set(cacheKey,{at:Date.now(),targets:[],progress:[]});
+     return;
+   }
    const p=await supabase.from("stc_seo_progress").select("*").in("target_id",list.map(x=>x.id)).order("created_at",{ascending:false});
    if(p.error){onError(p.error.message);return;}
-   setProgress(p.data as SeoProgress[]);
- },[profileId,monthKey,onError]);
+   const entries=p.data as SeoProgress[];
+   targetMemory.set(cacheKey,{at:Date.now(),targets:list,progress:entries});
+   setTargets(list);setProgress(entries);setLoaded(true);
+ },[profileId,monthKey,onError,cacheKey]);
  useEffect(()=>{void load();},[load]);
+ useEffect(()=>{
+   const resume=()=>{if(document.visibilityState==="visible")void load();};
+   window.addEventListener("focus",resume);
+   document.addEventListener("visibilitychange",resume);
+   return()=>{window.removeEventListener("focus",resume);document.removeEventListener("visibilitychange",resume);};
+ },[load]);
  useEffect(()=>{
    const channel=supabase.channel("seo-targets-"+profileId+"-"+monthKey)
      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_targets"},()=>void load())
