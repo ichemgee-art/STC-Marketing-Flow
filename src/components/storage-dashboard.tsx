@@ -50,8 +50,8 @@ type Preview={url:string;name:string;type:"image"|"pdf"};
 let recentOverview:{userId:string;value:StorageOverview;at:number}|null=null;
 export function clearStorageManagerCache(){recentOverview=null;}
 
-export default function StorageDashboard({userId,onBack}:{
-  userId:string;onBack:()=>void;
+export default function StorageDashboard({userId,onBack,readOnly=false}:{
+  userId:string;onBack:()=>void;readOnly?:boolean;
 }){
   const [overview,setOverview]=useState<StorageOverview|null>(
     recentOverview?.userId===userId?recentOverview.value:null
@@ -152,8 +152,12 @@ export default function StorageDashboard({userId,onBack}:{
   return <div className="storage-screen" dir="rtl">
     <header className="storage-top">
       <BrandLockup size="compact"/>
-      <div className="storage-top-copy"><strong>التخزين والملفات</strong><small>لوحة ناردين · Supabase Storage</small></div>
-      <button type="button" className="storage-back" onClick={onBack}><ArrowRight size={18}/> رجوع للتيم</button>
+      <div className="storage-top-copy"><strong>التخزين والملفات</strong>
+        <small>{readOnly?"صفحة جرجس · عرض وتحميل فقط":"لوحة ناردين · Supabase Storage"}</small>
+      </div>
+      <button type="button" className="storage-back" onClick={onBack}>
+        <ArrowRight size={18}/> {readOnly?"رجوع لشغلي":"رجوع للتيم"}
+      </button>
     </header>
     <main className="storage-content">
       <div className="storage-intro">
@@ -256,7 +260,7 @@ export default function StorageDashboard({userId,onBack}:{
         <div className="storage-caveat"><ShieldCheck size={18}/><p>
           الأرقام هنا لحجم الملفات الموجودة دلوقتي، وبتتحدث تلقائيًا كل 10 ثواني لما الصفحة مفتوحة.
           <strong> دي مش حصة الباقة ولا حساب فاتورة Supabase الشهرية،</strong> لأن الفوترة بتتأثر بالحجم عبر الوقت.
-          الملفات الخاصة مش بتظهر لغير ناردين، وأي فتح بيستخدم رابط مؤقت.
+          الملفات الخاصة متاحة لناردين وللحسابات المصرح لها بعرض التخزين فقط، وأي فتح بيستخدم رابط مؤقت.
         </p></div>
       </>}
     </main>
