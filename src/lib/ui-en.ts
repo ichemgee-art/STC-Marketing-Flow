@@ -855,6 +855,15 @@ const EN_ENTRIES: [string,string][] = [
   ["تقرير مستني مراجعتك","report awaiting your review"],
   ["نتايج حملات أحمد الخولي","Ahmed's campaign results"],
 
+  // Five questions are bilingual in both the form and the review report.
+  ["الإعلان على أنهي بوست؟","Campaign on which post?"],
+  ["هدف الإعلان؟","Goal?"],
+  ["الميزانية اليومية كام؟","How much per day?"],
+  ["مدة الإعلان من إمتى لإمتى؟","How long? From date to date?"],
+  ["إيه النتائج؟","Results?"],
+  ["من","From"],
+  ["إلى","To"],
+
  ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)

@@ -213,18 +213,18 @@ function AnswerEditor({brief,member,existing,onClose,onSaved}:{
     {briefNote(brief)&&<p className="mb2-brief-reminder-note">{briefNote(brief)}</p>}
    </div>
    {existing?.review_note&&<p className="mb2-feedback"><strong>ملاحظة ناردين:</strong> {existing.review_note}</p>}
-   <label className="mb2-field"><span className="mb2-question-index">01</span> Campaign on which post?
+   <label className="mb2-field"><span className="mb2-question-index">01</span> الإعلان على أنهي بوست؟
     <input type="text" maxLength={2000} dir="auto" value={fields.campaign_post}
      onChange={e=>set("campaign_post",e.target.value)} placeholder="لينك البوست أو وصف البوست"/>
     <small>ممكن تستخدم نفس لينك ناردين أو تكتب بوست مختلف لو اتغير</small>
    </label>
-   <label className="mb2-field"><span className="mb2-question-index">02</span> Goal?
+   <label className="mb2-field"><span className="mb2-question-index">02</span> هدف الإعلان؟
     <textarea rows={2} maxLength={2500} value={fields.campaign_goal}
      onChange={e=>set("campaign_goal",e.target.value)}
      placeholder="إيه الهدف اللي اتعمل عليه الإعلان؟"/>
    </label>
    <div className="mb2-budget-fields">
-    <label className="mb2-field"><span className="mb2-question-index">03</span> How much per day?
+    <label className="mb2-field"><span className="mb2-question-index">03</span> الميزانية اليومية كام؟
      <input type="number" min="0" max="100000000" step="0.01" value={fields.daily_budget}
       onChange={e=>set("daily_budget",e.target.value)} placeholder="الميزانية في اليوم"/>
     </label>
@@ -235,7 +235,7 @@ function AnswerEditor({brief,member,existing,onClose,onSaved}:{
     </label>
    </div>
    <div className="mb2-range-fields">
-    <span className="mb2-range-title"><span className="mb2-question-index">04</span> How long? From / To?</span>
+    <span className="mb2-range-title"><span className="mb2-question-index">04</span> مدة الإعلان من إمتى لإمتى؟</span>
     <label className="mb2-field">من يوم
      <input type="date" value={fields.start_date} onChange={e=>set("start_date",e.target.value)}/>
     </label>
@@ -247,7 +247,7 @@ function AnswerEditor({brief,member,existing,onClose,onSaved}:{
       {estimate!==null&&<> · إجمالي الميزانية المتوقعة: {formatNumber(estimate)} {fields.currency}</>}
     </small>}
    </div>
-   <label className="mb2-field"><span className="mb2-question-index">05</span> Results?
+   <label className="mb2-field"><span className="mb2-question-index">05</span> إيه النتائج؟
     <textarea rows={3} maxLength={4000} value={fields.results}
      onChange={e=>set("results",e.target.value)}
      placeholder="اكتب النتايج: رسائل / Leads / Clicks / مبيعات أو أي أرقام متاحة"/>
@@ -304,20 +304,20 @@ function AnswerReport({brief,submission,manager,onRequestChanges,onApproved,busy
   <div className="mb2-report-meta"><span><CalendarDays size={15}/> اتبعت: {dateTime(submission.created_at)}</span>
    <span><Clock3 size={15}/> آخر تحديث: {dateTime(submission.updated_at)}</span></div>
   <div className="mb2-report-grid">
-   <AnswerCard index={1} question="Campaign on which post?" answer={submission.campaign_post} link/>
-   <AnswerCard index={2} question="Goal?" answer={submission.campaign_goal}/>
-   <AnswerCard index={3} question="How much per day?" answer={budgetLabel} emphasis/>
+   <AnswerCard index={1} question="الإعلان على أنهي بوست؟" answer={submission.campaign_post} link/>
+   <AnswerCard index={2} question="هدف الإعلان؟" answer={submission.campaign_goal}/>
+   <AnswerCard index={3} question="الميزانية اليومية كام؟" answer={budgetLabel} emphasis/>
    <article className="mb2-qa-card mb2-qa-card--schedule">
     <span className="mb2-qa-index">04</span>
-    <span className="mb2-qa-question">How long? From / To?</span>
+    <span className="mb2-qa-question">مدة الإعلان من إمتى لإمتى؟</span>
     <div className="mb2-qa-dates">
-     <span>From <strong>{submission.start_date||"—"}</strong></span>
-     <span>To <strong>{submission.end_date||"—"}</strong></span>
+     <span>من <strong>{submission.start_date||"—"}</strong></span>
+     <span>إلى <strong>{submission.end_date||"—"}</strong></span>
     </div>
     {duration!==null&&<p>{duration} يوم{total!==null&&<> · <b>ميزانية تقديرية: {formatNumber(total)} {submission.currency}</b></>}</p>}
     {!submission.start_date&&!submission.end_date&&<small>{emptyValue}</small>}
    </article>
-   <AnswerCard index={5} question="Results?" answer={submission.results} emphasis/>
+   <AnswerCard index={5} question="إيه النتائج؟" answer={submission.results} emphasis/>
   </div>
   {submission.note&&<div className="mb2-reporter-note"><MessageSquareText size={18}/>
    <div><strong>ملاحظة أحمد</strong><p dir="auto">{submission.note}</p></div></div>}
