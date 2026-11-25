@@ -272,29 +272,50 @@
   display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
   font-size:11px;font-weight:900;color:#85601a;
 }
-/* Q3: amount and currency must share exactly one responsive row */
+/* A single compound control guarantees exact vertical alignment on all widths. */
 .mb2-budget-group{
   display:flex;flex-direction:column;gap:10px;
-  padding:13px 14px;
-  border-radius:12px;background:#f8fafc;border:1px solid #e1e9f1;
-  min-width:0;
+  padding:14px 15px;border-radius:13px;
+  background:#f8fafc;border:1px solid #e1e9f1;min-width:0;
 }
-.mb2-budget-heading{display:flex;align-items:center;gap:8px;color:#395773;font-size:12px}
+.mb2-budget-heading{
+  display:flex;align-items:center;gap:9px;color:#395773;
+  font-size:12px;min-height:25px;
+}
 .mb2-budget-heading strong{font-weight:900}
-.mb2-budget-fields{
-  display:grid!important;
-  grid-template-columns:minmax(0,1fr) 114px!important;
-  align-items:end;gap:10px!important;
-  width:100%;min-width:0;
+.mb2-budget-inline{
+  display:flex!important;flex-direction:row!important;align-items:stretch!important;
+  direction:rtl!important;gap:0!important;width:100%;min-width:0;
+  height:50px;border:1px solid #d8e3ed;border-radius:11px;
+  overflow:hidden;background:#fff;
+  transition:border-color .18s,box-shadow .18s;
 }
-.mb2-budget-fields>.mb2-field{grid-column:auto!important;min-width:0}
-.mb2-budget-fields .mb2-field>span{font-size:11px;color:#71879a}
-.mb2-budget-fields input,.mb2-budget-fields select{
-  display:block;width:100%;height:45px;min-height:45px;
-  box-sizing:border-box;
+.mb2-budget-inline:focus-within{
+  border-color:#ddb65b;box-shadow:0 0 0 3px #ebc86433;
 }
-.mb2-budget-fields input{direction:ltr;text-align:left;font-variant-numeric:tabular-nums}
-.mb2-budget-fields select{direction:ltr;text-align:center;font-weight:900}
+.mb2-budget-inline>input,
+.mb2-budget-inline>select{
+  display:block!important;box-sizing:border-box!important;
+  height:48px!important;min-height:48px!important;max-height:48px!important;
+  margin:0!important;align-self:stretch;
+  border:0!important;border-radius:0!important;
+  background:#fff!important;box-shadow:none!important;
+  line-height:48px!important;font-size:14px;
+}
+.mb2-budget-inline>input{
+  flex:1 1 0;min-width:0;width:0;
+  direction:ltr!important;text-align:right!important;
+  font-variant-numeric:tabular-nums;
+  padding:0 15px!important;color:#253a55;
+}
+.mb2-budget-inline>input::placeholder{color:#99a9b8}
+.mb2-budget-inline>select{
+  flex:0 0 115px;width:115px!important;min-width:115px;
+  direction:ltr!important;text-align:center!important;
+  border-right:1px solid #e3eaf1!important;
+  padding:0 12px!important;color:#253a55;font-weight:900;
+  cursor:pointer;
+}
 .mb2-qa-answer--money{
   display:inline-block;direction:ltr!important;
   unicode-bidi:isolate;white-space:nowrap;
@@ -316,8 +337,7 @@
  .mb2-inbox-jump-action svg{width:17px;height:17px}
 }
 @media(max-width:550px){
- .mb2-budget-fields{grid-template-columns:minmax(0,1fr) 102px!important}
- .mb2-budget-fields>.mb2-field{grid-column:auto!important}
+ .mb2-budget-inline>select{flex-basis:95px;width:95px!important;min-width:95px}
  .mb2-budget-group{padding:12px}
  .mb2-qa-answer--money{font-size:19px!important}
  .mb2-inline-details .mb2-answer-button{width:100%;min-width:0}

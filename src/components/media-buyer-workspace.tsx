@@ -226,18 +226,14 @@ function AnswerEditor({brief,member,existing,onClose,onSaved}:{
     <div className="mb2-budget-heading"><span className="mb2-question-index">03</span>
      <strong>الميزانية اليومية كام؟</strong>
     </div>
-    <div className="mb2-budget-fields">
-     <label className="mb2-field"><span>المبلغ</span>
-      <input type="number" min="0" max="100000000" step="0.01" inputMode="decimal"
-       value={fields.daily_budget} onChange={e=>set("daily_budget",e.target.value)}
-       placeholder="0.00"/>
-     </label>
-     <label className="mb2-field mb2-currency-field"><span>العملة</span>
-      <select value={fields.currency} aria-label="العملة"
-       onChange={e=>set("currency",e.target.value)}>
-       {allowedCurrencies.map(currency=><option value={currency} key={currency}>{currency}</option>)}
-      </select>
-     </label>
+    <div className="mb2-budget-inline" dir="rtl">
+     <input type="number" min="0" max="100000000" step="0.01" inputMode="decimal"
+      aria-label="الميزانية في اليوم" value={fields.daily_budget}
+      onChange={e=>set("daily_budget",e.target.value)} placeholder="المبلغ"/>
+     <select value={fields.currency} aria-label="العملة" title="العملة"
+      onChange={e=>set("currency",e.target.value)}>
+      {allowedCurrencies.map(currency=><option value={currency} key={currency}>{currency}</option>)}
+     </select>
     </div>
    </section>
    <div className="mb2-range-fields">
