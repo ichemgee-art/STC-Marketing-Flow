@@ -892,6 +892,12 @@ const EN_ENTRIES: [string,string][] = [
   ["متأكد إنك عايز تمسح فترة الساعات دي؟","Delete this recorded work period?"],
   ["متأكدة إنك عايزة تمسحي تكليف الكامبين دي؟ هتختفي من عند أحمد لكن التقرير هيفضل محفوظ.","Delete this campaign assignment? It will disappear for Ahmed, but the report will be retained."],
 
+  // Native form validation is replaced with contextual app toasts.
+  ["كمّل الخانات المطلوبة قبل الحفظ أو الإرسال.","Complete the required fields before saving or submitting."],
+  ["راجع صيغة البيانات المدخلة في الخانة دي.","Check the format of the highlighted field."],
+  ["الرقم أو التاريخ المدخل خارج النطاق المسموح.","The number or date is outside the allowed range."],
+  ["راجع البيانات في الخانة المحددة وحاول تاني.","Check the highlighted field and try again."],
+
  ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)

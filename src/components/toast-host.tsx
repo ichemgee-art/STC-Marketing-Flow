@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Info, Trash2, X, XCircle } from "lucide-react";
+import { showToast } from "@/lib/toasts";
 import type { ToastKind, ToastMessage } from "@/lib/toasts";
 import "./toast-host.css";
 
@@ -36,6 +37,33 @@ export default function ToastHost(){
     },lifetime[item.kind]));
     return()=>timers.forEach(clearTimeout);
   },[items]);
+  // The browser normally displays its own "Please fill out this field" balloon.
+  // Keep HTML constraint validation intact, but surface the feedback as an STC toast.
+  useEffect(()=>{
+    let notified=false;
+    const onInvalid=(event:Event)=>{
+      const target=event.target;
+      if(!(target instanceof HTMLInputElement ||
+           target instanceof HTMLSelectElement ||
+           target instanceof HTMLTextAreaElement))return;
+      event.preventDefault();
+      if(notified)return;
+      notified=true;
+      queueMicrotask(()=>{notified=false;});
+      target.focus();
+      const validity=target.validity;
+      const message=validity.valueMissing?
+        "كمّل الخانات المطلوبة قبل الحفظ أو الإرسال.":
+        validity.typeMismatch||validity.patternMismatch?
+        "راجع صيغة البيانات المدخلة في الخانة دي.":
+        validity.rangeUnderflow||validity.rangeOverflow||validity.stepMismatch?
+        "الرقم أو التاريخ المدخل خارج النطاق المسموح.":
+        "راجع البيانات في الخانة المحددة وحاول تاني.";
+      showToast(message,"error");
+    };
+    document.addEventListener("invalid",onInvalid,true);
+    return()=>document.removeEventListener("invalid",onInvalid,true);
+  },[]);
   return <div className="stc-toast-stack" dir="rtl" aria-label="رسائل السيستم">
     {items.map(item=><div key={item.id} className={"stc-toast-card stc-toast-card--"+item.kind}
       role={item.kind==="error"?"alert":"status"} aria-live={item.kind==="error"?"assertive":"polite"}>
