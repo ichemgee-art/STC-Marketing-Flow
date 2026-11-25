@@ -744,3 +744,8 @@
  .seo-action-tabs>button>span:not(.seo-action-tabs__num){font-size:10.5px}
  .seo-action-tabs>button>svg{width:16px;height:16px}
 }
+
+.seo-daily-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.seo-month-export{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #253a55;background:#253a55;color:#fff;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:800;white-space:nowrap}
+.seo-month-export:hover{background:#35516e}.seo-month-export:disabled{opacity:.6;cursor:wait}
+@media(max-width:550px){.seo-daily-actions{width:100%;align-items:stretch}.seo-daily-actions .seo-daily-picker{flex:1;min-width:0}.seo-month-export{flex:1;white-space:normal}}

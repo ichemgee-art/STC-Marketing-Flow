@@ -390,6 +390,8 @@ const EN_ENTRIES: [string,string][] = [
 
   // Daily reporting
   ["تقرير اليوم","Today's report"],
+  ["تصدير تقرير الشهر Excel","Export monthly Excel report"],["جاري التصدير…","Exporting…"],
+  ["تم تصدير التقرير الشهري بنجاح.","Monthly report exported successfully."],["مفيش بيانات متسجلة للشهر ده.","No records for this month."],
   ["ساعات الشغل والحاجات اللي اتعملت","Work hours & daily accomplishments"],
   ["اختار اليوم وهتشوف الساعات اللي اتسجلت، وكل الإنجازات والملاحظات بتاعته.","Select a date to see hours, completed work and notes."],
   ["ساعات اليوم","Today's hours"],["ساعات الشهر","Monthly hours"],

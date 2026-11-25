@@ -482,7 +482,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
              monthKey={period.month_key} manager={manager} onError={setError}
              onNotice={setToast} onUpdated={loadSnapshot}/>)}
       {section==="daily"&&profile&&
-        <SeoDailyReport key={"daily-"+period?.month_key} profileId={profile.id}
+        <SeoDailyReport key={"daily-"+period?.month_key} profileId={profile.id} profileName={profile.display_name} brand={profile.brand}
           member={member} monthKey={period?.month_key||""} entries={log}
           onRefresh={refresh} onNotice={setToast} onError={setError}/>}
       {section==="evidence"&&period&&<section className="seo-gallery seo-gallery--main" id="seo-photo-upload">
