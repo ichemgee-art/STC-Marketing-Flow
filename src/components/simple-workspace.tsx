@@ -135,7 +135,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
   }
   return <div className="easy-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)close();}}>
     <section className="easy-dialog" role="dialog" aria-modal="true" aria-labelledby="easy-task-title">
-      <div className="easy-dialog-top"><span className={"easy-tag easy-tag--"+task.status}>{stage(task.status)}</span><button className="easy-icon" disabled={busy} disabled={busy} onClick={close} aria-label="قفل"><X size={20}/></button></div>
+      <div className="easy-dialog-top"><span className={"easy-tag easy-tag--"+task.status}>{stage(task.status)}</span><button className="easy-icon" disabled={busy} onClick={close} aria-label="قفل"><X size={20}/></button></div>
       <h2 id="easy-task-title">{task.title}</h2>
       {task.description&&<p className="easy-description">{task.description}</p>}
       <div className="easy-dialog-meta"><span><UserRound size={17}/>{team.find(p=>p.id===task.assignee_id)?.display_name||"من التيم"}</span><span><CalendarDays size={17}/>{date(task.due_date)}</span></div>
@@ -213,7 +213,7 @@ function CreateDialog({people,initial,memberId,close,refresh,notify}:{people:Mem
   };
   return <div className="easy-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)close();}}>
     <section className="easy-dialog" role="dialog" aria-modal="true" aria-labelledby="easy-create-title">
-      <div className="easy-dialog-top"><span className="easy-eyebrow">تاسك جديد</span><button className="easy-icon" onClick={close} aria-label="قفل"><X size={20}/></button></div>
+      <div className="easy-dialog-top"><span className="easy-eyebrow">تاسك جديد</span><button className="easy-icon" disabled={busy} onClick={close} aria-label="قفل"><X size={20}/></button></div>
       <h2 id="easy-create-title">هتبعتي تاسك لمين؟</h2><p className="easy-description">اكتبي المطلوب واختاري مين هيعمله.</p>
       <form className="easy-form" onChange={e=>keepDraft(e.currentTarget)} onSubmit={e=>{
         e.preventDefault();if(busy)return;const f=new FormData(e.currentTarget);setBusy(true);setErr("");
