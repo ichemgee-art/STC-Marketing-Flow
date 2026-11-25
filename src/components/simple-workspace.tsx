@@ -314,10 +314,11 @@ export default function SimpleWorkspace(){
     if(error){setErr(error.message);return;}
     const list=t.data as Task[];
     // Keep only actionable alerts. Deleted task history is in stc_events.
-    // A single "deleted" receipt remains visible for the affected employee.
+    // Deleted tasks never have a visible notification.
     const taskStates = new Map(list.map(task => [task.id, task.status]));
     const visibleNotices = (n.data as Notice[]).filter(notice => {
-      if (notice.kind === "deleted" || notice.kind === "unassigned") return true;
+      if (notice.kind === "deleted") return false;
+      if (notice.kind === "unassigned") return true;
       const status = taskStates.get(notice.task_id);
       if (!status) return false;
       return notice.kind !== "waiting_review" || status === "waiting_review";
@@ -359,12 +360,13 @@ export default function SimpleWorkspace(){
       .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_metrics"},()=>void refresh())
       .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_results"},()=>void refresh())
       .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_campaigns"},()=>void refresh())
+      .on("postgres_changes",{event:"DELETE",schema:"public",table:"stc_notifications"},()=>void refresh())
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"stc_notifications",filter:"recipient_id=eq."+userId},payload=>{
         const n=payload.new as Notice;
+        if(n.kind==="deleted"){void refresh();return;}
         const message=n.kind==="waiting_review"?"سلّم التاسك ومستني مراجعتك"
           :n.kind==="approved"?"ناردين وافقت على التاسك ✅"
           :n.kind==="changes_requested"?"ناردين طلبت تعديل"
-          :n.kind==="deleted"?"ناردين مسحت التاسك"
           :n.kind==="updated"?"ناردين عدّلت التاسك"
           :n.kind==="assigned"||n.kind==="reassigned"?"جالك تاسك جديد":"جالك تحديث";
         announce((n.actor_name?n.actor_name+": ":"")+message+(n.task_title?" — "+n.task_title:""));
