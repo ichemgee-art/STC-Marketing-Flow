@@ -33,10 +33,7 @@ function Tile({task,who,manager,open}:{task:Task;who?:string;manager:boolean;ope
   return <button type="button" className={"easy-task easy-task--"+task.status} onClick={open}>
     <div className="easy-task-head"><span className={"easy-tag easy-tag--"+task.status}>{stage(task.status)}</span>{task.priority==="high"&&<span className="easy-priority">مستعجلة</span>}</div>
     <h3>{task.title}</h3>
-    <p>{task.description || "افتح التاسك عشان تشوف تفاصيله"}</p>
-    <div className="flow-card-steps" aria-hidden="true">{[0,1,2].map(i=><span key={i}
-      className={task.status==="approved"||task.status==="waiting_review"&&i<2||
-       task.status==="in_progress"&&i===0?"filled":""}/>)}</div>
+    {task.description&&<p>{task.description}</p>}
     <div className="easy-task-meta">{manager&&<span><UserRound size={15}/>{who||"من التيم"}</span>}<span className={late?"easy-late":""}><CalendarDays size={15}/>{date(task.due_date)}</span></div>
     <div className="easy-task-footer">{task.status==="approved"?<strong className="easy-approved"><CheckCircle2 size={17}/> ناردين وافقت، عاش!</strong>
     :task.status==="waiting_review"&&manager?<strong className="easy-review-action">مستني موافقتك · راجعيه <ChevronLeft size={17}/></strong>
@@ -254,6 +251,7 @@ export default function SimpleWorkspace(){
   const [seoPending,setSeoPending]=useState<Record<string,number>>({});
   const [seoReviews,setSeoReviews]=useState<SeoReview[]>([]);
   const [flowFilter,setFlowFilter]=useState<FlowFilter>("all");
+  const [managerSection,setManagerSection]=useState<"content"|"seo"|"media">("content");
   const [tab,setCurrentTab]=useState("all"),[reviewOnly,setReviewOnly]=useState(false);
   const [selected,setSelected]=useState<Task|null>(null),[creating,setCreating]=useState(false);
   const [showNotices,setShowNotices]=useState(false),[online,setOnline]=useState(false);
@@ -406,13 +404,28 @@ export default function SimpleWorkspace(){
     f==="changes"&&t.status==="changes_requested"||
     f==="approved"&&t.status==="approved"||
     f==="late"&&!!t.due_date&&t.due_date<today&&t.status!=="approved";
+  // Staff see their next action first, without a duplicated "focus" card list.
+  const priorityOf=(t:Task)=>t.status==="changes_requested"?0:
+    t.due_date&&t.due_date<today&&t.status!=="approved"?1:
+    t.priority==="high"&&t.status!=="approved"?2:
+    t.status==="in_progress"?3:t.status==="todo"?4:t.status==="tomorrow"?5:
+    t.status==="waiting_review"?6:7;
   const visible=scoped.filter(t=>matches(t,flowFilter));
-  const focus=!manager?tasks.filter(t=>["changes_requested","todo","in_progress","tomorrow"].includes(t.status))
-    .sort((a,b)=>{const priority=(x:Task)=>x.status==="changes_requested"?0:
-      x.due_date&&x.due_date<today?1:x.priority==="high"?2:x.status==="in_progress"?3:4;
-      return priority(a)-priority(b)||(a.due_date||"9999").localeCompare(b.due_date||"9999");
-    }).slice(0,3):[];
+  if(!manager)visible.sort((a,b)=>priorityOf(a)-priorityOf(b)||
+    (a.due_date||"9999").localeCompare(b.due_date||"9999"));
   const unread=notices.filter(n=>!n.read_at).length;
+  const seoReviewCount=Object.values(seoPending).reduce((sum,n)=>sum+n,0);
+  useEffect(()=>{
+    if(!userId)return;
+    try{
+      const saved=sessionStorage.getItem("stc:ux:manager-section:"+userId);
+      if(saved==="content"||saved==="seo"||saved==="media")setManagerSection(saved);
+    }catch{}
+  },[userId]);
+  function selectManagerSection(section:"content"|"seo"|"media"){
+    setManagerSection(section);
+    try{if(userId)sessionStorage.setItem("stc:ux:manager-section:"+userId,section);}catch{}
+  }
   function changeFilter(value:FlowFilter){
     setFlowFilter(value);
     if(userId)try{sessionStorage.setItem("stc-flow-2:filter:"+userId,value);}catch{}
@@ -518,17 +531,17 @@ export default function SimpleWorkspace(){
       </div>
     </header>
     <main className="easy-content">
-      <section className="easy-intro"><div><span className="easy-eyebrow">{manager?"لوحة ناردين":"مساحة شغلي"}</span>
-        <h1>{manager?"أهلاً يا ناردين 👋":"أهلاً يا "+first(member?.display_name||"")+" 👋"}</h1>
-        <p>{manager?"اختاري اسم من التيم، وشوفي التاسكات بتاعته بسهولة.":"كل التاسكات بتاعتك هنا، افتح أي كارت عشان تتابعه."}</p></div>
+      <section className="easy-intro"><div><span className="easy-eyebrow">{manager?"لوحة الإدارة":"مساحة شغلي"}</span>
+        <h1>{manager?"إدارة شغل الفريق":"شغلك النهارده"}</h1>
+        <p>{manager?"راجعي التسليمات، أو اختاري القسم اللي عايزة تتابعيه.":"ابدأ بالأولوية الأولى، وباقي التاسكات تحت."}</p></div>
         {manager&&<button className="easy-btn easy-btn--navy easy-create-button" onClick={()=>setCreating(true)}><Plus size={19}/> تاسك جديد</button>}
       </section>
       {err&&<div className="easy-error" role="alert">{err}<button onClick={()=>void refresh()}>جرّب تاني</button></div>}
       {manager&&<>
         <section className="flow-review-inbox">
           <div className="flow-inbox-title"><div><span className="easy-eyebrow">REVIEW INBOX</span>
-            <h2>صندوق مراجعة ناردين</h2>
-            <p>التسليمات من فريق المحتوى ومؤشرات الـSEO في مكان واحد.</p></div>
+            <h2>مستني مراجعتك</h2>
+            <p>التسليمات اللي محتاجة قرار منك، في مكان واحد.</p></div>
             <strong>{reviewTasks.length+seoReviews.length+mediaPending} مستنيين مراجعتك</strong>
           </div>
           {reviewTasks.length+seoReviews.length+mediaPending?<div className="flow-inbox-list">
@@ -549,58 +562,63 @@ export default function SimpleWorkspace(){
             })}
           </div>:<p className="flow-all-clear"><CheckCircle2 size={17}/> مفيش تسليمات مستنية دلوقتي.</p>}
         </section>
-        <button className={"easy-review-banner "+(reviewOnly?"is-selected":"")} onClick={()=>choose("all",!reviewOnly)}>
-          <span className="easy-review-symbol"><Clock3 size={25}/></span>
-          <span className="easy-review-copy"><strong>{reviewTasks.length?"في "+reviewTasks.length+" تاسك مستني مراجعتك":"مفيش حاجة مستنية مراجعتك دلوقتي"}</strong><small>{reviewTasks.length?"دوسي هنا عشان تراجعي وتوافقي":"لما حد يسلّم تاسك هتلاقيه هنا"}</small></span>
-          <b>{reviewTasks.length}</b><ChevronLeft size={19}/>
-        </button>
-        <div className="easy-department-heading">
-          <span className="easy-department-number">01</span>
-          <div><strong>قسم الـSEO ومواقع الشركة</strong>
-            <p>ساندرا ومحمد عمر · التارجت ومؤشرات الموقع وساعات الشغل منفصلة عن باقي التاسكات.</p></div>
-        </div>
-        <div className="easy-seo-links" aria-label="فريق السيو">
-          <div>
-            {seoPeople.map(p=><button type="button" key={p.slug} onClick={()=>enterSeo(p.slug)}>
-              <span>{p.display_name}</span><small>{p.brand} · التارجت · تقرير اليوم · الاسكرينات</small>
-              {seoPending[p.id]>0&&<b className="easy-seo-pending">{seoPending[p.id]} مستني مراجعة</b>}
-              <ChevronLeft size={18}/>
-            </button>)}
-          </div>
-        </div>
-        <div className="easy-department-heading easy-department-heading--media">
-          <span className="easy-department-number">02</span>
-          <div><strong>قسم Media Buying والإعلانات</strong>
-            <p>أحمد الخولي · الحملات، هدف كل إعلان، الميزانية اليومية، مدة التشغيل، والنتايج.</p></div>
-        </div>
-        <div className="easy-seo-links easy-media-entry" aria-label="قسم Media Buying">
-          <div><button type="button" onClick={enterMedia}>
-            <span><Megaphone size={19}/> أحمد الخولي — Media Buyer</span>
-            <small>Campaign Briefs · Daily Results · Performance</small>
-            {mediaPending>0&&<b className="easy-seo-pending">{mediaPending} نتيجة للمراجعة</b>}
-            <ChevronLeft size={18}/>
-          </button></div>
-        </div>
-        <div className="easy-department-heading easy-department-heading--content">
-          <span className="easy-department-number">03</span>
-          <div><strong>قسم المحتوى والتصميم</strong>
-            <p>جرجس وفاطمة وإسراء · التاسكات المعتادة والتسليم والموافقة.</p></div>
-        </div>
-        <nav className="easy-tabs" aria-label="أسماء تيم المحتوى والتصميم">
-          <button className={"easy-tab "+(tab==="all"&&!reviewOnly?"active":"")} onClick={()=>choose("all")}><ListTodo size={18}/> كل التيم <b>{tasks.length}</b></button>
-          {people.map((p,i)=><button key={p.id} className={"easy-tab easy-tab--"+i+" "+(tab===p.id&&!reviewOnly?"active":"")} onClick={()=>choose(p.id)}><span>{first(p.display_name).charAt(0)}</span>{p.display_name}<b>{tasks.filter(t=>t.assignee_id===p.id).length}</b></button>)}
+        <nav className="flow-department-switch" aria-label="اختاري القسم">
+          <button type="button" className={managerSection==="content"?"active":""}
+            aria-current={managerSection==="content"?"page":undefined} onClick={()=>selectManagerSection("content")}>
+            <ListTodo size={20}/><span><strong>المحتوى والتصميم</strong><small>التاسكات والتسليم</small></span>
+            {reviewTasks.length>0&&<b className="flow-switch-count">{reviewTasks.length}</b>}
+          </button>
+          <button type="button" className={managerSection==="seo"?"active":""}
+            aria-current={managerSection==="seo"?"page":undefined} onClick={()=>selectManagerSection("seo")}>
+            <Sparkles size={20}/><span><strong>SEO والمواقع</strong><small>محمد عمر وساندرا</small></span>
+            {seoReviewCount>0&&<b className="flow-switch-count">{seoReviewCount}</b>}
+          </button>
+          <button type="button" className={managerSection==="media"?"active":""}
+            aria-current={managerSection==="media"?"page":undefined} onClick={()=>selectManagerSection("media")}>
+            <Megaphone size={20}/><span><strong>الإعلانات</strong><small>أحمد الخولي</small></span>
+            {mediaPending>0&&<b className="flow-switch-count">{mediaPending}</b>}
+          </button>
         </nav>
+        {managerSection==="seo"&&<section className="flow-department-panel">
+          <div className="flow-department-title"><h2>متابعة SEO</h2><p>اختاري الموقع لعرض التارجت والنتائج.</p></div>
+          <div className="easy-seo-links flow-department-links" aria-label="فريق السيو">
+            <div>{seoPeople.map(p=><button type="button" key={p.slug} onClick={()=>enterSeo(p.slug)}>
+              <span>{p.display_name}</span><small>{p.brand} · متابعة الموقع</small>
+              {seoPending[p.id]>0&&<b className="easy-seo-pending">{seoPending[p.id]} للمراجعة</b>}
+              <ChevronLeft size={18}/>
+            </button>)}</div>
+          </div>
+        </section>}
+        {managerSection==="media"&&<section className="flow-department-panel">
+          <div className="flow-department-title"><h2>الحملات الإعلانية</h2><p>تكليفات أحمد وتقاريره.</p></div>
+          <div className="easy-seo-links easy-media-entry flow-department-links">
+            <div><button type="button" onClick={enterMedia}>
+              <span><Megaphone size={18}/> أحمد الخولي</span>
+              <small>تكليفات الكامبين · النتائج · المراجعة</small>
+              {mediaPending>0&&<b className="easy-seo-pending">{mediaPending} تقرير للمراجعة</b>}
+              <ChevronLeft size={18}/>
+            </button></div>
+          </div>
+        </section>}
+        {managerSection==="content"&&<section className="flow-department-panel">
+          <div className="flow-department-title"><h2>تاسكات المحتوى والتصميم</h2>
+            <p>اختاري الموظف أو تابعي كل التاسكات.</p>
+          </div>
+          <nav className="easy-tabs" aria-label="فريق المحتوى والتصميم">
+            <button className={"easy-tab "+(tab==="all"&&!reviewOnly?"active":"")} onClick={()=>choose("all")}>
+              <ListTodo size={18}/> كل التيم <b>{tasks.length}</b>
+            </button>
+            {people.map((p,i)=><button key={p.id}
+              className={"easy-tab easy-tab--"+i+" "+(tab===p.id&&!reviewOnly?"active":"")}
+              onClick={()=>choose(p.id)}>
+              {p.display_name}<b>{tasks.filter(t=>t.assignee_id===p.id).length}</b>
+            </button>)}
+            {reviewTasks.length>0&&<button type="button" className={"easy-tab flow-review-tab "+(reviewOnly?"active":"")}
+              onClick={()=>choose("all",true)}><Clock3 size={17}/> للمراجعة <b>{reviewTasks.length}</b></button>}
+          </nav>
+        </section>}
       </>}
-      {!manager&&<section className="flow-focus">
-        <div className="flow-focus-title"><Sparkles size={19}/><div>
-          <strong>My Focus — أعمل إيه دلوقتي؟</strong><small>أهم 3 تاسكات محتاجين حركة منك.</small>
-        </div></div>
-        {focus.length?<div className="flow-focus-list">{focus.map(t=><button key={t.id} type="button" onClick={()=>openTask(t)}>
-          <span className={"easy-tag easy-tag--"+t.status}>{stage(t.status)}</span>
-          <b>{t.title}</b><small>{date(t.due_date)}</small><ChevronLeft size={17}/>
-        </button>)}</div>:<p className="flow-all-clear"><CheckCircle2 size={16}/> مفيش حاجة محتاجة تنفيذ منك دلوقتي.</p>}
-      </section>}
-      {!manager&&<div className="easy-tip"><CheckCircle2 size={19}/> لما تخلص أي تاسك دوس <b>«خلصت، ابعتها لناردين»</b>، ولما توافق هيظهرلك بالأخضر.</div>}
+      {(!manager||managerSection==="content")&&<section className="flow-task-area">
       <div className="easy-section-heading"><h2>{reviewOnly?"مستنية مراجعتك":manager?(tab==="all"?"كل التاسكات":"تاسكات "+(people.find(p=>p.id===tab)?.display_name||"التيم")):"التاسكات بتاعتك"} <span>{visible.length}</span></h2>
         <p>{reviewOnly?"راجعي أي كارت واضغطي موافقة أو رجّعيه للتعديل.":"كل كارت فيه المطلوب وحالة التاسك وميعاد التسليم."}</p>
       </div>
@@ -610,6 +628,7 @@ export default function SimpleWorkspace(){
       </nav>
       <div className="easy-grid">{visible.map(task=><Tile key={task.id} task={task} manager={!!manager} who={people.find(p=>p.id===task.assignee_id)?.display_name} open={()=>openTask(task)}/>)}</div>
       {!visible.length&&<div className="easy-empty"><ListTodo size={34}/><h3>{reviewOnly?"مفيش تاسكات مستنية مراجعتك ✨":manager?"لسه مفيش تاسكات هنا":"لسه مفيش تاسكات عندك"}</h3><p>{reviewOnly?"كل التسليمات متراجعة دلوقتي.":manager?"ابعتِ تاسك جديد وهيظهر هنا.":"أول ما ناردين تبعتلك تاسك هتلاقيه هنا."}</p></div>}
+      </section>}
     </main>
     {showNotices&&<aside className="easy-notifications"><div className="easy-notification-top"><strong>الإشعارات {unread>0?"("+unread+" جديد)":""}</strong><button className="easy-icon" onClick={()=>setShowNotices(false)}><X size={18}/></button></div>
       {!notices.length&&<p>مفيش إشعارات لسه.</p>}

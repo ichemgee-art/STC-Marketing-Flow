@@ -263,3 +263,109 @@ border:1px solid #eed58c;border-radius:12px;font-size:12px;font-weight:900}
 .easy-media-entry button>span:first-child{display:inline-flex;align-items:center;gap:9px;font-weight:900}
 .easy-media-entry button>span:first-child svg{color:#a87b21}
 .easy-media-entry .easy-seo-pending{background:#fff2d1;color:#8b6320}
+
+/* FLOW 3.0 — reduce choices, use one active workspace at a time. */
+.easy-header{height:72px;padding-block:7px}
+.easy-content{padding-top:23px}
+.easy-intro{margin-bottom:16px}
+.easy-intro h1{font-size:clamp(22px,2.4vw,29px);line-height:1.45}
+.easy-intro p{font-size:12px;line-height:1.65;margin-top:3px}
+.easy-eyebrow{font-size:10px}
+.easy-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,285px),1fr));gap:12px}
+.easy-task{min-height:0;gap:0;border-radius:14px;box-shadow:0 3px 13px #253a550b}
+.easy-task:hover{transform:translateY(-1px)}
+.easy-task-head{padding:13px 15px 5px}
+.easy-task h3{font-size:16px;padding:6px 15px 2px;line-height:1.5}
+.easy-task>p{font-size:11.5px;padding:4px 15px 10px;-webkit-line-clamp:2;flex:none;line-height:1.7}
+.easy-task-meta{padding:9px 15px;gap:9px;font-size:11px}
+.easy-task-footer{min-height:40px;padding:9px 15px;font-size:11.5px}
+.easy-section-heading{margin-bottom:10px}
+.easy-section-heading h2{font-size:19px}
+.easy-section-heading p{font-size:11.5px}
+.flow-review-inbox{padding:16px 18px;margin:0 0 18px;border-radius:15px;box-shadow:0 3px 15px #253a550b}
+.flow-inbox-title{margin-bottom:9px}
+.flow-inbox-title h2{font-size:18px}
+.flow-inbox-title p{font-size:11px}
+.flow-inbox-list{gap:7px}
+.flow-inbox-list button{padding:10px 12px;border-radius:10px}
+.flow-inbox-list button b{font-size:12px}
+.flow-department-switch{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;margin:0 0 15px;
+}
+.flow-department-switch button{
+  display:flex;gap:11px;align-items:center;text-align:start;
+  border:1px solid #dce6f0;background:white;color:#55708b;
+  box-shadow:0 3px 12px #253a5508;border-radius:13px;
+  padding:13px 15px;min-width:0;min-height:65px;
+  transition:border-color .14s,background .14s;
+}
+.flow-department-switch button>svg{
+  width:20px;height:20px;flex-shrink:0;color:#8a9cb0;
+}
+.flow-department-switch button>span{display:flex;flex-direction:column;min-width:0;gap:2px;flex:1}
+.flow-department-switch button strong{font-size:13px;font-weight:900;color:#2d4561;line-height:1.45}
+.flow-department-switch button small{font-size:10px;color:#8c9bae;line-height:1.45}
+.flow-department-switch button:hover{border-color:#d9bc6d;background:#fffdf8}
+.flow-department-switch button.active{border-color:#e4bd53;background:#fff7e3;box-shadow:inset 0 -3px #f1c352}
+.flow-department-switch button.active>svg{color:#a4781a}
+.flow-department-switch button:focus-visible{outline:2px solid #e5b634;outline-offset:2px}
+.flow-switch-count{
+  color:#826222;background:#f6e2ad;border-radius:10px;
+  font:900 11px/1.6 Cairo,Arial,sans-serif;
+  padding:2px 8px;flex-shrink:0;
+}
+.flow-department-panel{
+  margin:0 0 13px;border:1px solid #e3eaf2;background:#fff;
+  padding:17px 19px 2px;border-radius:15px;
+}
+.flow-department-title{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;margin:0 0 12px}
+.flow-department-title h2{font-size:17px;font-weight:900;color:#253a55}
+.flow-department-title p{font-size:11px;color:#8596a6}
+.flow-department-panel .easy-tabs{margin:0 0 14px;gap:7px}
+.flow-department-panel .easy-tab{min-height:42px;border-radius:9px;padding:7px 11px;font-size:11px;gap:6px;box-shadow:none}
+.flow-department-panel .easy-tab b{font-size:10px}
+.flow-review-tab{border-color:#e9d69d!important;background:#fffaf0!important}
+.flow-review-tab.active{color:white!important;background:#253a55!important;border-color:#253a55!important}
+.flow-department-links{margin:0 0 14px;padding:9px;border:0;box-shadow:none}
+.flow-department-links button{min-height:67px;padding:11px 14px}
+.flow-department-links button>span{font-size:13px}
+.flow-department-links button>small{font-size:10px}
+.flow-task-area{margin-top:10px}
+.flow-filters{margin:9px 0 12px;padding:5px;gap:3px}
+.flow-filters button{font-size:11px;padding:7px 10px;min-height:35px}
+.flow-focus{padding:14px 17px;margin:0 0 18px;box-shadow:none;border-radius:14px}
+.flow-focus-title{margin-bottom:9px}
+.flow-focus-title strong{font-size:16px}
+.flow-focus-title small{font-size:11px}
+.flow-focus-list button{padding:11px;gap:6px}
+.flow-focus-list button b{font-size:12px}
+.easy-create-button{min-height:40px;padding:8px 13px;font-size:12px}
+@media(max-width:760px){
+ .easy-header{height:64px;padding-inline:13px}
+ .easy-content{padding:17px 12px 55px}
+ .easy-intro{gap:10px;align-items:flex-start}
+ .easy-intro h1{font-size:21px}
+ .easy-intro p{font-size:11px}
+ .flow-department-switch{gap:6px}
+ .flow-department-switch button{padding:10px 8px;gap:5px;min-height:67px;flex-direction:column;align-items:center;text-align:center}
+ .flow-department-switch button>span{align-items:center}
+ .flow-department-switch button strong{font-size:11px}
+ .flow-department-switch button small{display:none}
+ .flow-switch-count{font-size:10px;padding:1px 6px}
+ .flow-department-panel{padding:13px 11px 1px}
+ .flow-department-title{flex-direction:column;gap:2px}
+ .flow-department-title h2{font-size:15px}
+ .easy-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr))}
+ .flow-filters{overflow-x:auto;scrollbar-width:thin}
+}
+@media(max-width:430px){
+ .easy-intro p{max-width:245px}
+ .easy-brand>div{display:none}
+ .flow-review-inbox{padding:12px}
+ .flow-inbox-title h2{font-size:16px}
+ .flow-department-switch button strong{font-size:10.5px}
+}
+@media(prefers-reduced-motion:reduce){
+ .flow-department-switch button{transition:none}
+}

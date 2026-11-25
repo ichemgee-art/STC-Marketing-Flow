@@ -404,7 +404,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     </header>
     <main className="seo-main">
       <div className="seo-headline"><div><span className="seo-eyebrow">متابعة السيو · {chart}</span><h1>شغل {label} 👋</h1>
-        <p>التارجت والمتابعة ببطاقات واضحة، ونتايج SEO، وساعات الشغل بتقرير يومي، والاسكرينات بتتفتح من السيستم.</p></div>
+        <p>{manager?"راجعي التارجت والنتايج من التبويبات.":"اختار الشهر، وبعدها ابدأ بالتارجت أو سجّل شغل اليوم."}</p></div>
         {manager&&<details className="seo-import-more">
           <summary><FileSpreadsheet size={16}/> استيراد شيت قديم</summary>
           <div className="seo-upload">
@@ -414,15 +414,6 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         </details>}
       </div>
       {error&&<div className="seo-error" role="alert">{error}<button type="button" onClick={()=>setError("")}>×</button></div>}
-      <div className="seo-role-explainer">
-        <div className="seo-role-explainer__symbol">{manager?<Target size={25}/>:<CheckCircle2 size={25}/>}</div>
-        <div>
-          <strong>{manager?"لوحة متابعة ناردين":"دي مساحة شغلك"}</strong>
-          <p>{manager
-            ?"حدّدي تارجت الشغل في أول تاب. في «مؤشرات الموقع» الموظف بيدخل أرقام قبل وبعد، وانتي بتراجعيها وتوافقي عليها. الساعات والاسكرينات كل واحدة في مكانها."
-            :"التارجت اللي ناردين حطّته هتلاقيه في أول تاب. سجّل Done وارفَع الاسكرينات، وسجّل شغلك يوم بيوم. آخر الشهر اكتب رقمي قبل وبعد لكل مؤشر وابعتهم للمراجعة."}</p>
-        </div>
-      </div>
       {manager&&<div className="seo-month-manager">
         <button className="seo-target-add" type="button" onClick={()=>setShowMonthCreator(x=>!x)}><Plus size={16}/> افتحي شهر جديد</button>
         {showMonthCreator&&<form className="seo-new-month" onSubmit={e=>{e.preventDefault();void createMonth();}}>
@@ -441,56 +432,40 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
           {p.label}<small>{p.id===period?.id?assets.length:p.image_count} اسكرين</small>
         </button>)}
       </div>
-      {period&&<div className="seo-month-welcome">
-        <div><span className="seo-target-kicker">شغل {label} · {chart}</span>
-          <h2>{period.label}</h2>
-          <p>{manager?"التارجت والنتايج والتقرير اليومي متقسمين قدامك بشكل واضح.":"قدامك المطلوب منك في الشهر ده. امشي خطوة خطوة، وكل شغلك هيوصل لناردين."}</p>
-        </div>
-        <div className="seo-month-evidence"><ImageIcon size={20}/><strong>{assets.length}</strong><span>اسكرين محفوظة</span></div>
+      {period&&<div className="seo-month-context">
+        <div><span className="seo-target-kicker">{chart} · {label}</span>
+          <h2>{period.label}</h2></div>
+        <button type="button" onClick={()=>chooseSection("evidence")} title="افتح اسكرينات الشهر">
+          <ImageIcon size={17}/> {assets.length} اسكرين
+        </button>
       </div>}
       {period&&period.month_key>="2026-11"&&<div className="seo-overview-strip">
         <button type="button" onClick={()=>chooseSection("targets")}>
-          <span>تارجت الشهر</span><strong>{snapshot.total}</strong><small>مطلوب منك</small>
+          <span>تارجت الشهر</span><strong>{snapshot.total}</strong>
         </button>
         <button type="button" onClick={()=>chooseSection("targets")}>
-          <span>تارجت شهري مكتمل</span><strong>{snapshot.completed}</strong><small>من التارجت الشهري</small>
+          <span>تم إنجازه</span><strong>{snapshot.completed}</strong>
         </button>
         <button type="button" className={snapshot.pending>0?"needs-review":""} onClick={()=>chooseSection("metrics")}>
-          <span>مؤشرات مستنية المراجعة</span><strong>{snapshot.pending}</strong><small>{manager?"راجعيهم دلوقتي":"وصلوا لناردين"}</small>
-        </button>
-        <button type="button" onClick={()=>chooseSection("metrics")}>
-          <span>نتايج SEO معتمدة</span><strong>{snapshot.approved}</strong><small>وافقت عليها ناردين</small>
+          <span>{manager?"مستني موافقتك":"مستني مراجعة"}</span><strong>{snapshot.pending}</strong>
         </button>
       </div>}
-      {!manager&&period&&period.month_key>="2026-11"&&<section className="seo-flow-focus">
-        <div><span className="seo-target-kicker">MY FOCUS</span>
-          <h2>أعمل إيه دلوقتي؟</h2>
-          <p>3 خطوات واضحة تقدر تبدأ بيهم من غير ما تتوه بين التابات.</p>
-        </div>
-        <div className="seo-flow-focus__actions">
-          <button type="button" onClick={()=>chooseSection("targets")}><Target size={17}/>
-            راجع {snapshot.total} تارجت للشهر</button>
-          <button type="button" onClick={()=>chooseSection("daily")}><Clock3 size={17}/>
-            سجّل ساعات وتقرير اليوم</button>
-          <button type="button" onClick={()=>chooseSection("metrics")}><Activity size={17}/>
-            حدّث مقارنة قبل وبعد</button>
-        </div>
-      </section>}
-      <nav className="seo-action-tabs" aria-label="ترتيب شغل SEO">
-        <button className={section==="targets"?"selected":""} onClick={()=>chooseSection("targets")}>
-          <span className="seo-action-tabs__num">1</span><Target size={20}/><span>التارجت والـDone<small>{manager?"حددي المطلوب":"سجّل اللي خلّصته"}</small></span>
+      <nav className="seo-action-tabs" aria-label="أقسام شغل SEO">
+        <button type="button" className={section==="targets"?"selected":""} onClick={()=>chooseSection("targets")}>
+          <Target size={19}/><span>التارجت والـDone</span>
         </button>
-        <button className={section==="metrics"?"selected":""} onClick={()=>chooseSection("metrics")}>
-          <span className="seo-action-tabs__num">2</span><Activity size={20}/><span>مؤشرات الموقع<small>{manager?"راجعي أرقام قبل وبعد":"اكتب قبل وبعد"}</small></span>
+        <button type="button" className={section==="metrics"?"selected":""} onClick={()=>chooseSection("metrics")}>
+          <Activity size={19}/><span>مؤشرات الموقع</span>
+          {snapshot.pending>0&&<b className="seo-tab-count">{snapshot.pending}</b>}
         </button>
-        <button className={section==="daily"?"selected":""} onClick={()=>chooseSection("daily")}>
-          <span className="seo-action-tabs__num">3</span><Clock3 size={20}/><span>التقرير اليومي<small>الساعات والشغل</small></span>
+        <button type="button" className={section==="daily"?"selected":""} onClick={()=>chooseSection("daily")}>
+          <Clock3 size={19}/><span>التقرير اليومي</span>
         </button>
-        <button className={section==="evidence"?"selected":""} onClick={()=>chooseSection("evidence")}>
-          <span className="seo-action-tabs__num">4</span><ImageIcon size={20}/><span>الاسكرينات<small>صور الشغل</small></span>
+        <button type="button" className={section==="evidence"?"selected":""} onClick={()=>chooseSection("evidence")}>
+          <ImageIcon size={19}/><span>الاسكرينات</span>
         </button>
-        <button className={section==="archive"?"selected":""} onClick={()=>chooseSection("archive")}>
-          <FileSpreadsheet size={20}/><span>الشيتات القديمة<small>للمرجع بس</small></span>
+        <button type="button" className={"seo-archive-tab "+(section==="archive"?"selected":"")} onClick={()=>chooseSection("archive")}>
+          <FileSpreadsheet size={18}/><span>الأرشيف</span>
         </button>
       </nav>
       {section==="targets"&&period&&profile&&period.period_kind==="month"&&

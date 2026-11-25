@@ -4,8 +4,8 @@ import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import type {FormEvent} from "react";
 import {
   ArrowRight,CalendarDays,CheckCircle2,ChevronDown,ChevronUp,ClipboardCheck,Clock3,
-  ExternalLink,FileCheck2,Link2,LogOut,Megaphone,MessageSquareText,
-  Pencil,Plus,RefreshCw,Send,Trash2,X,
+  ExternalLink,Link2,LogOut,Megaphone,MessageSquareText,
+  Pencil,Plus,RefreshCw,Send,Trash2,MoreHorizontal,X,
 } from "lucide-react";
 import type {Member} from "@/lib/domain";
 import {supabase} from "@/lib/supabase";
@@ -421,18 +421,6 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
    else localStorage.removeItem(key);
   }catch{}
  }
- function openFromInbox(id:string){
-  // Single source of truth: review in the same expandable campaign card.
-  setFilter("all");
-  setActiveId(id);
-  try{localStorage.setItem("stc:media:v2:selected:"+member.id,id);}catch{}
-  window.requestAnimationFrame(()=>{
-   document.getElementById("mb2-card-"+id)?.scrollIntoView({
-    behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",
-    block:"start"
-   });
-  });
- }
  async function remove(brief:Brief){
   if(!manager||busy)return;
   if(!(await confirmInCurrentLanguage("متأكدة إنك عايزة تمسحي تكليف الكامبين دي؟ هتختفي من عند أحمد لكن التقرير هيفضل محفوظ.")))return;
@@ -476,50 +464,16 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
   </header>
   <main className="mb2-container">
    <section className="mb2-hero">
-    <div><span className="mb2-eyebrow">MEDIA BUYING / CAMPAIGN FLOW</span>
-     <h1>{manager?"حملات أحمد الخولي":"الـCampaigns اللي اتبعتتلك"}</h1>
-     <p>{manager?
-      "ابعتي لينك البوست فقط، ولو حابة اكتبي الهدف والتعليمات في ملاحظة واحدة. أحمد هيجاوب على الأسئلة الخمسة.":
-      "كل تكليف من ناردين موجود في كارت فيه لينك البوست وملاحظتها الاختيارية. نفّذ الإعلان وبعدها ابعت تقريرك."}</p>
-    </div>
+    <div><span className="mb2-eyebrow">MEDIA BUYING</span>
+     <h1>{manager?"حملات أحمد الخولي":"حملاتك الإعلانية"}</h1>
+     <p>{manager?"ابعتي التكليف، وراجعي تقارير أحمد من نفس الكروت.":"افتح البوست، نفّذ الإعلان، وبعدها سجّل تقريرك."}</p></div>
     {manager&&!!profile&&<button type="button" className="mb2-primary"
-     onClick={()=>setEditing("new")}><Plus size={18}/> تكليف كامبين جديد</button>}
+      onClick={()=>setEditing("new")}><Plus size={18}/> تكليف جديد</button>}
    </section>
    {error&&<div className="mb2-error" role="alert">{error}
     <button type="button" onClick={()=>void load()}>حاول تاني</button></div>}
    {loading&&!profile&&<div className="mb2-empty"><RefreshCw size={22}/> بنحمّل الحملات…</div>}
    {profile&&<>
-    <section className="mb2-stats">
-     <article><span className="mb2-stat-icon"><Megaphone size={20}/></span>
-      <small>إجمالي التكليفات</small><strong>{briefs.length}</strong></article>
-     <article><span className="mb2-stat-icon"><ClipboardCheck size={20}/></span>
-      <small>مطلوب تنفيذ أو تعديل</small><strong>{waiting.length}</strong></article>
-     <article><span className="mb2-stat-icon"><Clock3 size={20}/></span>
-      <small>تقارير للمراجعة</small><strong>{pending.length}</strong></article>
-     <article><span className="mb2-stat-icon"><FileCheck2 size={20}/></span>
-      <small>تقارير معتمدة</small><strong>{completed.length}</strong></article>
-    </section>
-    {manager&&pending.length>0&&<section className="mb2-inbox" aria-label="تقارير مستنية مراجعة">
-     <div className="mb2-inbox-heading"><div><span className="mb2-eyebrow">REVIEW INBOX</span>
-      <h2>تقارير أحمد اللي مستنية مراجعتك</h2>
-      <p>اختاري التقرير، وهيفتح جوّه كارت الحملة نفسه.</p>
-     </div><span className="mb2-counter">{pending.length} للمراجعة</span></div>
-     <div className="mb2-inbox-list">{pending.map(brief=>{
-      const report=byBrief.get(brief.id);
-      return report?<button type="button" key={brief.id} className="mb2-inbox-jump"
-       onClick={()=>openFromInbox(brief.id)}>
-       <div className="mb2-inbox-jump-icon"><ClipboardCheck size={20}/></div>
-       <div className="mb2-inbox-jump-content"><strong>تقرير جديد من أحمد</strong>
-        <span dir="ltr">{shortLink(brief.post_url)}</span>
-        <small>اترسل: {dateTime(report.updated_at)}</small>
-       </div>
-       <span className="mb2-inbox-jump-action">مراجعة التقرير <ChevronDown size={16}/></span>
-      </button>:null;
-     })}</div>
-    </section>}
-    <section className="mb2-section-head"><div><span className="mb2-eyebrow">ASSIGNED CAMPAIGNS</span>
-     <h2>كروت الحملات</h2><p>لينك البوست وملاحظة اختيارية من ناردين، وتقرير أحمد مربوط بنفس الكارت.</p>
-    </div></section>
     <nav className="mb2-filters" aria-label="فلترة الحملات">
      {([
       ["all","الكل",briefs.length],["todo","مطلوب شغل",waiting.length],
@@ -562,19 +516,29 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
        </div>}
       </div>
       <div className="mb2-card-actions">
-       <button type="button" className="mb2-card-open"
-        aria-expanded={expanded} aria-controls={"mb2-card-details-"+brief.id}
-        onClick={()=>choose(brief.id)}>
-        <ClipboardCheck size={17}/>
-        {expanded?"قفل التفاصيل":submission?"عرض تقرير أحمد":"فتح التفاصيل"}
-        {expanded?<ChevronUp size={17}/>:<ChevronDown size={17}/>}
-       </button>
-       {manager&&<div className="mb2-card-manager">
-        <button type="button" title="تعديل التكليف" aria-label="تعديل التكليف"
-         onClick={()=>setEditing(brief)}><Pencil size={17}/></button>
-        <button type="button" title="حذف التكليف" aria-label="حذف التكليف" disabled={busy}
-         onClick={()=>void remove(brief)}><Trash2 size={17}/></button>
-       </div>}
+       {!manager&&(!submission||submission.status==="changes_requested")?
+        <button type="button" className="mb2-card-open mb2-card-open--primary"
+          onClick={()=>setAnswering(brief)}>
+          <Send size={17}/>{submission?"عدّل التقرير وأرسله":"املأ التقرير وأرسله"}
+        </button>:
+        submission?
+         <button type="button" className="mb2-card-open"
+           aria-expanded={expanded} aria-controls={"mb2-card-details-"+brief.id}
+           onClick={()=>choose(brief.id)}>
+           <ClipboardCheck size={17}/>{expanded?"قفل التقرير":"عرض التقرير"}
+           {expanded?<ChevronUp size={17}/>:<ChevronDown size={17}/>}
+         </button>:
+         <span className="mb2-card-waiting"><Clock3 size={16}/> مستني تقرير أحمد</span>
+       }
+       {manager&&<details className="mb2-card-menu">
+         <summary aria-label="إجراءات التكليف" title="إجراءات التكليف"><MoreHorizontal size={20}/></summary>
+         <div className="mb2-card-menu__items">
+           <button type="button" onClick={()=>setEditing(brief)}><Pencil size={16}/> تعديل التكليف</button>
+           <button type="button" disabled={busy} onClick={()=>void remove(brief)}>
+             <Trash2 size={16}/> حذف التكليف
+           </button>
+         </div>
+       </details>}
       </div>
       <div id={"mb2-card-details-"+brief.id} className="mb2-inline-details"
        role="region" aria-label="تفاصيل وتقرير الحملة" hidden={!expanded}>
@@ -587,20 +551,11 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
           {manager?"مستنيين أحمد ينفّذ الإعلان ويبعت إجابات الأسئلة.":
            "خلصت تنفيذ الإعلان؟ سجّل إجابات الأسئلة الخمسة وابعتها لناردين."}
          </div>}
-        {!manager&&(!submission||submission.status==="changes_requested")&&
-         <button type="button" className="mb2-primary mb2-answer-button"
-          onClick={()=>setAnswering(brief)}><Send size={18}/>
-          {submission?"عدّل الإجابات وابعتها تاني":"املأ التقرير وأرسله لناردين"}
-         </button>}
-       </>}
+        </>}
       </div>
      </article>;
     })}</div>
-    {manager&&<p className="mb2-security-note">
-     <CheckCircle2 size={16}/> ناردين تقدر تعدّل أو تمسح التكليف. أحمد يكتب التقرير ويرسله؛
-     الحذف بيخفي التكليف من الكروت وبيحافظ على السجل بدل حذف بياناته نهائيًا.
-    </p>}
-   </>}
+       </>}
   </main>
   {profile&&manager&&editing!==null&&<BriefEditor profile={profile} member={member}
    existing={editing==="new"?null:editing} onClose={()=>setEditing(null)} onSaved={load}/>}

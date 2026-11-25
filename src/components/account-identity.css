@@ -48,3 +48,18 @@ body:has(.stc-account-identity) .seo-topbar{top:40px}
  .stc-account-identity__caption{display:none}
  .stc-account-identity__name{max-width:50vw}
 }
+
+/* FLOW 3.0: smaller persistent identity indicator, still unmistakable. */
+.stc-account-identity{--stc-identity-height:34px;min-height:34px;border-bottom-width:1px;box-shadow:none}
+.stc-account-identity__inner{min-height:33px;padding:2px 24px;gap:7px}
+.stc-account-identity__symbol{width:24px;height:24px;border-radius:7px}
+.stc-account-identity__name{font-size:12px}
+.stc-account-identity__role{font-size:10px;padding:1px 8px}
+.stc-account-identity__caption,.stc-account-identity__verified{font-size:10px}
+body:has(.stc-account-identity) .easy-header,
+body:has(.stc-account-identity) .seo-topbar{top:34px}
+@media(max-width:650px){
+ .stc-account-identity__inner{padding:2px 10px;gap:5px}
+ .stc-account-identity__name{font-size:11px}
+ .stc-account-identity__role{font-size:9px;padding:1px 7px}
+}
