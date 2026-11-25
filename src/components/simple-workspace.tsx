@@ -262,8 +262,13 @@ export default function SimpleWorkspace(){
   const userId=session?.user.id||null;
   const announce=useCallback((message:string)=>showToast(message,/اتمسح|اتمسحت|مسح|حذف/.test(message)?"delete":"success"),[]);
   useEffect(()=>{
-    void supabase.auth.getSession().then(({data,error})=>{if(error)setErr(error.message);activeUser.current=data.session?.user.id||null;setSession(data.session);setReady(true);});
-    const {data}=supabase.auth.onAuthStateChange((_ev,s)=>{activeUser.current=s?.user.id||null;setSession(s);setReady(true);});
+    // INITIAL_SESSION is emitted after Supabase restores and checks the saved session.
+    // Use one source of auth state so a stale getSession result cannot override a newer event.
+    const {data}=supabase.auth.onAuthStateChange((event,s)=>{
+      activeUser.current=s?.user.id||null;
+      setSession(s);setReady(true);
+      if(event==="SIGNED_IN"||event==="TOKEN_REFRESHED")setErr("");
+    });
     return ()=>data.subscription.unsubscribe();
   },[]);
   useEffect(()=>{
@@ -378,12 +383,26 @@ export default function SimpleWorkspace(){
     const poll=setInterval(()=>{
       if(document.visibilityState==="visible")void refresh();
     },25000);
-    const resume=()=>{if(document.visibilityState==="visible")void refresh();};
-    const onlineAgain=()=>void refresh();
+    // Let the SDK restore/refresh its persisted session under its own auth lock
+    // before refreshing workspace data after sleep, backgrounding or reconnecting.
+    let resuming=false;
+    let disposed=false;
+    const recover=async()=>{
+      if(resuming||disposed||!navigator.onLine)return;
+      resuming=true;
+      try{
+        const {data,error}=await supabase.auth.getSession();
+        if(!disposed&&activeUser.current===userId&&!error&&data.session?.user.id===userId)await refresh();
+      }catch{/* The SDK retries transient auth/network failures. */}
+      finally{resuming=false;}
+    };
+    const resume=()=>{if(document.visibilityState==="visible")void recover();};
+    const onlineAgain=()=>void recover();
     window.addEventListener("focus",resume);
     window.addEventListener("online",onlineAgain);
     document.addEventListener("visibilitychange",resume);
     return()=>{
+      disposed=true;
       void supabase.removeChannel(ch);clearInterval(poll);
       window.removeEventListener("focus",resume);
       window.removeEventListener("online",onlineAgain);
@@ -466,7 +485,7 @@ export default function SimpleWorkspace(){
     void refresh();
   }
   async function logout(){
-    const id=userId;const r=await supabase.auth.signOut();
+    const id=userId;const r=await supabase.auth.signOut({scope:"local"});
     if(r.error){setErr(r.error.message);return;}
     refreshSerial.current++;
     clearFlowLocation(id);
