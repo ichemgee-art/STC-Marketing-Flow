@@ -197,22 +197,16 @@ export default function StorageDashboard({userId,onBack,readOnly=false}:{
           </div>
           <small>الحد ده مرجع لخطة Free، مش قراءة مباشرة من نظام الفوترة. استهلاك الملفات التابع لمشاريع تانية في نفس المؤسسة مش داخل الرقم ده.</small>
         </section>
-        <div className="storage-summary">
-          <article><span className="storage-summary-icon"><HardDrive size={24}/></span><small>حجم الملفات الحالية</small>
-            <strong dir="ltr">{formatSize(overview.total_bytes)}</strong><p>إجمالي حجم ملفات الـBuckets</p></article>
-          <article><span className="storage-summary-icon"><FileImage size={24}/></span><small>عدد الملفات</small>
-            <strong>{overview.total_files}</strong><p>ملفات موجودة حاليًا في التخزين</p></article>
-          <article><span className="storage-summary-icon"><Folder size={24}/></span><small>أقسام التخزين</small>
-            <strong>{overview.buckets.length}</strong><p>كل أقسام الـStorage في المشروع</p></article>
-          <article><span className="storage-summary-icon"><Cloud size={24}/></span><small>آخر ملف اترفع</small>
-            <strong className="storage-summary-date">{friendlyDate(overview.recent[0]?.created_at||null)}</strong>
-            <p>آخر عملية رفع ملف موجودة في السجل</p></article>
+        <div className="storage-snapshot" aria-label="ملخص التخزين">
+          <span><FileImage size={17}/> <strong>{overview.total_files}</strong> ملف</span>
+          <span><Folder size={17}/> <strong>{overview.buckets.length}</strong> قسم</span>
+          <span><Cloud size={17}/> آخر رفع: <strong>{friendlyDate(overview.recent[0]?.created_at||null)}</strong></span>
         </div>
         <div className="storage-updated"><ShieldCheck size={16}/>
           آخر تحديث للبيانات: {friendlyDate(overview.measured_at)} · {updatedAt?"مباشر من Supabase":"نسخة محفوظة مؤقتًا"}
         </div>
-        <section className="storage-section">
-          <div className="storage-heading"><div><h2>استهلاك كل قسم</h2><p>نسبة كل قسم من إجمالي حجم الملفات الموجودة، مش من باقة الاشتراك.</p></div></div>
+        <details className="storage-section storage-breakdown">
+          <summary><Database size={19}/> استهلاك كل قسم <small>عرض التفاصيل</small></summary>
           <div className="storage-buckets">
             {overview.buckets.map(bucket=><button key={bucket.id} type="button"
               className={"storage-bucket"+(activeBucket===bucket.id?" chosen":"")}
@@ -227,7 +221,7 @@ export default function StorageDashboard({userId,onBack,readOnly=false}:{
               <div className="storage-progress"><span style={{width:pct(bucket.total_bytes)+"%"}}/></div>
               </button>)}
           </div>
-        </section>
+        </details>
         <section className="storage-section storage-files">
           <div className="storage-heading"><div><h2>آخر الملفات المرفوعة</h2>
             <p>آخر {overview.recent.length} ملف من التخزين · دوسي على ملف لمعاينته أو تحميله، لو صلاحياته تسمح.</p>
@@ -257,11 +251,11 @@ export default function StorageDashboard({userId,onBack,readOnly=false}:{
             {!files.length&&<div className="storage-no-files">مفيش ملفات مطابقة للبحث ده.</div>}
           </div>
         </section>
-        <div className="storage-caveat"><ShieldCheck size={18}/><p>
+        <details className="storage-caveat"><summary><ShieldCheck size={16}/> عن الأرقام والصلاحيات</summary><p>
           الأرقام هنا لحجم الملفات الموجودة دلوقتي، وبتتحدث تلقائيًا كل 10 ثواني لما الصفحة مفتوحة.
           <strong> دي مش حصة الباقة ولا حساب فاتورة Supabase الشهرية،</strong> لأن الفوترة بتتأثر بالحجم عبر الوقت.
           الملفات الخاصة متاحة لناردين وللحسابات المصرح لها بعرض التخزين فقط، وأي فتح بيستخدم رابط مؤقت.
-        </p></div>
+        </p></details>
       </>}
     </main>
     {preview&&<div className="storage-preview-backdrop" role="dialog" aria-modal="true"

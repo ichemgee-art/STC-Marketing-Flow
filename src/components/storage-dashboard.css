@@ -103,3 +103,58 @@
 .storage-quota__bottom b{color:#fff;font-weight:900}
 .storage-quota>small{display:block;color:#c7d5e1;font-size:10px;margin-top:15px;line-height:1.8}
 @media(max-width:660px){.storage-quota{padding:18px 15px}.storage-quota h2{font-size:19px}.storage-quota__number strong{font-size:23px}.storage-quota__bottom{font-size:11px;row-gap:10px}}
+
+/* FLOW 3.0 — storage: quota first, files next, technical detail on demand. */
+.storage-top{min-height:64px}
+.storage-content{padding-top:19px}
+.storage-intro{margin-bottom:13px}
+.storage-intro h1{font-size:clamp(22px,2.7vw,29px)}
+.storage-intro p{font-size:11.5px}
+.storage-quota{margin-bottom:12px}
+.storage-snapshot{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  margin:0 0 13px;
+}
+.storage-snapshot>span{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid #e2e9f1;background:#fff;
+  border-radius:9px;padding:7px 11px;
+  color:#657d96;font-size:11px;
+}
+.storage-snapshot>span svg{color:#9a7b35}
+.storage-snapshot strong{color:#2d4761;font-size:12px;font-weight:900}
+.storage-breakdown{
+  margin:12px 0;background:#fff;border:1px solid #e1e8f1;
+  border-radius:12px;padding:0;box-shadow:none;
+}
+.storage-breakdown>summary{
+  cursor:pointer;list-style:none;
+  display:flex;align-items:center;gap:9px;
+  padding:13px 16px;color:#36516e;font-size:12.5px;font-weight:900;
+}
+.storage-breakdown>summary::-webkit-details-marker{display:none}
+.storage-breakdown>summary svg{color:#94732a}
+.storage-breakdown>summary small{margin-inline-start:auto;font-size:10.5px;color:#7990a6;font-weight:700}
+.storage-breakdown[open]>summary{border-bottom:1px solid #ebf0f5}
+.storage-breakdown .storage-buckets{padding:12px;margin:0}
+.storage-files{margin-top:14px}
+.storage-caveat{
+  display:block;margin-top:15px;padding:0;
+  background:#fff;border:1px solid #e4ebf2;border-radius:11px;
+}
+.storage-caveat>summary{
+  display:flex;align-items:center;gap:8px;
+  color:#5d7590;font-size:11px;font-weight:900;
+  padding:12px 14px;cursor:pointer;list-style:none;
+}
+.storage-caveat>summary::-webkit-details-marker{display:none}
+.storage-caveat>p{padding:0 14px 14px;margin:0;font-size:11px}
+.storage-caveat>summary svg{color:#498770}
+@media(max-width:700px){
+ .storage-top{min-height:60px}
+ .storage-content{padding:16px 11px 55px}
+ .storage-snapshot{gap:5px}
+ .storage-snapshot>span{padding:5px 8px;font-size:10px}
+ .storage-breakdown>summary{padding:11px}
+ .storage-breakdown .storage-buckets{padding:9px}
+}

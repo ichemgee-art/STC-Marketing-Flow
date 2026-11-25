@@ -961,6 +961,14 @@ const EN_ENTRIES: [string,string][] = [
   ["تعديل التكليف","Edit assignment"],
   ["حذف التكليف","Delete assignment"],
 
+  // Flow 3.0 storage progressive disclosure.
+  ["ملخص التخزين","Storage summary"],
+  ["عرض التفاصيل","Show breakdown"],
+  ["استهلاك كل قسم","Storage usage by bucket"],
+  ["آخر رفع:","Last upload:"],
+  ["عن الأرقام والصلاحيات","About usage figures and access"],
+  ["تكليف جديد","New assignment"],
+
  ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)
