@@ -864,6 +864,24 @@ const EN_ENTRIES: [string,string][] = [
   ["من","From"],
   ["إلى","To"],
 
+  // Media Buying accordion and inline reporting (2026-11-25)
+  ["اختاري التقرير، وهيفتح جوّه كارت الحملة نفسه.","Select a report to open it inside its campaign card."],
+  ["تقرير جديد من أحمد","New report from Ahmed"],
+  ["اترسل:","Submitted:"],
+  ["مراجعة التقرير","Review report"],
+  ["رابط البوست","Post link"],
+  ["ملاحظة ناردين","Nardine's note"],
+  ["عرض تقرير أحمد","View Ahmed's report"],
+  ["فتح التفاصيل","Open details"],
+  ["قفل التفاصيل","Close details"],
+  ["تفاصيل وتقرير الحملة","Campaign details and report"],
+  ["خلصت تنفيذ الإعلان؟ سجّل إجابات الأسئلة الخمسة وابعتها لناردين.","Finished running the ad? Answer the five questions and submit them to Nardine."],
+  ["املأ التقرير وأرسله لناردين","Complete report and send to Nardine"],
+  ["المبلغ","Amount"],
+  ["الميزانية اليومية والعملة","Daily budget and currency"],
+  ["الميزانية اليومية كام؟","How much per day?"],
+  ["قفل التفاصيل","Close details"],
+
  ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)

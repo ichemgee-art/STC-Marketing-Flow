@@ -162,3 +162,163 @@
 @media(max-width:800px){.mb2-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.mb2-container{padding:22px 14px 60px}.mb2-hero h1{font-size:24px}}
 @media(max-width:550px){.mb2-topbar{padding:9px 11px;gap:7px}.mb2-topbar-title b{font-size:12px}.mb2-topbar-title small{display:none}.mb2-live{font-size:9px}.mb2-topbar .mb2-back{font-size:0;min-width:38px;padding:8px}.mb2-topbar .mb2-back svg{width:17px}.mb2-container{padding:18px 11px 55px}.mb2-stats{gap:9px}.mb2-stats article{padding:12px}.mb2-stats strong{font-size:22px}.mb2-hero{align-items:flex-start}.mb2-detail{padding:13px}.mb2-report{padding:12px}.mb2-report-head h3{font-size:16px}.mb2-qa-card{padding:10px}.mb2-qa-answer{font-size:13px}.mb2-qa-card--emphasis .mb2-qa-answer{font-size:15px}.mb2-brief-detail{grid-template-columns:1fr}.mb2-brief-detail>div:first-child{grid-column:1}.mb2-modal-head{padding:15px}.mb2-modal-head h2{font-size:19px}.mb2-form{padding:15px}.mb2-budget-fields,.mb2-range-fields{grid-template-columns:1fr}.mb2-form-actions>button{flex:1}.mb2-card h3{font-size:14px}.mb2-inbox{padding:12px}.mb2-report-grid{grid-template-columns:1fr}.mb2-qa-card--schedule{grid-column:1}.mb2-inbox-heading h2{font-size:16px}}
 @media(prefers-reduced-motion:reduce){.mb2-card,.mb2-primary,.mb2-secondary{transition:none!important}}
+
+
+/* STC Media Buyer UX v2.1 — one report per campaign, inline accordion, calm layout */
+.mb2-cards{
+  grid-template-columns:minmax(0,1fr);
+  gap:14px;
+  align-items:start;
+}
+.mb2-card{
+  gap:12px;
+  padding:18px 20px 17px;
+  scroll-margin-top:92px;
+  overflow:hidden;
+  border-color:#dce5ee;
+  box-shadow:0 4px 18px #20365209;
+}
+.mb2-card:hover{transform:none;border-color:#ddc48a}
+.mb2-card.is-open{border-color:#dfb950;box-shadow:0 8px 28px #263d5510}
+.mb2-card-top{align-items:center;gap:14px}
+.mb2-card-identity{display:flex;align-items:center;gap:12px;min-width:0}
+.mb2-card-identity .mb2-card-icon{flex-shrink:0}
+.mb2-card-identity>div:last-child{min-width:0}
+.mb2-card-identity h3{min-height:0;display:block;font-size:17px;line-height:1.45;margin-top:2px}
+.mb2-card-summary{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,315px),1fr));
+  gap:10px;
+}
+.mb2-card-summary-field{
+  display:flex;flex-direction:column;gap:5px;min-width:0;
+  background:#f7f9fc;border:1px solid #e5ebf2;
+  border-radius:11px;padding:12px 13px;
+}
+.mb2-card-summary-label{font-size:10.5px;font-weight:900;color:#70869e}
+.mb2-card-summary-field .mb2-card-link{
+  max-width:100%;padding:3px 0;min-height:24px;border:0;background:transparent;
+  border-radius:0;box-shadow:none;overflow:hidden;text-overflow:ellipsis;
+}
+.mb2-card-note{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;color:#3c5875;line-height:1.8}
+.mb2-card-actions{justify-content:flex-start;margin-top:1px}
+.mb2-card-open{
+  flex:0 1 270px;
+  min-width:190px;justify-content:center;
+  padding:10px 15px;background:#fff7e5;border-color:#e6ce93;
+}
+.mb2-card-open[aria-expanded="true"]{
+  background:#253a55;color:#fff;border-color:#253a55;
+}
+.mb2-card-open[aria-expanded="true"]:hover{background:#35516e}
+.mb2-card-open svg:last-child{margin-inline-start:auto}
+.mb2-card-manager{margin-inline-start:auto}
+.mb2-inline-details{
+  border-top:1px solid #e4eaf1;
+  background:#fbfcfe;
+  padding:18px 20px 20px;
+  margin:5px -20px -17px;
+  min-width:0;
+}
+.mb2-inline-details[hidden]{display:none!important}
+.mb2-inline-details .mb2-report{
+  border:0;background:transparent;box-shadow:none;padding:0;
+}
+.mb2-inline-details .mb2-report-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.mb2-inline-details .mb2-qa-card{
+  background:#fff;padding:15px;border:1px solid #e0e8ef;
+}
+.mb2-inline-details .mb2-qa-card--emphasis{
+  background:#fff9e8;border-color:#edd59a;
+}
+.mb2-inline-details .mb2-qa-card--schedule{grid-column:1/-1}
+.mb2-inline-details .mb2-no-report{
+  background:#fff;min-height:74px;
+}
+.mb2-inline-details .mb2-answer-button{width:auto;min-width:220px;margin-top:15px}
+.mb2-inbox-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:10px}
+.mb2-inbox-jump{
+  width:100%;
+  display:flex;align-items:center;gap:12px;
+  padding:13px 14px;
+  border:1px solid #e7dfc9;border-radius:12px;
+  background:white;text-align:start;color:#253a55;
+  min-width:0;
+  box-shadow:0 2px 9px #253a5508;
+}
+.mb2-inbox-jump:hover{background:#fff9ed;border-color:#edc764}
+.mb2-inbox-jump:focus-visible,.mb2-card-open:focus-visible,
+.mb2-card-manager button:focus-visible{
+  outline:2px solid #d6a72e;outline-offset:3px;
+}
+.mb2-inbox-jump-icon{
+  display:grid;place-items:center;width:41px;height:41px;
+  background:#fff2d5;border-radius:12px;color:#ae7e22;flex-shrink:0;
+}
+.mb2-inbox-jump-content{
+  display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;
+}
+.mb2-inbox-jump-content strong{font-size:12px;font-weight:900}
+.mb2-inbox-jump-content>span{
+  font-size:11px;color:#50789b;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-align:start;
+}
+.mb2-inbox-jump-content small{font-size:10px;color:#8b9aa9}
+.mb2-inbox-jump-action{
+  display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
+  font-size:11px;font-weight:900;color:#85601a;
+}
+/* Q3: amount and currency must share exactly one responsive row */
+.mb2-budget-group{
+  display:flex;flex-direction:column;gap:10px;
+  padding:13px 14px;
+  border-radius:12px;background:#f8fafc;border:1px solid #e1e9f1;
+  min-width:0;
+}
+.mb2-budget-heading{display:flex;align-items:center;gap:8px;color:#395773;font-size:12px}
+.mb2-budget-heading strong{font-weight:900}
+.mb2-budget-fields{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 114px!important;
+  align-items:end;gap:10px!important;
+  width:100%;min-width:0;
+}
+.mb2-budget-fields>.mb2-field{grid-column:auto!important;min-width:0}
+.mb2-budget-fields .mb2-field>span{font-size:11px;color:#71879a}
+.mb2-budget-fields input,.mb2-budget-fields select{
+  display:block;width:100%;height:45px;min-height:45px;
+  box-sizing:border-box;
+}
+.mb2-budget-fields input{direction:ltr;text-align:left;font-variant-numeric:tabular-nums}
+.mb2-budget-fields select{direction:ltr;text-align:center;font-weight:900}
+.mb2-qa-answer--money{
+  display:inline-block;direction:ltr!important;
+  unicode-bidi:isolate;white-space:nowrap;
+  font-size:clamp(14px,2vw,22px)!important;
+  font-variant-numeric:tabular-nums;
+}
+@media(max-width:700px){
+ .mb2-card{padding:14px 13px}
+ .mb2-card-top{align-items:flex-start}
+ .mb2-card-summary{grid-template-columns:minmax(0,1fr)}
+ .mb2-inline-details{padding:14px 13px;margin:4px -13px -14px}
+ .mb2-inline-details .mb2-report-grid{grid-template-columns:minmax(0,1fr)}
+ .mb2-inline-details .mb2-qa-card--schedule{grid-column:1}
+ .mb2-card-open{flex:1;min-width:0}
+ .mb2-card-manager{margin-inline-start:0}
+ .mb2-card-identity h3{font-size:15px}
+ .mb2-inbox-list{grid-template-columns:minmax(0,1fr)}
+ .mb2-inbox-jump-action{font-size:0}
+ .mb2-inbox-jump-action svg{width:17px;height:17px}
+}
+@media(max-width:550px){
+ .mb2-budget-fields{grid-template-columns:minmax(0,1fr) 102px!important}
+ .mb2-budget-fields>.mb2-field{grid-column:auto!important}
+ .mb2-budget-group{padding:12px}
+ .mb2-qa-answer--money{font-size:19px!important}
+ .mb2-inline-details .mb2-answer-button{width:100%;min-width:0}
+}
