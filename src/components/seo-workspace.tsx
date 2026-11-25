@@ -373,7 +373,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     if(manager||asset.origin!=="manual"||asset.uploaded_by!==member.id){
       setError("تقدر تمسح بس الاسكرينات اللي إنت رفعتها بنفسك.");return;
     }
-    if(!confirmInCurrentLanguage("متأكد إنك عايز تمسح الاسكرين دي نهائيًا من شهر "+(period?.label||"الشغل")+"؟"))return;
+    if(!(await confirmInCurrentLanguage("متأكد إنك عايز تمسح الاسكرين دي نهائيًا من شهر "+(period?.label||"الشغل")+"؟")))return;
     setRemovingShot(asset.id);setError("");
     try{
       // Delete the actual Storage object via the Storage API (not SQL).

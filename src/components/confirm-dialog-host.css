@@ -1,0 +1,63 @@
+/* The system owns all destructive action confirmations. No native browser popups. */
+.stc-confirm-overlay{
+  position:fixed;inset:0;z-index:1400;background:rgba(12,26,43,.63);
+  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+  display:flex;align-items:center;justify-content:center;
+  padding:18px;animation:stc-confirm-bg-in .18s ease both;
+}
+.stc-confirm-modal{
+  width:min(100%,450px);max-height:min(90vh,620px);overflow:auto;
+  border-radius:22px;background:#fff;color:#263d58;
+  box-shadow:0 30px 100px rgba(10,27,47,.38),0 0 0 1px #dce6ef;
+  font-family:Cairo,Tahoma,Arial,sans-serif;
+  animation:stc-confirm-in .25s cubic-bezier(.2,.7,.2,1) both;
+}
+.stc-confirm-topline{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:19px 22px 0;
+}
+.stc-confirm-eyebrow{letter-spacing:.08em;font:900 10px/1.2 Cairo,Arial,sans-serif;color:#8ca0b1}
+.stc-confirm-close{
+  width:34px;height:34px;border:1px solid #e4eaf0;border-radius:10px;
+  display:grid;place-items:center;background:#f7f9fb;color:#6a829a;cursor:pointer;
+}
+.stc-confirm-close:hover{background:#ebeff4;color:#263d58}
+.stc-confirm-content{text-align:center;padding:5px 31px 26px}
+.stc-confirm-symbol{
+  display:grid;place-items:center;margin:0 auto 18px;width:72px;height:72px;
+  border-radius:21px;background:#fff1e8;color:#bb6846;
+  box-shadow:inset 0 0 0 1px #f6dac9;
+}
+.stc-confirm-content h2{font-size:22px;line-height:1.5;font-weight:900;color:#263c56;margin:0 0 8px}
+.stc-confirm-content p{font-size:13px;line-height:1.95;color:#5d7085;white-space:pre-wrap;overflow-wrap:anywhere}
+.stc-confirm-hint{display:block;font-size:10px;color:#9aa8b7;margin-top:13px}
+.stc-confirm-actions{
+  display:grid;grid-template-columns:1fr 1fr;gap:11px;
+  padding:17px 22px 22px;border-top:1px solid #eef2f6;background:#fcfdfe;
+}
+.stc-confirm-actions button{
+  border-radius:12px;min-height:47px;padding:10px 14px;
+  display:inline-flex;justify-content:center;align-items:center;gap:7px;
+  font:900 13px/1.5 Cairo,Tahoma,Arial,sans-serif;cursor:pointer;
+}
+.stc-confirm-cancel{background:#fff;color:#506b84;border:1px solid #d9e4ed}
+.stc-confirm-cancel:hover{background:#f1f5f9}
+.stc-confirm-accept{background:#b45c4b;border:1px solid #b45c4b;color:#fff;box-shadow:0 4px 12px #b45c4b24}
+.stc-confirm-accept:hover{background:#a24c3f}
+.stc-confirm-modal:not(.stc-confirm-modal--danger) .stc-confirm-symbol{background:#fff3dc;color:#a67e27}
+.stc-confirm-modal:not(.stc-confirm-modal--danger) .stc-confirm-accept{background:#253a55;border-color:#253a55}
+.stc-confirm-modal:not(.stc-confirm-modal--danger) .stc-confirm-accept:hover{background:#364e6a}
+.stc-confirm-actions button:focus-visible,.stc-confirm-close:focus-visible{outline:3px solid #deb74b;outline-offset:3px}
+@keyframes stc-confirm-bg-in{from{opacity:0}to{opacity:1}}
+@keyframes stc-confirm-in{from{opacity:0;transform:translateY(13px) scale(.975)}to{opacity:1;transform:none}}
+@media(max-width:520px){
+ .stc-confirm-modal{border-radius:18px}
+ .stc-confirm-content{padding:8px 22px 22px}
+ .stc-confirm-content h2{font-size:19px}
+ .stc-confirm-content p{font-size:12px}
+ .stc-confirm-actions{padding:14px 16px 16px;gap:8px}
+ .stc-confirm-actions button{font-size:12px;min-height:45px}
+}
+@media(prefers-reduced-motion:reduce){
+ .stc-confirm-overlay,.stc-confirm-modal{animation:none}
+}

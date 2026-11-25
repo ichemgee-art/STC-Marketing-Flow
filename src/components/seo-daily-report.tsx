@@ -107,7 +107,7 @@ export default function SeoDailyReport({
   }
   async function removeHours(id:string){
     if(manager){onError("حساب ناردين للمتابعة، مش لتسجيل أو مسح ساعات الموظف.");return;}
-    if(!confirmInCurrentLanguage("متأكد إنك عايز تمسح فترة الساعات دي؟"))return;
+    if(!(await confirmInCurrentLanguage("متأكد إنك عايز تمسح فترة الساعات دي؟")))return;
     const r=await supabase.from("stc_seo_hours").delete().eq("id",id);
     if(r.error)onError(r.error.message);
     else{await onRefresh();onNotice("اتمسحت الفترة دي من التقرير.");}

@@ -13,6 +13,7 @@ import {
   type Event,
 } from "@/lib/domain";
 import { labels, type Lang } from "@/lib/i18n";
+import { confirmInCurrentLanguage } from "./app-language-provider";
 export default function TaskDetail({
   task,
   member,
@@ -162,10 +163,10 @@ export default function TaskDetail({
     setEditing(false);
   }
   async function removeTask() {
-    if (!window.confirm(t(
+    if (!(await confirmInCurrentLanguage(t(
       "Remove this task from everyone's active lists? The action will be recorded.",
       "هل متأكد من حذف المهمة من القوائم الحالية عند كل الفريق؟ هيتم حفظ العملية في سجل النشاط."
-    ))) return;
+    )))) return;
     await run(async () => {
       const r = await supabase.from("stc_tasks").update({
         deleted_at: new Date().toISOString(),

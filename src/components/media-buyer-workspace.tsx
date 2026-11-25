@@ -435,7 +435,7 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
  }
  async function remove(brief:Brief){
   if(!manager||busy)return;
-  if(!confirmInCurrentLanguage("متأكدة إنك عايزة تمسحي تكليف الكامبين دي؟ هتختفي من عند أحمد لكن التقرير هيفضل محفوظ."))return;
+  if(!(await confirmInCurrentLanguage("متأكدة إنك عايزة تمسحي تكليف الكامبين دي؟ هتختفي من عند أحمد لكن التقرير هيفضل محفوظ.")))return;
   setBusy(true);
   try{
    const r=await supabase.from("stc_media_briefs").update({

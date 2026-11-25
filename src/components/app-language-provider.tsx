@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Globe2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { UI_EN } from "@/lib/ui-en";
+import { requestConfirmation } from "@/lib/dialogs";
 import "./app-language.css";
 
 export type AppLanguage = "ar" | "en";
@@ -84,9 +85,10 @@ function translateText(source: string): string {
   return source;
 }
 
-export function confirmInCurrentLanguage(message:string):boolean {
-  if (typeof window === "undefined") return false;
-  return window.confirm(
+export function confirmInCurrentLanguage(message:string):Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  // A branded in-app confirmation replaces the browser-native blocking popup.
+  return requestConfirmation(
     document.documentElement.dataset.stcLanguage === "en" ? translateText(message) : message
   );
 }

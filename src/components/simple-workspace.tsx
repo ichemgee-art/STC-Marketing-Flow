@@ -109,7 +109,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
     },"التعديل اتحفظ وظهر عند صاحب التاسك.");
   }
   async function remove(){
-    if(!confirmInCurrentLanguage("متأكدة إنك عايزة تمسحي التاسك من عند الكل؟ هيختفي من القوائم، بس سجل الحذف محفوظ."))return;
+    if(!(await confirmInCurrentLanguage("متأكدة إنك عايزة تمسحي التاسك من عند الكل؟ هيختفي من القوائم، بس سجل الحذف محفوظ.")))return;
     await run(async()=>{
       const r=await supabase.from("stc_tasks").update({deleted_at:new Date().toISOString(),deleted_by:member.id})
         .eq("id",task.id).eq("version",task.version).is("deleted_at",null).select("id");

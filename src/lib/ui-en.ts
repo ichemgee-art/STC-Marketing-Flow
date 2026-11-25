@@ -882,6 +882,16 @@ const EN_ENTRIES: [string,string][] = [
   ["الميزانية اليومية كام؟","How much per day?"],
   ["قفل التفاصيل","Close details"],
 
+  // Branded confirmation overlay, never a browser-native popup
+  ["تأكيد الحذف","Confirm deletion"],
+  ["تأكيد الإجراء","Confirm action"],
+  ["نعم، احذف","Yes, delete"],
+  ["تأكيد","Confirm"],
+  ["العملية مش هتتنفّذ إلا بعد تأكيدك.","Nothing will happen until you confirm."],
+  ["متأكدة إنك عايزة تمسحي التاسك من عند الكل؟ هيختفي من القوائم، بس سجل الحذف محفوظ.","Delete this task from everyone's lists? The deletion history will be retained."],
+  ["متأكد إنك عايز تمسح فترة الساعات دي؟","Delete this recorded work period?"],
+  ["متأكدة إنك عايزة تمسحي تكليف الكامبين دي؟ هتختفي من عند أحمد لكن التقرير هيفضل محفوظ.","Delete this campaign assignment? It will disappear for Ahmed, but the report will be retained."],
+
  ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)
