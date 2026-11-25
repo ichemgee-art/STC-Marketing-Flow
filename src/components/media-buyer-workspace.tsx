@@ -363,6 +363,8 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
  const [error,setError]=useState("");
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(!initial);
  const serial=useRef(0);
+ const [refreshing,setRefreshing]=useState(false);
+ const manualRefreshBusy=useRef(false);
  const load=useCallback(async()=>{
   const seq=++serial.current;
   const p=await supabase.from("stc_media_profiles").select("id,slug,display_name,member_id")
@@ -388,6 +390,11 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
   setProfile(owner);setBriefs(list);setSubmissions(reportList);
   setLoading(false);setError("");
  },[manager,member.id]);
+ async function refreshNow(){
+  if(manualRefreshBusy.current)return;
+  manualRefreshBusy.current=true;setRefreshing(true);
+  try{await load();}finally{manualRefreshBusy.current=false;setRefreshing(false);}
+ }
  useEffect(()=>{void load();},[load]);
  useEffect(()=>{
   const scheduled=createRefreshScheduler(()=>void load());
@@ -461,16 +468,17 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
  }
  return <div className="mb2-page" dir="rtl">
   <header className="mb2-topbar">
-   <BrandLockup size="compact"/>
-   <div className="mb2-topbar-title"><b>Media Buying</b>
-    <small>STC Marketing Flow · Ahmed El Kholy</small></div>
-   <span className="mb2-live" aria-hidden="true"></span>
-   <button type="button" className="mb2-icon-button" title="تحديث" aria-label="تحديث" onClick={()=>void load()}>
-    <RefreshCw size={18}/></button>
-   <button type="button" className="mb2-secondary mb2-back" onClick={onBack}>
-    {manager?<ArrowRight size={17}/>:<LogOut size={17}/>}
-    {manager?"رجوع للتيم":"تسجيل خروج"}
-   </button>
+   <div className="mb2-header-brand"><BrandLockup size="compact"/>
+    <div className="mb2-topbar-title"><b>Media Buying</b><small>STC Marketing Flow</small></div>
+   </div>
+   <div className="mb2-header-actions">
+    <button type="button" className="mb2-icon-button" title="تحديث" aria-label="تحديث" aria-busy={refreshing} disabled={refreshing||loading} onClick={()=>void refreshNow()}>
+     <RefreshCw size={18} className={refreshing?"mb2-refreshing":undefined}/></button>
+    <button type="button" className="mb2-secondary mb2-back" aria-label={manager?"رجوع للتيم":"تسجيل خروج"} title={manager?"رجوع للتيم":"تسجيل خروج"} onClick={onBack}>
+     {manager?<ArrowRight size={18}/>:<LogOut size={18}/>}
+     <span>{manager?"رجوع للتيم":"تسجيل خروج"}</span>
+    </button>
+   </div>
   </header>
   <main className="mb2-container">
    <section className="mb2-hero">
@@ -478,13 +486,13 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
      <h1>{manager?"حملات أحمد الخولي":"حملاتك الإعلانية"}</h1>
      <p>{manager?"ابعتي التكليف، وراجعي تقارير أحمد من نفس الكروت.":"افتح البوست، نفّذ الإعلان، وبعدها سجّل تقريرك."}</p></div>
     {manager&&!!profile&&<button type="button" className="mb2-primary"
-      onClick={()=>setEditing("new")}><Plus size={18}/> تكليف جديد</button>}
+      disabled={busy||!!editing} onClick={()=>setEditing("new")}><Plus size={18}/> تكليف جديد</button>}
    </section>
    {error&&<div className="mb2-error" role="alert">{error}
-    <button type="button" onClick={()=>void load()}>حاول تاني</button></div>}
+    <button type="button" disabled={refreshing} onClick={()=>void refreshNow()}>حاول تاني</button></div>}
    {loading&&!profile&&<div className="mb2-empty"><RefreshCw size={22}/> بنحمّل الحملات…</div>}
    {profile&&<>
-    <nav className="mb2-filters" aria-label="فلترة الحملات">
+    {briefs.length>0&&<nav className="mb2-filters" aria-label="فلترة الحملات">
      {([
       ["all","الكل",briefs.length],["todo","مطلوب شغل",waiting.length],
       ["review","مستني مراجعة",pending.length],["finished","معتمد",completed.length],
@@ -492,10 +500,10 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
       className={filter===key?"active":""} aria-pressed={filter===key} onClick={()=>setFilter(key)}>
       {title}<small>{count}</small>
      </button>)}
-    </nav>
+    </nav>}
     {!briefs.length&&<div className="mb2-empty"><Megaphone size={35}/>
      <strong>{manager?"لسه مفيش تكليفات حملات":"ناردين لسه ما بعتتش كامبين"}</strong>
-     <p>{manager?"اضغطي «تكليف كامبين جديد» وابعتي لينك البوست وملاحظة لو حابة.":"أول تكليف من ناردين هيظهر هنا بكارت واضح."}</p>
+     <p>{manager?"اضغطي «تكليف جديد» وابعتي لينك البوست وملاحظة لو حابة.":"أول تكليف من ناردين هيظهر هنا بكارت واضح."}</p>
     </div>}
     {!!briefs.length&&!visible.length&&<div className="mb2-empty">مفيش حملات في الحالة دي.</div>}
     <div className="mb2-cards">{visible.map(brief=>{

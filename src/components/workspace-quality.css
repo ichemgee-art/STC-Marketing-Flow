@@ -80,3 +80,29 @@ body .mb2-card-label{font-size:11px;color:var(--stc-muted)}
 body .mb2-card-open,body .mb2-card-menu summary{min-height:42px}
 body .storage-quota{background:var(--stc-navy);box-shadow:none;border-radius:var(--stc-radius)}
 body .easy-notifications{width:min(390px,calc(100vw - 24px))}
+
+/* Media header: independent brand and actions, even when the status indicator is absent. */
+body .mb2-topbar{justify-content:space-between;flex-wrap:nowrap;gap:16px}
+body .mb2-header-brand,body .mb2-header-actions{display:flex;align-items:center;gap:10px;min-width:0}
+body .mb2-header-brand{flex:1}
+body .mb2-header-actions{flex:0 0 auto;margin-inline-start:auto}
+body .mb2-header-actions .mb2-icon-button{width:44px;height:44px;min-height:44px;border-radius:10px;flex:none}
+body .mb2-header-actions .mb2-back{height:44px;min-height:44px;padding:0 14px;gap:8px;white-space:nowrap;font-size:13px}
+body .mb2-header-actions button svg{flex-shrink:0}
+body .mb2-hero .mb2-primary{min-height:44px;height:auto;padding:9px 16px;white-space:nowrap;flex-shrink:0}
+body .mb2-filters{width:fit-content;max-width:100%;justify-content:flex-start}
+body .mb2-filters button{min-height:40px}
+body .mb2-refreshing{animation:mb2-refresh-spin .8s linear infinite}
+@keyframes mb2-refresh-spin{to{transform:rotate(360deg)}}
+@media(max-width:700px){
+ body .mb2-topbar{gap:8px}
+ body .mb2-header-brand,body .mb2-header-actions{gap:6px}
+ body .mb2-header-actions .mb2-icon-button,body .mb2-header-actions .mb2-back{width:42px;height:42px;min-height:42px;padding:0}
+ body .mb2-header-actions .mb2-back span{display:none}
+ body .mb2-topbar-title small{display:none}
+ body .mb2-topbar-title b{font-size:12px}
+ body .mb2-hero{align-items:center}
+ body .mb2-hero .mb2-primary{padding:8px 12px;font-size:12px}
+}
+@media(max-width:420px){body .mb2-topbar-title{display:none}}
+@media(prefers-reduced-motion:reduce){body .mb2-refreshing{animation:none}}
