@@ -898,6 +898,18 @@ const EN_ENTRIES: [string,string][] = [
   ["الرقم أو التاريخ المدخل خارج النطاق المسموح.","The number or date is outside the allowed range."],
   ["راجع البيانات في الخانة المحددة وحاول تاني.","Check the highlighted field and try again."],
 
+  // Persistent signed-in account identity (all workspaces)
+  ["الحساب الحالي","Current account"],
+  ["مسجّل دخول","Signed in"],
+  ["الإدارة","Management"],
+  ["عضو الفريق","Team member"],
+  ["فريق SEO","SEO team"],
+  ["ناردين","Nardine"],
+  ["جرجس","Gerges"],
+  ["محمد عمر","Mohamed Omar"],
+  ["ساندرا","Sandra"],
+  ["أحمد الخولي","Ahmed El Kholy"],
+
  ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)
