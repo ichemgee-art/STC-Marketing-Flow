@@ -135,7 +135,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
   }
   return <div className="easy-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)close();}}>
     <section className="easy-dialog" role="dialog" aria-modal="true" aria-labelledby="easy-task-title">
-      <div className="easy-dialog-top"><span className={"easy-tag easy-tag--"+task.status}>{stage(task.status)}</span><button className="easy-icon" disabled={busy} onClick={close} aria-label="قفل"><X size={20}/></button></div>
+      <div className="easy-dialog-top"><span className={"easy-tag easy-tag--"+task.status}>{stage(task.status)}</span><button className="easy-icon" disabled={busy} disabled={busy} onClick={close} aria-label="قفل"><X size={20}/></button></div>
       <h2 id="easy-task-title">{task.title}</h2>
       {task.description&&<p className="easy-description">{task.description}</p>}
       <div className="easy-dialog-meta"><span><UserRound size={17}/>{team.find(p=>p.id===task.assignee_id)?.display_name||"من التيم"}</span><span><CalendarDays size={17}/>{date(task.due_date)}</span></div>
@@ -211,13 +211,14 @@ function CreateDialog({people,initial,memberId,close,refresh,notify}:{people:Mem
       ["title","description","assignee","due","priority"].map(key=>[key,String(data.get(key)||"")])
     )));}catch{}
   };
-  return <div className="easy-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)close();}}>
+  return <div className="easy-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)close();}}>
     <section className="easy-dialog" role="dialog" aria-modal="true" aria-labelledby="easy-create-title">
       <div className="easy-dialog-top"><span className="easy-eyebrow">تاسك جديد</span><button className="easy-icon" onClick={close} aria-label="قفل"><X size={20}/></button></div>
       <h2 id="easy-create-title">هتبعتي تاسك لمين؟</h2><p className="easy-description">اكتبي المطلوب واختاري مين هيعمله.</p>
       <form className="easy-form" onChange={e=>keepDraft(e.currentTarget)} onSubmit={e=>{
-        e.preventDefault();const f=new FormData(e.currentTarget);setBusy(true);setErr("");
+        e.preventDefault();if(busy)return;const f=new FormData(e.currentTarget);setBusy(true);setErr("");
         void(async()=>{try{
+          if(!navigator.onLine)throw new Error("الإنترنت مش متصل. المسودة محفوظة.");
           const r=await supabase.from("stc_tasks").insert({
             title:String(f.get("title")||"").trim(),description:String(f.get("description")||""),
             assignee_id:String(f.get("assignee")),due_date:f.get("due")||null,priority:String(f.get("priority")),
@@ -225,7 +226,7 @@ function CreateDialog({people,initial,memberId,close,refresh,notify}:{people:Mem
           if(r.error)throw r.error;
           try{sessionStorage.removeItem(draftKey);}catch{}
           await refresh();notify("التاسك اتبعت لصاحبه بنجاح!");close();
-        }catch(e){const message=e instanceof Error?e.message:"حصلت مشكلة، جرّبي تاني.";setErr(message);showToast(message,"error");}finally{setBusy(false);}})();
+        }catch(e){const message=readableError(e);setErr(message);showToast(message,"error");}finally{setBusy(false);}})();
       }}>
         <label>اسم التاسك<input name="title" required maxLength={300} defaultValue={draft.title||""} placeholder="مثلاً: بوست عن منتج جديد"/></label>
         <label>مين هيعمله؟<select name="assignee" defaultValue={people.some(p=>p.id===draft.assignee)?draft.assignee:people.some(p=>p.id===initial)?initial:people[0]?.id} required>{people.map(p=><option key={p.id} value={p.id}>{p.display_name}</option>)}</select></label>
@@ -481,10 +482,12 @@ export default function SimpleWorkspace(){
     if(userId)setFlowLocation(userId,{view:"tasks",tab,review:reviewOnly});
   }
   function enterSeo(slug:string,section?:"metrics",month?:string){
+    if(manager)selectManagerSection("seo");
     setSeoView(slug);setMediaView(false);setStorageView(false);
     if(userId)setFlowLocation(userId,{view:"seo",person:slug,section,month},"push");
   }
   function enterMedia(){
+    if(manager)selectManagerSection("media");
     setMediaView(true);setSeoView(null);setStorageView(false);
     if(userId)setFlowLocation(userId,{view:"media"},"push");
   }
@@ -658,7 +661,7 @@ export default function SimpleWorkspace(){
       </nav>
       <div className="easy-grid">{visible.slice(0,taskLimit).map(task=><Tile key={task.id} task={task} manager={!!manager} who={people.find(p=>p.id===task.assignee_id)?.display_name} open={()=>openTask(task)}/>)}</div>
       {visible.length>taskLimit&&<button className="stc-show-more" type="button" onClick={()=>setTaskLimit(n=>n+24)}>عرض المزيد ({visible.length-taskLimit})</button>}
-      {!visible.length&&<div className="easy-empty"><ListTodo size={34}/><h3>{reviewOnly?"مفيش تاسكات مستنية مراجعتك ✨":manager?"لسه مفيش تاسكات هنا":"لسه مفيش تاسكات عندك"}</h3><p>{reviewOnly?"كل التسليمات متراجعة دلوقتي.":manager?"ابعتِ تاسك جديد وهيظهر هنا.":"أول ما ناردين تبعتلك تاسك هتلاقيه هنا."}</p></div>}
+      {!visible.length&&<div className="easy-empty"><ListTodo size={34}/><h3>{flowFilter!=="all"?"مفيش تاسكات في الحالة دي":reviewOnly?"مفيش تاسكات مستنية مراجعتك":manager?"لسه مفيش تاسكات هنا":"لسه مفيش تاسكات عندك"}</h3><p>{flowFilter!=="all"?"اختار حالة تانية أو اعرض الكل.":reviewOnly?"كل التسليمات متراجعة دلوقتي.":manager?"ابعتِ تاسك جديد وهيظهر هنا.":"أول ما ناردين تبعتلك تاسك هتلاقيه هنا."}</p></div>}
       </section>}
     </main>
     {showNotices&&<aside ref={noticeRef} id="stc-notices-panel" aria-label="الإشعارات" className="easy-notifications"><div className="easy-notification-top"><strong>الإشعارات {unread>0?"("+unread+" جديد)":""}</strong><button className="easy-icon" aria-label="إغلاق الإشعارات" onClick={()=>{setShowNotices(false);bellRef.current?.focus();}}><X size={18}/></button></div>

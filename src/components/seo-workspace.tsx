@@ -429,16 +429,9 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       <div className="seo-month-tabs" role="group" aria-label="شهور شغل السيو">
         {periods.filter(p=>p.period_kind==="month").map(p=><button type="button" key={p.id}
           className={p.id===selected?"active":""} onClick={()=>chooseMonth(p.id)}>
-          {p.label}<small>{p.id===period?.id?assets.length:p.image_count} اسكرين</small>
+          {p.label}
         </button>)}
       </div>
-      {period&&<div className="seo-month-context">
-        <div><span className="seo-target-kicker">{chart} · {label}</span>
-          <h2>{period.label}</h2></div>
-        <button type="button" onClick={()=>chooseSection("evidence")} title="افتح اسكرينات الشهر">
-          <ImageIcon size={17}/> {assets.length} اسكرين
-        </button>
-      </div>}
       {period&&period.month_key>="2026-11"&&<div className="seo-overview-strip">
         <button type="button" onClick={()=>chooseSection("targets")}>
           <span>تارجت الشهر</span><strong>{snapshot.total}</strong>
@@ -462,7 +455,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
           <Clock3 size={19}/><span>التقرير اليومي</span>
         </button>
         <button type="button" className={section==="evidence"?"selected":""} aria-pressed={section==="evidence"} onClick={()=>chooseSection("evidence")}>
-          <ImageIcon size={19}/><span>الاسكرينات</span>
+          <ImageIcon size={19}/><span>الاسكرينات ({assets.length})</span>
         </button>
         <button type="button" className={"seo-archive-tab "+(section==="archive"?"selected":"")} aria-pressed={section==="archive"} onClick={()=>chooseSection("archive")}>
           <FileSpreadsheet size={18}/><span>الأرشيف</span>

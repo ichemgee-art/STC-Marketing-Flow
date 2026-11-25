@@ -10,6 +10,7 @@ import {
 import type {Member} from "@/lib/domain";
 import {supabase} from "@/lib/supabase";
 import {showToast} from "@/lib/toasts";
+import {readableError,createRefreshScheduler} from "@/lib/workspace-quality";
 import {confirmInCurrentLanguage} from "./app-language-provider";
 import BrandLockup from "./brand-lockup";
 import "./media-buyer-workspace.css";
@@ -101,6 +102,7 @@ function BriefEditor({profile,member,existing,onClose,onSaved}:{
   if(!validUrl(fields.post_url.trim())){setError("اكتبي رابط بوست صحيح يبدأ بـ https://");return;}
   setBusy(true);setError("");
   try{
+   if(!navigator.onLine)throw new Error("الإنترنت مش متصل. بياناتك لسه موجودة.");
    const values={post_url:fields.post_url.trim(),goal:"",instructions:fields.instructions.trim()};
    const result=existing?
     await supabase.from("stc_media_briefs").update(values).eq("id",existing.id)
@@ -114,7 +116,7 @@ function BriefEditor({profile,member,existing,onClose,onSaved}:{
    await onSaved();
    showToast(existing?"تم حفظ تعديل التكليف.":"اتبعَت كامبين جديدة لأحمد الخولي.");
    onClose();
-  }catch(e){const message=e instanceof Error?e.message:"مقدرناش نحفظ التكليف.";
+  }catch(e){const message=readableError(e);
    setError(message);showToast(message,"error");
   }finally{setBusy(false);}
  }
@@ -182,6 +184,7 @@ function AnswerEditor({brief,member,existing,onClose,onSaved}:{
   }
   setBusy(true);setError("");
   try{
+   if(!navigator.onLine)throw new Error("الإنترنت مش متصل. المسودة محفوظة.");
    const values={
     campaign_post:fields.campaign_post.trim(),campaign_goal:fields.campaign_goal.trim(),
     daily_budget:amount,currency:fields.currency,
@@ -199,7 +202,7 @@ function AnswerEditor({brief,member,existing,onClose,onSaved}:{
    try{sessionStorage.removeItem(draftKey);}catch{}
    await onSaved();showToast("التقرير اتبعت لناردين بنجاح، ومستني مراجعتها.");
    onClose();
-  }catch(e){const message=e instanceof Error?e.message:"مقدرناش نبعت التقرير.";
+  }catch(e){const message=readableError(e);
    setError(message);showToast(message,"error");
   }finally{setBusy(false);}
  }
@@ -387,9 +390,10 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
  },[manager,member.id]);
  useEffect(()=>{void load();},[load]);
  useEffect(()=>{
+  const scheduled=createRefreshScheduler(()=>void load());
   const channel=supabase.channel("stc-media-v2-"+member.id)
-   .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_briefs"},()=>void load())
-   .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_submissions"},()=>void load())
+   .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_briefs"},scheduled.request)
+   .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_submissions"},scheduled.request)
    .subscribe();
   const poll=window.setInterval(()=>{
    if(document.visibilityState==="visible")void load();
@@ -397,10 +401,16 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
   const refreshOnFocus=()=>{if(document.visibilityState==="visible")void load();};
   window.addEventListener("focus",refreshOnFocus);
   return()=>{
-   serial.current++;window.clearInterval(poll);
+   scheduled.cancel();serial.current++;window.clearInterval(poll);
    window.removeEventListener("focus",refreshOnFocus);void supabase.removeChannel(channel);
   };
  },[member.id,load]);
+ useEffect(()=>{
+  const close=(event:PointerEvent)=>{if(event.target instanceof Node)document.querySelectorAll<HTMLDetailsElement>(".mb2-card-menu[open]").forEach(menu=>{if(!menu.contains(event.target as Node))menu.open=false;});};
+  const escape=(event:KeyboardEvent)=>{if(event.key==="Escape")document.querySelectorAll<HTMLDetailsElement>(".mb2-card-menu[open]").forEach(menu=>{menu.open=false;});};
+  document.addEventListener("pointerdown",close);document.addEventListener("keydown",escape);
+  return()=>{document.removeEventListener("pointerdown",close);document.removeEventListener("keydown",escape);};
+ },[]);
  const byBrief=useMemo(()=>new Map(submissions.map(s=>[s.brief_id,s])),[submissions]);
  const pending=briefs.filter(b=>byBrief.get(b.id)?.status==="pending_review");
  const completed=briefs.filter(b=>byBrief.get(b.id)?.status==="approved");
@@ -464,7 +474,7 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
   </header>
   <main className="mb2-container">
    <section className="mb2-hero">
-    <div><span className="mb2-eyebrow">MEDIA BUYING</span>
+    <div>
      <h1>{manager?"حملات أحمد الخولي":"حملاتك الإعلانية"}</h1>
      <p>{manager?"ابعتي التكليف، وراجعي تقارير أحمد من نفس الكروت.":"افتح البوست، نفّذ الإعلان، وبعدها سجّل تقريرك."}</p></div>
     {manager&&!!profile&&<button type="button" className="mb2-primary"
@@ -486,8 +496,6 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
     {!briefs.length&&<div className="mb2-empty"><Megaphone size={35}/>
      <strong>{manager?"لسه مفيش تكليفات حملات":"ناردين لسه ما بعتتش كامبين"}</strong>
      <p>{manager?"اضغطي «تكليف كامبين جديد» وابعتي لينك البوست وملاحظة لو حابة.":"أول تكليف من ناردين هيظهر هنا بكارت واضح."}</p>
-     {manager&&<button className="mb2-primary" type="button" onClick={()=>setEditing("new")}>
-      <Plus size={17}/> ابعتي أول كامبين</button>}
     </div>}
     {!!briefs.length&&!visible.length&&<div className="mb2-empty">مفيش حملات في الحالة دي.</div>}
     <div className="mb2-cards">{visible.map(brief=>{
@@ -497,7 +505,7 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
       className={"mb2-card "+(expanded?"is-open":"")}>
       <div className="mb2-card-top">
        <div className="mb2-card-identity"><div className="mb2-card-icon"><Megaphone size={20}/></div>
-        <div><small className="mb2-card-label">CAMPAIGN BRIEF · {dateTime(brief.created_at)}</small>
+        <div><small className="mb2-card-label">{dateTime(brief.created_at)}</small>
          <h3>إعلان على بوست</h3></div>
        </div>
        <span className={"mb2-status "+(submission?"mb2-status--"+submission.status:"mb2-status--todo")}>
@@ -513,6 +521,7 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
        {briefNote(brief)&&<div className="mb2-card-summary-field">
         <span className="mb2-card-summary-label">ملاحظة ناردين</span>
         <p className="mb2-card-note" dir="auto">{briefNote(brief)}</p>
+        {briefNote(brief).length>100&&<details className="mb2-note-more"><summary>عرض الملاحظة كاملة</summary><p dir="auto">{briefNote(brief)}</p></details>}
        </div>}
       </div>
       <div className="mb2-card-actions">

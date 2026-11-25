@@ -69,3 +69,14 @@ body :is(.easy-shell,.seo-shell,.mb2-page,.storage-screen) :is(input,select,text
  body .easy-storage-entry span{display:none}
 }
 @media(prefers-reduced-motion:reduce){body :is(.easy-shell,.seo-shell,.mb2-page,.storage-screen) *{scroll-behavior:auto!important;transition:none!important}}
+
+/* Context is already shown by the active tabs; keep long campaign instructions accessible. */
+body .mb2-note-more{font-size:12px;color:var(--stc-muted);margin-top:4px}
+body .mb2-note-more summary{cursor:pointer;color:var(--stc-navy);font-weight:700}
+body .mb2-note-more p{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px}
+body .mb2-card-summary-field:has(.mb2-note-more[open])>.mb2-card-note{display:none}
+body .mb2-card.is-open .mb2-note-more{display:none}
+body .mb2-card-label{font-size:11px;color:var(--stc-muted)}
+body .mb2-card-open,body .mb2-card-menu summary{min-height:42px}
+body .storage-quota{background:var(--stc-navy);box-shadow:none;border-radius:var(--stc-radius)}
+body .easy-notifications{width:min(390px,calc(100vw - 24px))}
