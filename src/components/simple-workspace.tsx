@@ -333,7 +333,10 @@ export default function SimpleWorkspace(){
       const pending=await supabase.from("stc_seo_metrics")
        .select("id,profile_id,metric_key,month_key,before_value,after_value,status")
        .eq("status","pending_review");
-      const mediaQueue=await supabase.from("stc_media_results").select("id").eq("status","pending_review");
+      const mediaQueue=await supabase.from("stc_media_submissions")
+        .select("id,stc_media_briefs!inner(id,deleted_at)")
+        .eq("status","pending_review")
+        .is("stc_media_briefs.deleted_at",null);
       if(activeUser.current===userId&&serial===refreshSerial.current&&!mediaQueue.error)
         setMediaPending(mediaQueue.data?.length||0);
       if(activeUser.current===userId&&serial===refreshSerial.current&&!pending.error){

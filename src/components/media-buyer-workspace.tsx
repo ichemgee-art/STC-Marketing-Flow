@@ -1,557 +1,588 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
+import type {FormEvent} from "react";
 import {
-  Activity, ArrowRight, BarChart3, CalendarDays, CheckCircle2, ChevronLeft,
-  Clock3, ExternalLink, Filter, LogOut, Megaphone, MousePointerClick, Pencil,
-  Plus, RefreshCw, Send, Target, TrendingUp, Users, Wallet, X,
+  ArrowRight,CalendarDays,CheckCircle2,ChevronLeft,ClipboardCheck,Clock3,
+  ExternalLink,FileCheck2,Link2,LogOut,Megaphone,MessageSquareText,
+  Pencil,Plus,RefreshCw,Send,Trash2,Wallet,X,
 } from "lucide-react";
-import type { Member } from "@/lib/domain";
-import { supabase } from "@/lib/supabase";
-import { showToast } from "@/lib/toasts";
+import type {Member} from "@/lib/domain";
+import {supabase} from "@/lib/supabase";
+import {showToast} from "@/lib/toasts";
+import {confirmInCurrentLanguage} from "./app-language-provider";
 import BrandLockup from "./brand-lockup";
 import "./media-buyer-workspace.css";
 
 type Profile={id:string;slug:string;display_name:string;member_id:string|null};
-type CampaignStatus="planned"|"active"|"paused"|"completed"|"cancelled";
-type Campaign={
- id:string;profile_id:string;title:string;brand:string;platform:string;
- post_label:string;post_url:string;objective:string;goal_notes:string;
- target_results:number|null;daily_budget:number;currency:string;start_date:string;end_date:string;
- status:CampaignStatus;notes:string;created_at:string;
+type Brief={
+ id:string;profile_id:string;post_url:string;goal:string;instructions:string;
+ version:number;created_at:string;updated_at:string;deleted_at:string|null;
 };
-type ReportStatus="pending_review"|"approved"|"changes_requested";
-type Report={
- id:string;campaign_id:string;report_date:string;amount_spent:number;
- impressions:number;reach:number;clicks:number;results_count:number;result_label:string;
- notes:string;review_note:string;status:ReportStatus;updated_at:string;
+type ReviewStatus="pending_review"|"approved"|"changes_requested";
+type Submission={
+ id:string;brief_id:string;campaign_post:string;campaign_goal:string;
+ daily_budget:number|null;currency:string;start_date:string|null;end_date:string|null;
+ results:string;note:string;status:ReviewStatus;review_note:string;
+ submitted_by:string;reviewed_by:string|null;created_at:string;updated_at:string;
 };
-type FormDataState={
- title:string;brand:string;platform:string;post_label:string;post_url:string;objective:string;
- goal_notes:string;target_results:string;daily_budget:string;currency:string;start_date:string;
- end_date:string;status:CampaignStatus;notes:string;
+type AnswerForm={
+ campaign_post:string;campaign_goal:string;daily_budget:string;currency:string;
+ start_date:string;end_date:string;results:string;note:string;
 };
-const objectives=[
- ["awareness","Brand Awareness"],["engagement","Engagement"],["messages","Messages"],
- ["leads","Leads"],["traffic","Website Traffic"],["sales","Sales"],["other","Other"]
-];
-const campaignStatuses:Record<CampaignStatus,string>={
- planned:"مخطط لها",active:"شغالة",paused:"متوقفة مؤقتًا",
- completed:"انتهت",cancelled:"ملغية",
+const initialAnswers:AnswerForm={
+ campaign_post:"",campaign_goal:"",daily_budget:"",currency:"EGP",
+ start_date:"",end_date:"",results:"",note:"",
 };
-const reportStatuses:Record<ReportStatus,string>={
- pending_review:"مستنية مراجعة",approved:"اتعمدت",
+const allowedCurrencies=["EGP","USD","EUR","SAR","AED","OTHER"];
+const statusCopy:Record<ReviewStatus,string>={
+ pending_review:"مستني مراجعة ناردين",
+ approved:"معتمد",
  changes_requested:"مطلوب تعديل",
 };
-const money=(n:number,currency:string)=>new Intl.NumberFormat("en-US",{maximumFractionDigits:2}).format(n)+" "+currency;
-const qty=(n:number)=>new Intl.NumberFormat("en-US",{maximumFractionDigits:0}).format(n);
-const interval=(a:string,b:string)=>Math.max(1,Math.round((Date.parse(b+"T00:00:00Z")-Date.parse(a+"T00:00:00Z"))/86400000)+1);
-const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Cairo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-const validLink=(v:string)=>{try{const u=new URL(v);return ["https:","http:"].includes(u.protocol)?u.href:null;}catch{return null;}};
-const objectiveLabel=(v:string)=>objectives.find(o=>o[0]===v)?.[1]||v;
-const resultLabel=(v:string)=>({
- messages:"Messages",leads:"Leads",sales:"Sales",traffic:"Conversions",
- engagement:"Engagements",awareness:"Results",other:"Results",
-} as Record<string,string>)[v]||"Results";
-const initialFields:FormDataState={
- title:"",brand:"STC",platform:"Meta",post_label:"",post_url:"",objective:"messages",
- goal_notes:"",target_results:"",daily_budget:"",currency:"EGP",start_date:"",
- end_date:"",status:"planned",notes:"",
+const formatNumber=(n:number)=>new Intl.NumberFormat("en-US",{maximumFractionDigits:2}).format(n);
+const formatDay=(day:string|null)=>day||"—";
+const shortLink=(url:string)=>{
+ try{const value=new URL(url);return value.hostname.replace(/^www\./,"")+value.pathname.slice(0,40);}
+ catch{return url;}
 };
-function campaignFields(c:Campaign|null):FormDataState{
- if(!c)return {...initialFields};
- return {title:c.title,brand:c.brand,platform:c.platform,post_label:c.post_label,
- post_url:c.post_url,objective:c.objective,goal_notes:c.goal_notes,
- target_results:c.target_results===null?"":String(c.target_results),
- daily_budget:String(c.daily_budget),currency:c.currency,start_date:c.start_date,
- end_date:c.end_date,status:c.status,notes:c.notes};
-}
-type CampaignEditorProps={profile:Profile;memberId:string;existing:Campaign|null;
- hasReports:boolean;onClose:()=>void;onSaved:()=>Promise<void>};
-function CampaignEditor({profile,memberId,existing,hasReports,onClose,onSaved}:CampaignEditorProps){
- const [fields,setFields]=useState<FormDataState>(()=>campaignFields(existing));
- const [saving,setSaving]=useState(false),[error,setError]=useState("");
- const set=(key:keyof FormDataState,value:string)=>setFields(old=>({...old,[key]:value}));
- const dayCount=fields.start_date&&fields.end_date&&fields.end_date>=fields.start_date
-  ?interval(fields.start_date,fields.end_date):0;
- async function save(event:FormEvent<HTMLFormElement>){
-  event.preventDefault();if(saving)return;
-  if(!fields.title.trim()||!fields.post_label.trim()||!fields.goal_notes.trim()){
-   setError("اكتبي اسم الحملة والبوست والهدف بشكل واضح.");return;
-  }
-  if(fields.post_url.trim()&&!validLink(fields.post_url.trim())){
-   setError("رابط البوست لازم يبدأ بـ https:// أو http://.");return;
-  }
-  const budget=Number(fields.daily_budget);
-  if(!Number.isFinite(budget)||budget<=0){setError("الميزانية اليومية لازم تكون أكبر من صفر.");return;}
-  if(dayCount<1||dayCount>366){setError("اختاري فترة صحيحة للحملة، بحد أقصى 366 يوم.");return;}
-  if(fields.target_results.trim()&&(!Number.isSafeInteger(Number(fields.target_results))||Number(fields.target_results)<0)){
-   setError("التارجت العددي لازم يكون رقم صحيح غير سالب.");return;
-  }
-  setSaving(true);setError("");
-  try{
-   const values={
-    profile_id:profile.id,title:fields.title.trim(),brand:fields.brand,platform:fields.platform,
-    post_label:fields.post_label.trim(),post_url:fields.post_url.trim(),objective:fields.objective,
-    goal_notes:fields.goal_notes.trim(),target_results:fields.target_results?Number(fields.target_results):null,
-    daily_budget:budget,currency:fields.currency,start_date:fields.start_date,
-    end_date:fields.end_date,status:fields.status,notes:fields.notes.trim(),
-   };
-   const result=existing
-    ?await supabase.from("stc_media_campaigns").update(values).eq("id",existing.id).select("id")
-    :await supabase.from("stc_media_campaigns").insert({...values,created_by:memberId}).select("id");
-   if(result.error)throw result.error;
-   if(!result.data?.length)throw new Error("التغييرات ما اتحفظتش؛ جرّبي تعملي تحديث.");
-   await onSaved();
-   showToast(existing?"تعديلات الحملة اتحفظت بنجاح.":"الحملة اتضافت وظهرت لأحمد الخولي.");
-   onClose();
-  }catch(e){const message=e instanceof Error?e.message:"حصلت مشكلة في حفظ الحملة.";
-   setError(message);showToast(message,"error");
-  }finally{setSaving(false);}
- }
- return <div className="media-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!saving)onClose();}}>
-  <section className="media-modal" role="dialog" aria-modal="true" aria-labelledby="media-new-title">
-   <header className="media-modal-top"><div><span className="media-eyebrow">CAMPAIGN BRIEF</span>
-     <h2 id="media-new-title">{existing?"تعديل بيانات الحملة":"إنشاء Campaign جديدة"}</h2>
-     <p>ناردين بتحدد البوست والهدف والميزانية والمدة، وأحمد بيسجّل النتايج.</p>
-    </div><button type="button" aria-label="إغلاق" onClick={onClose}><X size={21}/></button></header>
-   <form className="media-form" onSubmit={e=>void save(e)}>
-    <div className="media-field-title">01 · معلومات الإعلان</div>
-    <label className="media-span">اسم الحملة *
-      <input required maxLength={180} value={fields.title} onChange={e=>set("title",e.target.value)}
-       placeholder="مثلاً: Epoxy Flooring - Message Campaign"/></label>
-    <label>البراند
-     <select value={fields.brand} onChange={e=>set("brand",e.target.value)}>
-      <option value="STC">STC</option><option value="iChem">iChem</option><option value="Other">Other</option>
-     </select></label>
-    <label>المنصة
-     <select value={fields.platform} onChange={e=>set("platform",e.target.value)}>
-      <option value="Meta">Facebook / Instagram (Meta)</option>
-      <option value="Google">Google Ads</option><option value="TikTok">TikTok Ads</option>
-      <option value="LinkedIn">LinkedIn Ads</option><option value="Other">Other</option>
-     </select></label>
-    <label className="media-span">الإعلان هيكون على أنهي بوست؟ *
-      <input required maxLength={250} value={fields.post_label} onChange={e=>set("post_label",e.target.value)}
-       placeholder="اسم البوست أو وصفه"/></label>
-    <label className="media-span">رابط البوست
-      <input type="url" dir="ltr" value={fields.post_url} onChange={e=>set("post_url",e.target.value)}
-       maxLength={2000} placeholder="https://..."/></label>
-    <label>هدف الحملة *
-     <select value={fields.objective} onChange={e=>set("objective",e.target.value)}>
-      {objectives.map(([id,label])=><option value={id} key={id}>{label}</option>)}
-     </select></label>
-    <label>التارجت العددي (اختياري)
-     <input type="number" min={0} step={1} value={fields.target_results}
-      onChange={e=>set("target_results",e.target.value)} placeholder="مثلاً: 50"/></label>
-    <label className="media-span">وصف الهدف المطلوب *
-     <textarea required rows={2} maxLength={3000} value={fields.goal_notes} onChange={e=>set("goal_notes",e.target.value)}
-      placeholder="مثلاً: تحقيق رسائل مهتمة بعرض الإيبوكسي من عملاء القاهرة والجيزة"/></label>
-    <div className="media-field-title">02 · الميزانية والمدة</div>
-    <label>Budget / Day *
-     <input required type="number" min="0.01" step="0.01" value={fields.daily_budget}
-      onChange={e=>set("daily_budget",e.target.value)} placeholder="مثلاً: 300"/></label>
-    <label>العملة
-     <select value={fields.currency} onChange={e=>set("currency",e.target.value)}>
-      {["EGP","USD","EUR","SAR","AED"].map(x=><option key={x} value={x}>{x}</option>)}
-     </select></label>
-    <label>From Date *
-     <input type="date" required disabled={hasReports} value={fields.start_date}
-      onChange={e=>set("start_date",e.target.value)}/></label>
-    <label>To Date *
-     <input type="date" required disabled={hasReports} min={fields.start_date||undefined}
-      value={fields.end_date} onChange={e=>set("end_date",e.target.value)}/></label>
-    {hasReports&&<p className="media-form-hint media-span">التواريخ مقفولة لأن فيه نتايج فعلية متسجلة للحملة بالفعل.</p>}
-    <div className="media-budget-box media-span"><CalendarDays size={20}/><span><b>{dayCount} يوم</b> مدة الحملة</span>
-      <Wallet size={20}/><span><b>{dayCount?money(dayCount*Number(fields.daily_budget||0),fields.currency):"—"}</b> الميزانية المتوقعة</span></div>
-    <label>حالة الحملة
-     <select value={fields.status} onChange={e=>set("status",e.target.value as CampaignStatus)}>
-      {Object.entries(campaignStatuses).map(([id,label])=><option key={id} value={id}>{label}</option>)}
-     </select></label>
-    <label className="media-span">تعليمات إضافية (اختياري)
-     <textarea rows={2} value={fields.notes} maxLength={4000}
-      onChange={e=>set("notes",e.target.value)} placeholder="تفاصيل الجمهور أو أي ملاحظات لأحمد"/></label>
-    {error&&<p className="media-error media-span" role="alert">{error}</p>}
-    <div className="media-form-actions media-span"><button type="button" className="media-outline" onClick={onClose}>إلغاء</button>
-     <button type="submit" className="media-primary" disabled={saving}><CheckCircle2 size={17}/>
-      {saving?"بنحفظ…":existing?"احفظي التعديلات":"احفظي وابعتي لأحمد"}</button></div>
-   </form>
+const validUrl=(value:string)=>{try{const url=new URL(value);return ["https:","http:"].includes(url.protocol)&&!/\s/.test(value);}catch{return false;}};
+const daysBetween=(start:string,end:string)=>Math.floor(
+ (Date.parse(end+"T00:00:00Z")-Date.parse(start+"T00:00:00Z"))/86400000
+)+1;
+const dateTime=(value:string)=>new Date(value).toLocaleString("ar-EG",{
+ timeZone:"Africa/Cairo",day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit",
+});
+const emptyValue="لم يحدد";
+const briefNote=(brief:Brief)=>[brief.goal,brief.instructions].filter(Boolean).join("\n");
+const briefDraftKey="stc:media:v2:brief-draft:";
+const answerDraftKey="stc:media:v2:answer-draft:";
+let cache=new Map<string,{at:number;profile:Profile;briefs:Brief[];submissions:Submission[]}>();
+export function clearMediaBuyerCache(){cache.clear();}
+
+function Modal({title,description,onClose,children}:{
+ title:string;description:string;onClose:()=>void;children:React.ReactNode;
+}){
+ return <div className="mb2-overlay" onMouseDown={event=>{
+   if(event.target===event.currentTarget)onClose();
+ }}>
+  <section role="dialog" aria-modal="true" aria-label={title} className="mb2-modal">
+   <header className="mb2-modal-head"><div>
+    <span className="mb2-eyebrow">STC / MEDIA BUYING</span>
+    <h2>{title}</h2><p>{description}</p>
+   </div><button type="button" aria-label="إغلاق" onClick={onClose}><X size={21}/></button></header>
+   {children}
   </section>
  </div>;
 }
-type ReportEditorProps={campaign:Campaign;existing:Report|null;memberId:string;
- onClose:()=>void;onSaved:()=>Promise<void>};
-function ReportEditor({campaign,existing,memberId,onClose,onSaved}:ReportEditorProps){
- const dateNow=today();
- const defaultDay=dateNow>=campaign.start_date&&dateNow<=campaign.end_date
-  ?dateNow:dateNow>campaign.end_date?campaign.end_date:campaign.start_date;
- const [day,setDay]=useState(existing?.report_date||defaultDay);
- const [spent,setSpent]=useState(existing?String(existing.amount_spent):"");
- const [impressions,setImpressions]=useState(existing?String(existing.impressions):"");
- const [reach,setReach]=useState(existing?String(existing.reach):"");
- const [clicks,setClicks]=useState(existing?String(existing.clicks):"");
- const [results,setResults]=useState(existing?String(existing.results_count):"");
- const [notes,setNotes]=useState(existing?.notes||"");
- const [error,setError]=useState(""),[saving,setSaving]=useState(false);
- const draftKey="stc:media:report:"+memberId+":"+campaign.id;
- useEffect(()=>{
-  if(existing)return;
-  try{const saved=sessionStorage.getItem(draftKey);if(!saved)return;
-   const r=JSON.parse(saved) as Record<string,string>;
-   if(r.day>=campaign.start_date&&r.day<=campaign.end_date)setDay(r.day);
-   setSpent(r.spent||"");setImpressions(r.impressions||"");setReach(r.reach||"");
-   setClicks(r.clicks||"");setResults(r.results||"");setNotes(r.notes||"");
+
+function BriefEditor({profile,member,existing,onClose,onSaved}:{
+ profile:Profile;member:Member;existing:Brief|null;
+ onClose:()=>void;onSaved:()=>Promise<void>;
+}){
+ const draftKey=briefDraftKey+member.id;
+ const [fields,setFields]=useState(()=>{
+  if(existing)return {post_url:existing.post_url,instructions:briefNote(existing)};
+  try{
+   const stored=sessionStorage.getItem(draftKey);
+   if(stored){
+    const parsed=JSON.parse(stored) as Partial<{post_url:string;instructions:string}>;
+    return {post_url:parsed.post_url||"",instructions:parsed.instructions||""};
+   }
   }catch{}
- },[existing,draftKey,campaign.start_date,campaign.end_date]);
+  return {post_url:"",instructions:""};
+ });
+ const [busy,setBusy]=useState(false),[error,setError]=useState("");
  useEffect(()=>{
   if(existing)return;
-  try{sessionStorage.setItem(draftKey,JSON.stringify({day,spent,impressions,reach,clicks,results,notes}));}catch{}
- },[existing,draftKey,day,spent,impressions,reach,clicks,results,notes]);
- async function save(e:FormEvent<HTMLFormElement>){
-  e.preventDefault();if(saving)return;
-  if(day<campaign.start_date||day>campaign.end_date){setError("التقرير لازم يكون بتاريخ داخل مدة الحملة.");return;}
-  const values=[spent,impressions,reach,clicks,results];
-  if(values.some(v=>v.trim()===""||!Number.isFinite(Number(v))||Number(v)<0)
-   ||values.slice(1).some(v=>!Number.isSafeInteger(Number(v)))){
-   setError("كمّل كل الأرقام. الأعداد لازم تكون صحيحة، ولو مفيش نتائج اكتب صفر.");return;
+  try{sessionStorage.setItem(draftKey,JSON.stringify(fields));}catch{}
+ },[fields,existing,draftKey]);
+ async function save(event:FormEvent<HTMLFormElement>){
+  event.preventDefault();if(busy)return;
+  if(!validUrl(fields.post_url.trim())){setError("اكتبي رابط بوست صحيح يبدأ بـ https://");return;}
+  setBusy(true);setError("");
+  try{
+   const values={post_url:fields.post_url.trim(),goal:"",instructions:fields.instructions.trim()};
+   const result=existing?
+    await supabase.from("stc_media_briefs").update(values).eq("id",existing.id)
+      .eq("version",existing.version).is("deleted_at",null).select("id"):
+    await supabase.from("stc_media_briefs").insert({
+     ...values,profile_id:profile.id,created_by:member.id,
+    }).select("id");
+   if(result.error)throw result.error;
+   if(!result.data?.length)throw new Error("التكليف اتعدل من مكان تاني. حدّثي الصفحة وجربي تاني.");
+   try{sessionStorage.removeItem(draftKey);}catch{}
+   await onSaved();
+   showToast(existing?"تم حفظ تعديل التكليف.":"اتبعَت كامبين جديدة لأحمد الخولي.");
+   onClose();
+  }catch(e){const message=e instanceof Error?e.message:"مقدرناش نحفظ التكليف.";
+   setError(message);showToast(message,"error");
+  }finally{setBusy(false);}
+ }
+ return <Modal title={existing?"تعديل تكليف الحملة":"تكليف Campaign جديدة"}
+  description="خانتين بس: لينك البوست إجباري، والهدف والتعليمات في ملاحظة واحدة اختيارية." onClose={onClose}>
+  <form className="mb2-form" onSubmit={event=>void save(event)}>
+   <label className="mb2-field">01 · لينك البوست <span className="mb2-required">*</span>
+    <input required type="url" dir="ltr" maxLength={2000} value={fields.post_url}
+     onChange={e=>setFields(v=>({...v,post_url:e.target.value}))}
+     placeholder="https://www.facebook.com/..." autoComplete="off"/>
+    <small>البوست اللي أحمد هيعمل عليه الإعلان</small>
+   </label>
+   <label className="mb2-field">02 · الهدف والملاحظات <span className="mb2-optional">اختياري</span>
+    <textarea rows={4} maxLength={4000} value={fields.instructions}
+     onChange={e=>setFields(v=>({...v,instructions:e.target.value}))}
+     placeholder="مثلاً: الهدف رسائل أو Leads — شغّل الإعلان على Meta Ads — وأي تعليمات لأحمد"/>
+    <small>اكتبي الهدف، التطبيق اللي هيتعمل عليه الإعلان، أو أي تعليمات في مكان واحد. ممكن تسيبيها فاضية.</small>
+   </label>
+   {error&&<p className="mb2-error" role="alert">{error}</p>}
+   <div className="mb2-form-actions"><button type="button" className="mb2-secondary" onClick={onClose}>إلغاء</button>
+    <button type="submit" className="mb2-primary" disabled={busy}>
+     <Send size={17}/>{busy?"بنحفظ…":existing?"احفظي التعديل":"ابعتي الكامبين لأحمد"}
+    </button>
+   </div>
+  </form>
+ </Modal>;
+}
+
+function AnswerEditor({brief,member,existing,onClose,onSaved}:{
+ brief:Brief;member:Member;existing:Submission|null;
+ onClose:()=>void;onSaved:()=>Promise<void>;
+}){
+ const draftKey=answerDraftKey+member.id+":"+brief.id;
+ const [fields,setFields]=useState<AnswerForm>(()=>{
+  const fromRecord=existing?{
+   campaign_post:existing.campaign_post,campaign_goal:existing.campaign_goal,
+   daily_budget:existing.daily_budget===null?"":String(existing.daily_budget),
+   currency:existing.currency,start_date:existing.start_date||"",end_date:existing.end_date||"",
+   results:existing.results,note:existing.note,
+  }:initialAnswers;
+  try{
+   const raw=sessionStorage.getItem(draftKey);
+   if(raw){
+    const parsed=JSON.parse(raw) as Partial<AnswerForm>;
+    return {...fromRecord,...parsed};
+   }
+  }catch{}
+  return {...fromRecord};
+ });
+ const [busy,setBusy]=useState(false),[error,setError]=useState("");
+ useEffect(()=>{try{sessionStorage.setItem(draftKey,JSON.stringify(fields));}catch{}},[draftKey,fields]);
+ const set=(key:keyof AnswerForm,value:string)=>setFields(old=>({...old,[key]:value}));
+ const duration=fields.start_date&&fields.end_date&&fields.end_date>=fields.start_date?
+  daysBetween(fields.start_date,fields.end_date):null;
+ const estimate=fields.daily_budget.trim()!==""&&duration!==null?
+  Number(fields.daily_budget)*duration:null;
+ async function submit(event:FormEvent<HTMLFormElement>){
+  event.preventDefault();if(busy)return;
+  const amount=fields.daily_budget.trim()===""?null:Number(fields.daily_budget);
+  if(amount!==null&&(!Number.isFinite(amount)||amount<0||amount>100000000)){
+   setError("الميزانية اليومية لازم تكون رقم صحيح أو عشري غير سالب.");return;
   }
-  setSaving(true);setError("");
+  if(fields.start_date&&fields.end_date&&fields.end_date<fields.start_date){
+   setError("تاريخ النهاية مينفعش يكون قبل البداية.");return;
+  }
+  setBusy(true);setError("");
   try{
    const values={
-    amount_spent:Number(spent),impressions:Number(impressions),reach:Number(reach),
-    clicks:Number(clicks),results_count:Number(results),result_label:resultLabel(campaign.objective),
-    notes:notes.trim(),status:"pending_review",
+    campaign_post:fields.campaign_post.trim(),campaign_goal:fields.campaign_goal.trim(),
+    daily_budget:amount,currency:fields.currency,
+    start_date:fields.start_date||null,end_date:fields.end_date||null,
+    results:fields.results.trim(),note:fields.note.trim(),status:"pending_review",
    };
-   const response=existing
-    ?await supabase.from("stc_media_results").update(values)
-      .eq("id",existing.id).eq("status","changes_requested").select("id")
-    :await supabase.from("stc_media_results").insert({
-      ...values,campaign_id:campaign.id,report_date:day,submitted_by:memberId,
-    }).select("id");
+   const response=existing?
+    await supabase.from("stc_media_submissions")
+     .update({...values,review_note:"",reviewed_by:null})
+     .eq("id",existing.id).eq("status","changes_requested").select("id"):
+    await supabase.from("stc_media_submissions")
+     .insert({...values,brief_id:brief.id,submitted_by:member.id}).select("id");
    if(response.error)throw response.error;
-   if(!response.data?.length)throw new Error("التقرير اتغير، اعمل تحديث وجرب تاني.");
+   if(!response.data?.length)throw new Error("التقرير اتغير من مكان تاني. حدّث الصفحة.");
    try{sessionStorage.removeItem(draftKey);}catch{}
-   await onSaved();showToast("نتايج الحملة اتبعتت لناردين للمراجعة.");
+   await onSaved();showToast("التقرير اتبعت لناردين بنجاح، ومستني مراجعتها.");
    onClose();
-  }catch(ex){const msg=ex instanceof Error?ex.message:"حصلت مشكلة في تسجيل النتايج.";
-   setError(msg);showToast(msg,"error");
-  }finally{setSaving(false);}
+  }catch(e){const message=e instanceof Error?e.message:"مقدرناش نبعت التقرير.";
+   setError(message);showToast(message,"error");
+  }finally{setBusy(false);}
  }
- const ctr=Number(impressions)>0?Number(clicks)/Number(impressions)*100:null;
- const cpr=Number(results)>0?Number(spent)/Number(results):null;
- return <div className="media-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!saving)onClose();}}>
-  <section className="media-modal media-report-modal" role="dialog" aria-modal="true" aria-labelledby="media-results-title">
-   <header className="media-modal-top"><div><span className="media-eyebrow">DAILY CAMPAIGN PERFORMANCE</span>
-    <h2 id="media-results-title">{existing?"عدّل النتايج وابعتهـا تاني":"سجّل نتايج الحملة"}</h2>
-    <p>{campaign.title} · {objectiveLabel(campaign.objective)}</p></div>
-    <button type="button" aria-label="إغلاق" onClick={onClose}><X size={21}/></button></header>
-   <form className="media-form" onSubmit={e=>void save(e)}>
-    {existing?.review_note&&<div className="media-review-note media-span">
-     <strong>ملاحظات ناردين</strong><p>{existing.review_note}</p></div>}
-    <label className="media-span">يوم التقرير
-     <input required type="date" disabled={!!existing}
-      min={campaign.start_date} max={campaign.end_date}
-      value={day} onChange={e=>setDay(e.target.value)}/></label>
-    <label>Amount Spent ({campaign.currency}) *
-     <input required type="number" min={0} step="0.01" value={spent}
-      onChange={e=>setSpent(e.target.value)} placeholder="Actual spend"/></label>
-    <label>Impressions *
-     <input required type="number" min={0} step={1} value={impressions}
-      onChange={e=>setImpressions(e.target.value)} placeholder="0"/></label>
-    <label>Reach *
-     <input required type="number" min={0} step={1} value={reach}
-      onChange={e=>setReach(e.target.value)} placeholder="0"/></label>
-    <label>Clicks *
-     <input required type="number" min={0} step={1} value={clicks}
-      onChange={e=>setClicks(e.target.value)} placeholder="0"/></label>
-    <label className="media-span">Actual {resultLabel(campaign.objective)} *
-     <input required type="number" min={0} step={1} value={results}
-      onChange={e=>setResults(e.target.value)} placeholder="عدد النتايج اللي اتحققت"/></label>
-    <label className="media-span">ملاحظات أحمد (اختياري)
-     <textarea rows={3} maxLength={4000} value={notes} onChange={e=>setNotes(e.target.value)}
-      placeholder="إيه اللي نجح وإيه اللي محتاج تحسين؟"/></label>
-    <div className="media-result-preview media-span">
-      <span>Cost / Result</span><b>{cpr!==null?money(cpr,campaign.currency):"—"}</b>
-      <span>CTR</span><b>{ctr!==null?ctr.toFixed(2)+"%":"—"}</b>
-    </div>
-    {error&&<p className="media-error media-span" role="alert">{error}</p>}
-    <div className="media-form-actions media-span">
-     <button type="button" className="media-outline" onClick={onClose}>إلغاء</button>
-     <button type="submit" className="media-primary" disabled={saving}>
-      <Send size={17}/>{saving?"بنبعت…":"ابعت النتايج لناردين"}</button>
-    </div>
-   </form>
-  </section>
- </div>;
+ return <Modal title={existing?"عدّل إجاباتك وابعتهـا تاني":"تقرير الكامبين — 5 أسئلة"}
+  description="جاوب عن اللي تعرفه فقط؛ كل الإجابات والملاحظة اختيارية." onClose={onClose}>
+  <form className="mb2-form mb2-answer-form" onSubmit={event=>void submit(event)}>
+   <div className="mb2-brief-reminder"><span>التكليف الأصلي من ناردين</span>
+    <a dir="ltr" href={brief.post_url} target="_blank" rel="noopener noreferrer">
+     {shortLink(brief.post_url)} <ExternalLink size={14}/></a>
+    {briefNote(brief)&&<p className="mb2-brief-reminder-note">{briefNote(brief)}</p>}
+   </div>
+   {existing?.review_note&&<p className="mb2-feedback"><strong>ملاحظة ناردين:</strong> {existing.review_note}</p>}
+   <label className="mb2-field"><span className="mb2-question-index">01</span> Campaign on which post?
+    <input type="text" maxLength={2000} dir="auto" value={fields.campaign_post}
+     onChange={e=>set("campaign_post",e.target.value)} placeholder="لينك البوست أو وصف البوست"/>
+    <small>ممكن تستخدم نفس لينك ناردين أو تكتب بوست مختلف لو اتغير</small>
+   </label>
+   <label className="mb2-field"><span className="mb2-question-index">02</span> Goal?
+    <textarea rows={2} maxLength={2500} value={fields.campaign_goal}
+     onChange={e=>set("campaign_goal",e.target.value)}
+     placeholder="إيه الهدف اللي اتعمل عليه الإعلان؟"/>
+   </label>
+   <div className="mb2-budget-fields">
+    <label className="mb2-field"><span className="mb2-question-index">03</span> How much per day?
+     <input type="number" min="0" max="100000000" step="0.01" value={fields.daily_budget}
+      onChange={e=>set("daily_budget",e.target.value)} placeholder="الميزانية في اليوم"/>
+    </label>
+    <label className="mb2-field">العملة
+     <select value={fields.currency} onChange={e=>set("currency",e.target.value)}>
+      {allowedCurrencies.map(currency=><option value={currency} key={currency}>{currency}</option>)}
+     </select>
+    </label>
+   </div>
+   <div className="mb2-range-fields">
+    <span className="mb2-range-title"><span className="mb2-question-index">04</span> How long? From / To?</span>
+    <label className="mb2-field">من يوم
+     <input type="date" value={fields.start_date} onChange={e=>set("start_date",e.target.value)}/>
+    </label>
+    <label className="mb2-field">ليوم
+     <input type="date" min={fields.start_date||undefined} value={fields.end_date}
+      onChange={e=>set("end_date",e.target.value)}/>
+    </label>
+    {duration!==null&&<small className="mb2-duration-hint">{duration} يوم
+      {estimate!==null&&<> · إجمالي الميزانية المتوقعة: {formatNumber(estimate)} {fields.currency}</>}
+    </small>}
+   </div>
+   <label className="mb2-field"><span className="mb2-question-index">05</span> Results?
+    <textarea rows={3} maxLength={4000} value={fields.results}
+     onChange={e=>set("results",e.target.value)}
+     placeholder="اكتب النتايج: رسائل / Leads / Clicks / مبيعات أو أي أرقام متاحة"/>
+   </label>
+   <label className="mb2-field">ملاحظة إضافية <span className="mb2-optional">اختياري</span>
+    <textarea rows={2} maxLength={4000} value={fields.note}
+     onChange={e=>set("note",e.target.value)} placeholder="أي تفاصيل أو ملاحظات لأستاذة ناردين"/>
+   </label>
+   <p className="mb2-draft-notice"><CheckCircle2 size={16}/> إجاباتك بتتحفظ مؤقتًا لحد ما تبعتها.</p>
+   {error&&<p className="mb2-error" role="alert">{error}</p>}
+   <div className="mb2-form-actions"><button type="button" className="mb2-secondary" onClick={onClose}>إلغاء</button>
+    <button type="submit" className="mb2-primary" disabled={busy}><Send size={17}/>
+     {busy?"بنبعت…":"ابعت التقرير لناردين"}</button>
+   </div>
+  </form>
+ </Modal>;
 }
-type Totals={spent:number;impressions:number;reach:number;clicks:number;results:number};
-function totalReports(reports:Report[]):Totals{
- return reports.reduce((a,r)=>({
-  spent:a.spent+Number(r.amount_spent),impressions:a.impressions+Number(r.impressions),
-  reach:a.reach+Number(r.reach),clicks:a.clicks+Number(r.clicks),
-  results:a.results+Number(r.results_count),
- }),{spent:0,impressions:0,reach:0,clicks:0,results:0});
+
+function AnswerCard({index,question,answer,emphasis=false,link=false}:{
+ index:number;question:string;answer:string;emphasis?:boolean;link?:boolean;
+}){
+ const text=answer.trim();
+ return <article className={"mb2-qa-card "+(emphasis?"mb2-qa-card--emphasis":"")}>
+  <span className="mb2-qa-index">{String(index).padStart(2,"0")}</span>
+  <span className="mb2-qa-question">{question}</span>
+  {link&&validUrl(text)?
+   <a dir="ltr" target="_blank" rel="noopener noreferrer" href={text} className="mb2-qa-answer mb2-qa-link">
+    {shortLink(text)} <ExternalLink size={16}/></a>:
+   <strong className={"mb2-qa-answer "+(!text?"mb2-qa-unanswered":"")} dir="auto">
+    {text||emptyValue}</strong>}
+ </article>;
 }
-const mediaCache=new Map<string,{at:number;profile:Profile;campaigns:Campaign[];reports:Report[]}>();
-export function clearMediaBuyerCache(){mediaCache.clear();}
+
+function AnswerReport({brief,submission,manager,onRequestChanges,onApproved,busy}:{
+ brief:Brief;submission:Submission;manager:boolean;busy:boolean;
+ onRequestChanges:(note:string)=>void;onApproved:()=>void;
+}){
+ const [feedback,setFeedback]=useState("");
+ const duration=submission.start_date&&submission.end_date?
+  daysBetween(submission.start_date,submission.end_date):null;
+ const amount=submission.daily_budget;
+ const total=amount!==null&&duration!==null?amount*duration:null;
+ const budgetLabel=amount===null?"":formatNumber(Number(amount))+" "+submission.currency;
+ const schedule=[submission.start_date?formatDay(submission.start_date):"—",
+  submission.end_date?formatDay(submission.end_date):"—"].join("   →   ");
+ return <section className="mb2-report" aria-label="تقرير إجابات أحمد">
+  <div className="mb2-report-head">
+   <div><span className="mb2-eyebrow">CAMPAIGN PERFORMANCE REPORT</span>
+    <h3>تقرير أحمد الخولي</h3>
+    <p>الأسئلة الخمسة وإجابات أحمد عن الكامبين</p>
+   </div>
+   <span className={"mb2-status mb2-status--"+submission.status}>{statusCopy[submission.status]}</span>
+  </div>
+  <div className="mb2-report-meta"><span><CalendarDays size={15}/> اتبعت: {dateTime(submission.created_at)}</span>
+   <span><Clock3 size={15}/> آخر تحديث: {dateTime(submission.updated_at)}</span></div>
+  <div className="mb2-report-grid">
+   <AnswerCard index={1} question="Campaign on which post?" answer={submission.campaign_post} link/>
+   <AnswerCard index={2} question="Goal?" answer={submission.campaign_goal}/>
+   <AnswerCard index={3} question="How much per day?" answer={budgetLabel} emphasis/>
+   <article className="mb2-qa-card mb2-qa-card--schedule">
+    <span className="mb2-qa-index">04</span>
+    <span className="mb2-qa-question">How long? From / To?</span>
+    <div className="mb2-qa-dates">
+     <span>From <strong>{submission.start_date||"—"}</strong></span>
+     <span>To <strong>{submission.end_date||"—"}</strong></span>
+    </div>
+    {duration!==null&&<p>{duration} يوم{total!==null&&<> · <b>ميزانية تقديرية: {formatNumber(total)} {submission.currency}</b></>}</p>}
+    {!submission.start_date&&!submission.end_date&&<small>{emptyValue}</small>}
+   </article>
+   <AnswerCard index={5} question="Results?" answer={submission.results} emphasis/>
+  </div>
+  {submission.note&&<div className="mb2-reporter-note"><MessageSquareText size={18}/>
+   <div><strong>ملاحظة أحمد</strong><p dir="auto">{submission.note}</p></div></div>}
+  {submission.review_note&&<div className="mb2-feedback"><strong>ملاحظة ناردين:</strong> {submission.review_note}</div>}
+  {manager&&submission.status==="pending_review"&&<div className="mb2-review-panel">
+   <h4><ClipboardCheck size={18}/> مراجعة التقرير</h4>
+   <label>ملاحظتك لأحمد (اختياري للموافقة، ضروري لو هترجّعيه)
+    <textarea rows={2} value={feedback} onChange={e=>setFeedback(e.target.value)}
+     maxLength={3000} placeholder="اكتبي التعديل المطلوب من أحمد…"/>
+   </label>
+   <div className="mb2-form-actions">
+    <button className="mb2-secondary" type="button" disabled={busy} onClick={()=>{
+     if(!feedback.trim()){showToast("اكتبي سبب التعديل قبل ما ترجعي التقرير.","error");return;}
+     onRequestChanges(feedback.trim());
+    }}>ارجّعي للتعديل</button>
+    <button className="mb2-primary" type="button" disabled={busy} onClick={onApproved}>
+     <CheckCircle2 size={16}/> اعتمدي التقرير</button>
+   </div>
+  </div>}
+  {!manager&&submission.status==="pending_review"&&<p className="mb2-waiting-note">
+   <Clock3 size={18}/> التقرير وصل لناردين ومستني مراجعتها.
+  </p>}
+  {brief.deleted_at&&<p className="mb2-waiting-note">التكليف ده محفوظ في سجل الحذف.</p>}
+ </section>;
+}
+
 export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBack:()=>void}){
  const manager=member.role==="manager";
- const warmCache=mediaCache.get(member.id);
- const warm=warmCache&&Date.now()-warmCache.at<90_000?warmCache:null;
- const [profile,setProfile]=useState<Profile|null>(warm?.profile||null);
- const [campaigns,setCampaigns]=useState<Campaign[]>(warm?.campaigns||[]);
- const [reports,setReports]=useState<Report[]>(warm?.reports||[]);
- const [selected,setSelected]=useState<string|null>(()=>{
-  try{return localStorage.getItem("stc:media:selected:"+member.id);}catch{return null;}
+ const warm=cache.get(member.id);
+ const initial=warm&&Date.now()-warm.at<90000?warm:null;
+ const [profile,setProfile]=useState<Profile|null>(initial?.profile||null);
+ const [briefs,setBriefs]=useState<Brief[]>(initial?.briefs||[]);
+ const [submissions,setSubmissions]=useState<Submission[]>(initial?.submissions||[]);
+ const [activeId,setActiveId]=useState<string|null>(()=>{
+  try{return localStorage.getItem("stc:media:v2:selected:"+member.id);}catch{return null;}
  });
- const [filter,setFilter]=useState<"all"|"active"|"review"|"completed">("all");
- const [editing,setEditing]=useState<Campaign|null|"new">(null);
- const [reportEditing,setReportEditing]=useState<Report|null|"new">(null);
- const [reviewNotes,setReviewNotes]=useState<Record<string,string>>({});
- const [reviewBusy,setReviewBusy]=useState<string|null>(null);
- const [loading,setLoading]=useState(!warm),[error,setError]=useState("");
+ const [filter,setFilter]=useState<"all"|"todo"|"review"|"finished">("all");
+ const [editing,setEditing]=useState<Brief|null|"new">(null);
+ const [answering,setAnswering]=useState<Brief|null>(null);
+ const [error,setError]=useState("");
+ const [busy,setBusy]=useState(false),[loading,setLoading]=useState(!initial);
  const serial=useRef(0);
  const load=useCallback(async()=>{
-  const id=++serial.current;
+  const seq=++serial.current;
   const p=await supabase.from("stc_media_profiles").select("id,slug,display_name,member_id")
    .eq("slug","ahmed-el-khouly").maybeSingle();
-  if(id!==serial.current)return;
-  if(p.error||!p.data){setError(p.error?.message||"مساحة أحمد الخولي مش متاحة.");setLoading(false);return;}
+  if(seq!==serial.current)return;
+  if(p.error||!p.data){setError(p.error?.message||"حساب أحمد مش مربوط بقسم الميديا باينج.");
+   setLoading(false);return;}
   const owner=p.data as Profile;
-  if(!manager&&owner.member_id!==member.id){setError("الحساب ده مش مربوط بمساحة الميديا باينج.");setLoading(false);return;}
-  const c=await supabase.from("stc_media_campaigns").select("*").eq("profile_id",owner.id)
-   .order("created_at",{ascending:false});
-  if(id!==serial.current)return;
-  if(c.error){setError(c.error.message);setLoading(false);return;}
-  const list=(c.data||[]) as Campaign[];
-  let entries:Report[]=[];
-  if(list.length){
-   const r=await supabase.from("stc_media_results").select("*").in("campaign_id",list.map(x=>x.id))
-    .order("report_date",{ascending:false});
-   if(id!==serial.current)return;
-   if(r.error){setError(r.error.message);setLoading(false);return;}
-   entries=(r.data||[]) as Report[];
-  }
-  mediaCache.set(member.id,{at:Date.now(),profile:owner,campaigns:list,reports:entries});
-  setProfile(owner);setCampaigns(list);setReports(entries);setLoading(false);setError("");
- },[member.id,manager]);
+  if(!manager&&owner.member_id!==member.id){setError("الحساب ده مش مصرح له بفتح Media Buying.");
+   setLoading(false);return;}
+  const [b,s]=await Promise.all([
+   supabase.from("stc_media_briefs").select("*").eq("profile_id",owner.id)
+    .is("deleted_at",null).order("created_at",{ascending:false}),
+   supabase.from("stc_media_submissions").select("*").order("created_at",{ascending:false}),
+  ]);
+  if(seq!==serial.current)return;
+  if(b.error||s.error){setError(b.error?.message||s.error?.message||"مقدرناش نحمّل الحملات.");
+   setLoading(false);return;}
+  const list=(b.data||[]) as Brief[];
+  const activeIds=new Set(list.map(brief=>brief.id));
+  const reportList=((s.data||[]) as Submission[]).filter(report=>activeIds.has(report.brief_id));
+  cache.set(member.id,{at:Date.now(),profile:owner,briefs:list,submissions:reportList});
+  setProfile(owner);setBriefs(list);setSubmissions(reportList);
+  setLoading(false);setError("");
+ },[manager,member.id]);
  useEffect(()=>{void load();},[load]);
  useEffect(()=>{
-  const live=supabase.channel("stc-media-"+member.id)
-   .on("postgres_changes",{schema:"public",table:"stc_media_profiles",event:"*"},()=>void load())
-   .on("postgres_changes",{schema:"public",table:"stc_media_campaigns",event:"*"},()=>void load())
-   .on("postgres_changes",{schema:"public",table:"stc_media_results",event:"*"},()=>void load())
+  const channel=supabase.channel("stc-media-v2-"+member.id)
+   .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_briefs"},()=>void load())
+   .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_submissions"},()=>void load())
    .subscribe();
-  const intervalId=window.setInterval(()=>{if(document.visibilityState==="visible")void load();},30000);
-  const focus=()=>{if(document.visibilityState==="visible")void load();};
-  window.addEventListener("focus",focus);document.addEventListener("visibilitychange",focus);
-  return()=>{serial.current++;clearInterval(intervalId);window.removeEventListener("focus",focus);
-   document.removeEventListener("visibilitychange",focus);void supabase.removeChannel(live);};
+  const poll=window.setInterval(()=>{
+   if(document.visibilityState==="visible")void load();
+  },30000);
+  const refreshOnFocus=()=>{if(document.visibilityState==="visible")void load();};
+  window.addEventListener("focus",refreshOnFocus);
+  return()=>{
+   serial.current++;window.clearInterval(poll);
+   window.removeEventListener("focus",refreshOnFocus);void supabase.removeChannel(channel);
+  };
  },[member.id,load]);
- const selectedCampaign=campaigns.find(x=>x.id===selected)||campaigns[0]||null;
- const visible=campaigns.filter(c=>filter==="all"||
-  filter==="active"&&["planned","active","paused"].includes(c.status)||
-  filter==="completed"&&c.status==="completed"||
-  filter==="review"&&reports.some(r=>r.campaign_id===c.id&&r.status==="pending_review"));
- const campaignReports=selectedCampaign?reports.filter(r=>r.campaign_id===selectedCampaign.id):[];
- const accepted=reports.filter(r=>r.status==="approved");
- const total=totalReports(accepted);
- const pending=reports.filter(r=>r.status==="pending_review");
- const hasCampaigns=campaigns.length>0;
- const expected=campaigns.filter(c=>c.status!=="cancelled").reduce((n,c)=>
-  n+Number(c.daily_budget)*interval(c.start_date,c.end_date),0);
- const mixedCurrency=new Set(campaigns.filter(c=>c.status!=="cancelled").map(c=>c.currency)).size>1;
- const displayCurrency=campaigns.find(c=>c.status!=="cancelled")?.currency||"EGP";
- const setSelectedId=(id:string)=>{
-  setSelected(id);
-  try{localStorage.setItem("stc:media:selected:"+member.id,id);}catch{}
- };
- async function review(report:Report,next:"approved"|"changes_requested"){
-  if(!manager||reviewBusy)return;
-  const note=(reviewNotes[report.id]||"").trim();
-  if(next==="changes_requested"&&!note){showToast("اكتبي سبب التعديل الأول عشان يوصل لأحمد.","error");return;}
-  setReviewBusy(report.id);
-  try{
-   const res=await supabase.from("stc_media_results").update({
-    status:next,review_note:note,reviewed_by:member.id,
-   }).eq("id",report.id).eq("status","pending_review").select("id");
-   if(res.error)throw res.error;
-   if(!res.data?.length)throw new Error("التقرير اتراجع من حساب تاني. اعملي تحديث.");
-   await load();showToast(next==="approved"?"النتيجة اتعمدت بنجاح.":"اترجّعت لأحمد مع الملاحظة.");
-  }catch(e){showToast(e instanceof Error?e.message:"فيه مشكلة في المراجعة.","error");}
-  finally{setReviewBusy(null);}
+ const byBrief=useMemo(()=>new Map(submissions.map(s=>[s.brief_id,s])),[submissions]);
+ const pending=briefs.filter(b=>byBrief.get(b.id)?.status==="pending_review");
+ const completed=briefs.filter(b=>byBrief.get(b.id)?.status==="approved");
+ const waiting=briefs.filter(b=>!byBrief.has(b.id)||byBrief.get(b.id)?.status==="changes_requested");
+ const visible=briefs.filter(brief=>{
+  const status=byBrief.get(brief.id)?.status;
+  return filter==="all"||
+   filter==="todo"&&(!status||status==="changes_requested")||
+   filter==="review"&&status==="pending_review"||
+   filter==="finished"&&status==="approved";
+ });
+ const active=briefs.find(b=>b.id===activeId)||null;
+ function choose(id:string){
+  setActiveId(id);
+  try{localStorage.setItem("stc:media:v2:selected:"+member.id,id);}catch{}
  }
- const resultInSelected=campaignReports.filter(r=>r.status==="approved");
- const summary=totalReports(resultInSelected);
- const plannedBudget=selectedCampaign
-  ?Number(selectedCampaign.daily_budget)*interval(selectedCampaign.start_date,selectedCampaign.end_date):0;
- const targetPct=selectedCampaign?.target_results?Math.min(100,summary.results/selectedCampaign.target_results*100):0;
- const budgetPct=plannedBudget>0?Math.max(0,Math.min(100,summary.spent/plannedBudget*100)):0;
- const todayAlready=selectedCampaign?campaignReports.find(r=>r.report_date===today()):null;
- return <div className="media-workspace" dir="rtl">
-  <header className="media-topbar"><BrandLockup size="compact"/>
-   <div className="media-topbar-name"><strong>Media Buying</strong>
+ async function remove(brief:Brief){
+  if(!manager||busy)return;
+  if(!confirmInCurrentLanguage("متأكدة إنك عايزة تمسحي تكليف الكامبين دي؟ هتختفي من عند أحمد لكن التقرير هيفضل محفوظ."))return;
+  setBusy(true);
+  try{
+   const r=await supabase.from("stc_media_briefs").update({
+    deleted_at:new Date().toISOString(),deleted_by:member.id,
+   }).eq("id",brief.id).eq("version",brief.version).is("deleted_at",null).select("id");
+   if(r.error)throw r.error;
+   if(!r.data?.length)throw new Error("التكليف اتغير. حدّثي الصفحة وجربي تاني.");
+   if(activeId===brief.id)choose("");
+   await load();showToast("التكليف اتمسح من عند أحمد، والتقرير محفوظ في السجل.","delete");
+  }catch(e){showToast(e instanceof Error?e.message:"مقدرناش نمسح التكليف.","error");}
+  finally{setBusy(false);}
+ }
+ async function review(item:Submission,status:"approved"|"changes_requested",note=""){
+  if(!manager||busy)return;
+  setBusy(true);
+  try{
+   const response=await supabase.from("stc_media_submissions").update({
+    status,review_note:note,reviewed_by:member.id,
+   }).eq("id",item.id).eq("status","pending_review").select("id");
+   if(response.error)throw response.error;
+   if(!response.data?.length)throw new Error("التقرير اتحرك من حساب تاني. حدّثي الصفحة.");
+   await load();showToast(status==="approved"?"تم اعتماد تقرير أحمد بنجاح.":"التقرير رجع لأحمد مع الملاحظة.");
+  }catch(e){showToast(e instanceof Error?e.message:"مقدرناش نراجع التقرير.","error");}
+  finally{setBusy(false);}
+ }
+ return <div className="mb2-page" dir="rtl">
+  <header className="mb2-topbar">
+   <BrandLockup size="compact"/>
+   <div className="mb2-topbar-title"><b>Media Buying</b>
     <small>STC Marketing Flow · Ahmed El Kholy</small></div>
-   <div className="media-topbar-actions">
-    <span className="media-live"><span/> Live</span>
-    <button type="button" className="media-outline" onClick={()=>void load()} aria-label="تحديث"><RefreshCw size={16}/><span>تحديث</span></button>
-    <button type="button" className="media-outline" onClick={onBack}>
-      {manager?<ArrowRight size={17}/>:<LogOut size={17}/>} {manager?"رجوع للتيم":"تسجيل خروج"}</button>
-   </div>
+   <span className="mb2-live"><i/> Live</span>
+   <button type="button" className="mb2-icon-button" title="تحديث" aria-label="تحديث" onClick={()=>void load()}>
+    <RefreshCw size={18}/></button>
+   <button type="button" className="mb2-secondary mb2-back" onClick={onBack}>
+    {manager?<ArrowRight size={17}/>:<LogOut size={17}/>}
+    {manager?"رجوع للتيم":"تسجيل خروج"}
+   </button>
   </header>
-  <main className="media-container">
-   <section className="media-hero">
-    <div><span className="media-eyebrow">{manager?"NARDINE / MEDIA BUYING":"AHMED / MEDIA BUYING"}</span>
-     <h1>{manager?"متابعة الحملات الإعلانية":"حملاتك الإعلانية"}</h1>
+  <main className="mb2-container">
+   <section className="mb2-hero">
+    <div><span className="mb2-eyebrow">MEDIA BUYING / CAMPAIGN FLOW</span>
+     <h1>{manager?"حملات أحمد الخولي":"الـCampaigns اللي اتبعتتلك"}</h1>
      <p>{manager?
-      "كل حملة فيها البوست والهدف والميزانية والمدّة، ونتايج أحمد اليومية بتوصل لك للمراجعة.":
-      "هنا الـCampaign Brief من ناردين، وتسجيل النتايج الفعلية وملاحظاتك لكل يوم."}</p>
+      "ابعتي لينك البوست فقط، ولو حابة اكتبي الهدف والتعليمات في ملاحظة واحدة. أحمد هيجاوب على الأسئلة الخمسة.":
+      "كل تكليف من ناردين موجود في كارت فيه لينك البوست وملاحظتها الاختيارية. نفّذ الإعلان وبعدها ابعت تقريرك."}</p>
     </div>
-    {manager&&!!profile&&<button className="media-primary" type="button" onClick={()=>setEditing("new")}>
-     <Plus size={18}/> Campaign جديدة</button>}
+    {manager&&!!profile&&<button type="button" className="mb2-primary"
+     onClick={()=>setEditing("new")}><Plus size={18}/> تكليف كامبين جديد</button>}
    </section>
-   {error&&<p className="media-error" role="alert">{error}</p>}
-   {loading&&!profile&&<div className="media-empty">بنحمّل بيانات الحملات…</div>}
+   {error&&<div className="mb2-error" role="alert">{error}
+    <button type="button" onClick={()=>void load()}>حاول تاني</button></div>}
+   {loading&&!profile&&<div className="mb2-empty"><RefreshCw size={22}/> بنحمّل الحملات…</div>}
    {profile&&<>
-    <section className="media-overview">
-     <article><span><Megaphone size={20}/></span><small>إجمالي الحملات</small><strong>{campaigns.length}</strong><p>حملات أحمد الخولي</p></article>
-     <article><span><Wallet size={20}/></span><small>ميزانية الحملات المخططة</small>
-      <strong>{mixedCurrency?"عملات مختلفة":money(expected,displayCurrency)}</strong>
-      <p>{mixedCurrency?"تنبيه: حملات بعملات مختلفة — متجمعش المبالغ":"Budget / Day × عدد الأيام"}</p></article>
-     <article><span><Target size={20}/></span><small>نتايج معتمدة</small><strong>{qty(total.results)}</strong><p>من تقارير ناردين وافقت عليها</p></article>
-     <article><span><Clock3 size={20}/></span><small>مستنية المراجعة</small><strong>{pending.length}</strong><p>تحديثات أحمد اليومية</p></article>
+    <section className="mb2-stats">
+     <article><span className="mb2-stat-icon"><Megaphone size={20}/></span>
+      <small>إجمالي التكليفات</small><strong>{briefs.length}</strong></article>
+     <article><span className="mb2-stat-icon"><ClipboardCheck size={20}/></span>
+      <small>مطلوب تنفيذ أو تعديل</small><strong>{waiting.length}</strong></article>
+     <article><span className="mb2-stat-icon"><Clock3 size={20}/></span>
+      <small>تقارير للمراجعة</small><strong>{pending.length}</strong></article>
+     <article><span className="mb2-stat-icon"><FileCheck2 size={20}/></span>
+      <small>تقارير معتمدة</small><strong>{completed.length}</strong></article>
     </section>
-    {manager&&pending.length>0&&<section className="media-review-box"><div className="media-section-heading">
-      <div><span className="media-eyebrow">REVIEW INBOX</span><h2>نتايج محتاجة مراجعة ناردين</h2></div>
-      <span className="media-count">{pending.length} مستني</span></div>
-     <div className="media-pending-list">{pending.map(r=>{
-      const campaign=campaigns.find(c=>c.id===r.campaign_id);
-      return <article key={r.id} className="media-review-item">
-       <div className="media-review-item-head"><b>{campaign?.title||"Campaign"}</b><small>{r.report_date}</small></div>
-       <div className="media-review-numbers">
-        <span>Actual Spent <b>{money(Number(r.amount_spent),campaign?.currency||"EGP")}</b></span>
-        <span>{r.result_label} <b>{qty(r.results_count)}</b></span>
-        <span>Clicks <b>{qty(r.clicks)}</b></span>
+    {manager&&pending.length>0&&<section className="mb2-inbox">
+     <div className="mb2-inbox-heading"><div><span className="mb2-eyebrow">REVIEW INBOX</span>
+      <h2>تقارير أحمد اللي مستنية مراجعتك</h2>
+      <p>كل تقرير فيه الأسئلة الخمسة والإجابات بشكل واضح، من غير ما تفتحي ملفات خارجية.</p>
+     </div><span className="mb2-counter">{pending.length} للمراجعة</span></div>
+     <div className="mb2-inbox-list">{pending.map(brief=>{
+      const submission=byBrief.get(brief.id);
+      return submission?<div key={brief.id} className="mb2-inbox-entry">
+       <div className="mb2-inbox-brief"><Link2 size={17}/>
+        <a href={brief.post_url} target="_blank" rel="noopener noreferrer" dir="ltr">
+         {shortLink(brief.post_url)} <ExternalLink size={14}/></a>
+        {briefNote(brief)&&<p>{briefNote(brief)}</p>}
        </div>
-       {r.notes&&<p className="media-submitted-note">{r.notes}</p>}
-       <textarea aria-label="ملاحظة ناردين" rows={2} placeholder="لو محتاجة تعديل، اكتبي لأحمد إيه المطلوب…"
-        maxLength={3000} value={reviewNotes[r.id]??""} onChange={e=>setReviewNotes(v=>({...v,[r.id]:e.target.value}))}/>
-       <div className="media-review-controls"><button type="button" className="media-outline"
-        disabled={reviewBusy===r.id} onClick={()=>void review(r,"changes_requested")}>ارجّعي للتعديل</button>
-        <button type="button" className="media-primary" disabled={reviewBusy===r.id}
-        onClick={()=>void review(r,"approved")}><CheckCircle2 size={16}/> اعتمدي النتايج</button></div>
-      </article>;
+       <AnswerReport brief={brief} submission={submission} manager busy={busy}
+        onApproved={()=>void review(submission,"approved")}
+        onRequestChanges={note=>void review(submission,"changes_requested",note)}/>
+      </div>:null;
      })}</div>
     </section>}
-    <section className="media-section">
-     <div className="media-section-heading"><div><span className="media-eyebrow">CAMPAIGN OVERVIEW</span>
-      <h2>الحملات الإعلانية</h2><p>اضغط على أي حملة عشان تفتح البريف والنتايج بالتفصيل.</p></div></div>
-     <nav className="media-filterbar" aria-label="فلترة الحملات"><Filter size={17}/>
-      {([
-       ["all","الكل"],["active","شغالة ومخططة"],
-       ["review","مستنية مراجعة"],["completed","انتهت"]
-      ] as const).map(([id,label])=><button type="button" key={id} className={filter===id?"active":""}
-       onClick={()=>setFilter(id)}>{label}</button>)}</nav>
-     {!hasCampaigns&&<div className="media-empty"><Megaphone size={33}/>
-       <strong>{manager?"لسه مفيش Campaigns":"ناردين لسه ماحطتش Campaigns ليك"}</strong>
-       <p>{manager?"ابدئي بإضافة أول حملة، وأحمد هيشوف المطلوب عنده.":"أول ما ناردين تضيف حملة، هتظهر هنا بتفاصيلها والميزانية."}</p>
-       {manager&&<button className="media-primary" onClick={()=>setEditing("new")}><Plus size={17}/> أضيفي أول Campaign</button>}
+    <section className="mb2-section-head"><div><span className="mb2-eyebrow">ASSIGNED CAMPAIGNS</span>
+     <h2>كروت الحملات</h2><p>لينك البوست وملاحظة اختيارية من ناردين، وتقرير أحمد مربوط بنفس الكارت.</p>
+    </div></section>
+    <nav className="mb2-filters" aria-label="فلترة الحملات">
+     {([
+      ["all","الكل",briefs.length],["todo","مطلوب شغل",waiting.length],
+      ["review","مستني مراجعة",pending.length],["finished","معتمد",completed.length],
+     ] as const).map(([key,title,count])=><button key={key} type="button"
+      className={filter===key?"active":""} onClick={()=>setFilter(key)}>
+      {title}<small>{count}</small>
+     </button>)}
+    </nav>
+    {!briefs.length&&<div className="mb2-empty"><Megaphone size={35}/>
+     <strong>{manager?"لسه مفيش تكليفات حملات":"ناردين لسه ما بعتتش كامبين"}</strong>
+     <p>{manager?"اضغطي «تكليف كامبين جديد» وابعتي لينك البوست وملاحظة لو حابة.":"أول تكليف من ناردين هيظهر هنا بكارت واضح."}</p>
+     {manager&&<button className="mb2-primary" type="button" onClick={()=>setEditing("new")}>
+      <Plus size={17}/> ابعتي أول كامبين</button>}
+    </div>}
+    {!!briefs.length&&!visible.length&&<div className="mb2-empty">مفيش حملات في الحالة دي.</div>}
+    <div className="mb2-cards">{visible.map(brief=>{
+     const submission=byBrief.get(brief.id);
+     return <article key={brief.id} className={"mb2-card "+(activeId===brief.id?"is-open":"")}>
+      <div className="mb2-card-top"><div className="mb2-card-icon"><Megaphone size={21}/></div>
+       <span className={"mb2-status "+(submission?"mb2-status--"+submission.status:"mb2-status--todo")}>
+        {submission?statusCopy[submission.status]:"مستني تنفيذ أحمد"}
+       </span></div>
+      <small className="mb2-card-label">CAMPAIGN BRIEF · {dateTime(brief.created_at)}</small>
+      <h3>إعلان على بوست</h3>
+      <a href={brief.post_url} target="_blank" rel="noopener noreferrer" dir="ltr" className="mb2-card-link">
+       <Link2 size={16}/>{shortLink(brief.post_url)}<ExternalLink size={14}/>
+      </a>
+      {briefNote(brief)&&<div className="mb2-card-instructions"><MessageSquareText size={15}/>
+       <p dir="auto">{briefNote(brief)}</p></div>}
+      <div className="mb2-card-actions">
+       <button type="button" className="mb2-card-open" onClick={()=>choose(brief.id)}>
+        <ClipboardCheck size={16}/>{submission?"شوف التقرير والتفاصيل":"افتح الكارت والتفاصيل"}
+        <ChevronLeft size={17}/>
+       </button>
+       {manager&&<div className="mb2-card-manager">
+        <button type="button" title="تعديل التكليف" aria-label="تعديل التكليف" onClick={()=>setEditing(brief)}>
+         <Pencil size={17}/></button>
+        <button type="button" title="حذف التكليف" aria-label="حذف التكليف" disabled={busy}
+         onClick={()=>void remove(brief)}><Trash2 size={17}/></button>
+       </div>}
+      </div>
+     </article>;
+    })}</div>
+    {active&&<section className="mb2-detail" key={active.id}>
+     <div className="mb2-detail-head"><div><span className="mb2-eyebrow">CAMPAIGN / DETAIL</span>
+      <h2>تفاصيل الكامبين</h2><p>{briefNote(active)||"تكليف من ناردين"}</p></div>
+      <button type="button" className="mb2-icon-button" aria-label="قفل التفاصيل"
+       onClick={()=>choose("")}><X size={18}/></button>
+     </div>
+     <div className="mb2-brief-detail">
+      <div><small>البوست المطلوب</small>
+       <a href={active.post_url} target="_blank" rel="noopener noreferrer" dir="ltr">
+        {shortLink(active.post_url)} <ExternalLink size={15}/></a></div>
+      <div><small>الهدف والملاحظة (اختياري)</small><strong dir="auto">{briefNote(active)||"مفيش ملاحظة"}</strong></div>
+     </div>
+     {byBrief.get(active.id)?<AnswerReport brief={active} submission={byBrief.get(active.id)!}
+      manager={manager} busy={busy}
+      onApproved={()=>void review(byBrief.get(active.id)!,"approved")}
+      onRequestChanges={note=>void review(byBrief.get(active.id)!,"changes_requested",note)}/>:
+      <div className="mb2-no-report"><Clock3 size={20}/>
+       {manager?"مستنيين أحمد ينفّذ الإعلان ويبعت إجابات الأسئلة.":"خلصت عمل الكامبين؟ افتح نموذج الأسئلة الخمسة وابعته لناردين."}
       </div>}
-     {!!hasCampaigns&&!visible.length&&<div className="media-empty">مفيش حملات مطابقة للفلتر ده.</div>}
-     <div className="media-campaign-grid">{visible.map(c=>{
-      const approvedFor=totalReports(reports.filter(r=>r.campaign_id===c.id&&r.status==="approved"));
-      const awaiting=reports.filter(r=>r.campaign_id===c.id&&r.status==="pending_review").length;
-      const budget=Number(c.daily_budget)*interval(c.start_date,c.end_date);
-      return <button key={c.id} type="button" onClick={()=>setSelectedId(c.id)}
-       className={"media-campaign-card "+(selectedCampaign?.id===c.id?"selected":"")}>
-       <div className="media-card-head"><span className={"media-status media-status-"+c.status}>{campaignStatuses[c.status]}</span>
-        <small>{c.platform} · {c.brand}</small></div>
-       <h3>{c.title}</h3><p className="media-post">{c.post_label}</p>
-       <div className="media-card-meta"><span><Target size={14}/>{objectiveLabel(c.objective)}</span>
-        <span><CalendarDays size={14}/>{c.start_date} — {c.end_date}</span></div>
-       <div className="media-card-stats"><div><small>Budget / Day</small><b>{money(Number(c.daily_budget),c.currency)}</b></div>
-        <div><small>إجمالي متوقع</small><b>{money(budget,c.currency)}</b></div></div>
-       <div className="media-card-bottom"><span>{qty(approvedFor.results)} {resultLabel(c.objective)} معتمدة</span>
-        {awaiting>0&&<b>{awaiting} للمراجعة</b>}<ChevronLeft size={18}/></div>
-      </button>;
-     })}</div>
-    </section>
-    {selectedCampaign&&<section className="media-detail">
-      <div className="media-detail-title"><div><span className="media-eyebrow">CAMPAIGN DETAILS</span>
-       <h2>{selectedCampaign.title}</h2><p>{selectedCampaign.post_label} · {selectedCampaign.brand} · {selectedCampaign.platform}</p></div>
-       {manager&&<button className="media-outline" type="button" onClick={()=>setEditing(selectedCampaign)}>
-        <Pencil size={16}/> تعديل البريف</button>}
-      </div>
-      <div className="media-detail-info">
-       <div><small>هدف الإعلان</small><strong>{objectiveLabel(selectedCampaign.objective)}</strong>
-        <p>{selectedCampaign.goal_notes}</p></div>
-       <div><small>المدة</small><strong>{interval(selectedCampaign.start_date,selectedCampaign.end_date)} يوم</strong>
-        <p>{selectedCampaign.start_date} — {selectedCampaign.end_date}</p></div>
-       <div><small>الميزانية اليومية</small><strong>{money(Number(selectedCampaign.daily_budget),selectedCampaign.currency)}</strong>
-        <p>الميزانية الكاملة: {money(plannedBudget,selectedCampaign.currency)}</p></div>
-       <div><small>الهدف العددي</small><strong>{selectedCampaign.target_results===null?"مش محدد":qty(selectedCampaign.target_results)}</strong>
-        <p>{resultLabel(selectedCampaign.objective)}</p></div>
-      </div>
-      {selectedCampaign.notes&&<div className="media-brief-note"><strong>تعليمات من ناردين:</strong> {selectedCampaign.notes}</div>}
-      {validLink(selectedCampaign.post_url)&&<a className="media-post-link" target="_blank" rel="noopener noreferrer"
-       href={validLink(selectedCampaign.post_url)||"#"}><ExternalLink size={17}/> افتح البوست الأصلي</a>}
-      <div className="media-kpi-strip">
-       <div><span><Wallet size={18}/> Actual Spent</span><strong>{money(summary.spent,selectedCampaign.currency)}</strong></div>
-       <div><span><Activity size={18}/> {resultLabel(selectedCampaign.objective)}</span><strong>{qty(summary.results)}</strong></div>
-       <div><span><MousePointerClick size={18}/> Clicks</span><strong>{qty(summary.clicks)}</strong></div>
-       <div><span><BarChart3 size={18}/> Cost / Result</span>
-         <strong>{summary.results>0?money(summary.spent/summary.results,selectedCampaign.currency):"—"}</strong></div>
-       <div><span><TrendingUp size={18}/> CTR</span><strong>{summary.impressions>0?(summary.clicks/summary.impressions*100).toFixed(2)+"%":"—"}</strong></div>
-      </div>
-      <div className="media-target-progress">
-       <div className="media-target-progress-label"><strong>الميزانية المعتمدة المصروفة</strong>
-        <span>{money(summary.spent,selectedCampaign.currency)} / {money(plannedBudget,selectedCampaign.currency)}</span>
-       </div><div className="media-progress-track media-budget-track">
-        <span style={{width:budgetPct+"%"}}/></div>
-       <small>الأرقام دي مجموع المصروف في التقارير اللي ناردين اعتمدتها، مش بيانات مباشرة من منصة الإعلانات.</small>
-      </div>
-      {selectedCampaign.target_results!==null&&selectedCampaign.target_results>0&&
-        <div className="media-target-progress"><div className="media-target-progress-label">
-         <strong>التقدم في الهدف</strong><span>{qty(summary.results)} / {qty(selectedCampaign.target_results)} · {targetPct.toFixed(0)}%</span>
-        </div><div className="media-progress-track"><span style={{width:targetPct+"%"}}/></div>
-        <small>التقدم بيتحسب من النتائج المعتمدة بس.</small></div>}
-      <div className="media-results-heading"><h3><BarChart3 size={19}/> تقرير النتايج اليومية</h3>
-       {!manager&&["active","paused","completed"].includes(selectedCampaign.status)&&
-       <button type="button" className="media-primary" onClick={()=>{
-        if(todayAlready){
-         if(todayAlready.status==="changes_requested")setReportEditing(todayAlready);
-         else showToast("نتايج النهارده متسجلة بالفعل. اختار يوم مختلف أو راجع حالة التقرير.","info");
-        }else setReportEditing("new");
-       }}><Plus size={17}/> سجّل نتايج يوم</button>}</div>
-      {!campaignReports.length&&<p className="media-results-empty">
-        {manager?"لسه أحمد ماقدّمش نتائج للحملة دي.":"لسه مفيش نتائج متسجلة. بعد تشغيل الإعلان سجّل أرقام كل يوم."}</p>}
-      {!!campaignReports.length&&<div className="media-daily-list">
-       {campaignReports.map(r=><article className="media-daily-row" key={r.id}>
-        <div className="media-daily-date"><CalendarDays size={17}/><strong>{r.report_date}</strong>
-         <span className={"media-review-status media-review-status-"+r.status}>{reportStatuses[r.status]}</span></div>
-        <div className="media-daily-values">
-         <span>Spent <b>{money(Number(r.amount_spent),selectedCampaign.currency)}</b></span>
-         <span>Impressions <b>{qty(r.impressions)}</b></span>
-         <span>Reach <b>{qty(r.reach)}</b></span>
-         <span>Clicks <b>{qty(r.clicks)}</b></span>
-         <span>{r.result_label} <b>{qty(r.results_count)}</b></span>
-        </div>
-        {r.notes&&<p>{r.notes}</p>}
-        {r.review_note&&<p className="media-review-feedback"><b>ملاحظة ناردين:</b> {r.review_note}</p>}
-        {!manager&&r.status==="changes_requested"&&<button type="button" className="media-outline"
-         onClick={()=>setReportEditing(r)}><Pencil size={16}/> عدّل النتايج وابعتهـا تاني</button>}
-       </article>)}
-      </div>}
+     {!manager&&(!byBrief.get(active.id)||byBrief.get(active.id)?.status==="changes_requested")&&
+      <button type="button" className="mb2-primary mb2-answer-button"
+       onClick={()=>setAnswering(active)}><Send size={18}/>
+       {byBrief.get(active.id)?"عدّل الإجابات وابعتها تاني":"جاوب على الأسئلة الخمسة وابعتها"}
+      </button>}
     </section>}
-    {manager&&<p className="media-access-note">ناردين بتحدد تفاصيل الحملة وبتراجع النتايج. تسجيل الأرقام الفعلية متاح لأحمد فقط. مفيش حذف للحملات عشان نحافظ على سجل الإعلانات.</p>}
+    {manager&&<p className="mb2-security-note">
+     <CheckCircle2 size={16}/> ناردين تقدر تعدّل أو تمسح التكليف. أحمد يكتب التقرير ويرسله؛
+     الحذف بيخفي التكليف من الكروت وبيحافظ على السجل بدل حذف بياناته نهائيًا.
+    </p>}
    </>}
   </main>
-  {profile&&manager&&editing!==null&&<CampaignEditor profile={profile} memberId={member.id}
-    existing={editing==="new"?null:editing}
-    hasReports={editing!=="new"&&reports.some(r=>r.campaign_id===editing.id)}
-    onSaved={load} onClose={()=>setEditing(null)}/>}
-  {profile&&!manager&&selectedCampaign&&reportEditing!==null&&<ReportEditor
-    campaign={selectedCampaign} existing={reportEditing==="new"?null:reportEditing}
-    memberId={member.id} onSaved={load} onClose={()=>setReportEditing(null)}/>}
+  {profile&&manager&&editing!==null&&<BriefEditor profile={profile} member={member}
+   existing={editing==="new"?null:editing} onClose={()=>setEditing(null)} onSaved={load}/>}
+  {profile&&!manager&&answering&&<AnswerEditor brief={answering} member={member}
+   existing={byBrief.get(answering.id)||null} onClose={()=>setAnswering(null)} onSaved={load}/>}
  </div>;
 }
