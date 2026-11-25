@@ -19,12 +19,12 @@ type FlowFilter="all"|"active"|"review"|"changes"|"approved"|"late";
 type SeoReview={id:string;profile_id:string;metric_key:string;month_key:string;before_value:number|null;after_value:number|null;status:string};
 const filterOptions:{id:FlowFilter;label:string}[]=[
  {id:"all",label:"الكل"},{id:"active",label:"شغالين عليها"},{id:"review",label:"مستني مراجعة"},
- {id:"changes",label:"مطلوب تعديل"},{id:"approved",label:"اتعمدت"},{id:"late",label:"متأخرة"}
+ {id:"changes",label:"مطلوب تعديل"},{id:"approved",label:"تم الاعتماد"},{id:"late",label:"متأخرة"}
 ];
 const cairoDay=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Cairo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 const stage = (s: Task["status"]) => ({
   todo:"لسه متبدأتش",in_progress:"شغال عليها",tomorrow:"هتتعمل بكرة",
-  waiting_review:"مستنية المراجعة",changes_requested:"مطلوب تعديلات",approved:"اتعتمدت ✓"
+  waiting_review:"مستنية المراجعة",changes_requested:"مطلوب تعديلات",approved:"تم الاعتماد"
 }[s]);
 const date = (d: string|null) => d ? new Date(d+"T12:00:00Z").toLocaleDateString("ar-EG",{day:"numeric",month:"short",year:"numeric"}) : "من غير ميعاد";
 const first = (name: string) => name.split(" ")[0] || name;
@@ -36,7 +36,7 @@ function Tile({task,who,manager,open}:{task:Task;who?:string;manager:boolean;ope
     <h3>{task.title}</h3>
     {task.description&&<p>{task.description}</p>}
     <div className="easy-task-meta">{manager&&<span><UserRound size={15}/>{who||"من التيم"}</span>}<span className={late?"easy-late":""}><CalendarDays size={15}/>{date(task.due_date)}</span></div>
-    <div className="easy-task-footer">{task.status==="approved"?<strong className="easy-approved"><CheckCircle2 size={17}/> ناردين وافقت، عاش!</strong>
+    <div className="easy-task-footer">{task.status==="approved"?<strong className="easy-approved"><CheckCircle2 size={17}/> تم الاعتماد</strong>
     :task.status==="waiting_review"&&manager?<strong className="easy-review-action">مستني موافقتك · راجعيه <ChevronLeft size={17}/></strong>
     :task.status==="waiting_review"?<strong>اتسلّم ومستني ناردين تراجعه</strong>
     :<strong>افتح التاسك <ChevronLeft size={17}/></strong>}</div>
@@ -86,7 +86,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
       const r=await supabase.from("stc_tasks").update(values).eq("id",task.id).eq("version",task.version).is("deleted_at",null).select("id");
       if(r.error)throw r.error;
       if(!r.data?.length)throw new Error("التاسك اتغيّر من حساب تاني. اقفله وافتحه تاني.");
-    },status==="waiting_review"?"تمام! التاسك اتسلّم وناردين جالها إشعار.":status==="approved"?"اتعمد! صاحب التاسك جاله إشعار بالموافقة.":status==="changes_requested"?"تمام، التعديلات وصلت لصاحب التاسك.":"تم تحديث التاسك بنجاح.");
+    },status==="waiting_review"?"تمام! التاسك اتسلّم وناردين جالها إشعار.":status==="approved"?"تم الاعتماد! صاحب التاسك جاله إشعار بالموافقة.":status==="changes_requested"?"تمام، التعديلات وصلت لصاحب التاسك.":"تم تحديث التاسك بنجاح.");
   }
   async function saveNote(){
     if(!note.trim())return;
@@ -383,7 +383,7 @@ export default function SimpleWorkspace(){
         const n=payload.new as Notice;
         if(n.kind==="deleted"){scheduled.request();return;}
         const message=n.kind==="waiting_review"?"سلّم التاسك ومستني مراجعتك"
-          :n.kind==="approved"?"ناردين وافقت على التاسك ✅"
+          :n.kind==="approved"?"تم الاعتماد"
           :n.kind==="changes_requested"?"ناردين طلبت تعديل"
           :n.kind==="updated"?"ناردين عدّلت التاسك"
           :n.kind==="assigned"||n.kind==="reassigned"?"جالك تاسك جديد":"جالك تحديث";
@@ -666,7 +666,7 @@ export default function SimpleWorkspace(){
     </main>
     {showNotices&&<aside ref={noticeRef} id="stc-notices-panel" aria-label="الإشعارات" className="easy-notifications"><div className="easy-notification-top"><strong>الإشعارات {unread>0?"("+unread+" جديد)":""}</strong><button className="easy-icon" aria-label="إغلاق الإشعارات" onClick={()=>{setShowNotices(false);bellRef.current?.focus();}}><X size={18}/></button></div>
       {!notices.length&&<p>مفيش إشعارات لسه.</p>}
-      {notices.map(n=><button key={n.id} className={"easy-notification "+(!n.read_at?"unread":"")} onClick={()=>void clickNotice(n)}><b>{n.kind==="waiting_review"?"تاسك مستني مراجعتك":n.kind==="approved"?"التاسك اتعمد ✓":n.kind==="changes_requested"?"مطلوب تعديل":n.kind==="deleted"?"التاسك اتمسح":n.kind==="updated"?"التاسك اتعدل":"تحديث جديد"}</b><span>{n.actor_name?n.actor_name+" · ":""}{n.task_title||tasks.find(t=>t.id===n.task_id)?.title||"تاسك"}</span><small>{new Date(n.created_at).toLocaleString("ar-EG",{timeZone:"Africa/Cairo"})}</small></button>)}
+      {notices.map(n=><button key={n.id} className={"easy-notification "+(!n.read_at?"unread":"")} onClick={()=>void clickNotice(n)}><b>{n.kind==="waiting_review"?"تاسك مستني مراجعتك":n.kind==="approved"?"تم الاعتماد":n.kind==="changes_requested"?"مطلوب تعديل":n.kind==="deleted"?"التاسك اتمسح":n.kind==="updated"?"التاسك اتعدل":"تحديث جديد"}</b><span>{n.actor_name?n.actor_name+" · ":""}{n.task_title||tasks.find(t=>t.id===n.task_id)?.title||"تاسك"}</span><small>{new Date(n.created_at).toLocaleString("ar-EG",{timeZone:"Africa/Cairo"})}</small></button>)}
       {unread>0&&<button className="easy-read-all" onClick={()=>void(async()=>{const r=await supabase.from("stc_notifications").update({read_at:new Date().toISOString()}).is("read_at",null);if(r.error)setErr(r.error.message);else await refresh();})()}><CheckCheck size={17}/> علّمي الكل مقروء</button>}
     </aside>}
     {selected&&member&&<TaskDialog key={selected.id} task={selected} member={member} team={team} close={closeTask} refresh={refresh} notify={announce}/>}

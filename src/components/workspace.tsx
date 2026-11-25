@@ -738,7 +738,7 @@ export default function Workspace() {
                                       <tr>
                                         {[
                                           t("Member", "العضو"),
-                                          t("Approved", "معتمدة"),
+                                          t("Approved", "تم الاعتماد"),
                                           t("Review", "للمراجعة"),
                                           t("In progress", "قيد التنفيذ"),
                                           t("Tomorrow", "غدًا"),

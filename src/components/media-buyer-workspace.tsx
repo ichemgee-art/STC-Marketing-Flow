@@ -38,7 +38,7 @@ const initialAnswers:AnswerForm={
 const allowedCurrencies=["EGP","USD","EUR","SAR","AED","OTHER"];
 const statusCopy:Record<ReviewStatus,string>={
  pending_review:"مستني مراجعة ناردين",
- approved:"معتمد",
+ approved:"تم الاعتماد",
  changes_requested:"مطلوب تعديل",
 };
 const formatNumber=(n:number)=>new Intl.NumberFormat("en-US",{maximumFractionDigits:2}).format(n);
@@ -495,7 +495,7 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
     {briefs.length>0&&<nav className="mb2-filters" aria-label="فلترة الحملات">
      {([
       ["all","الكل",briefs.length],["todo","مطلوب شغل",waiting.length],
-      ["review","مستني مراجعة",pending.length],["finished","معتمد",completed.length],
+      ["review","مستني مراجعة",pending.length],["finished","تم الاعتماد",completed.length],
      ] as const).map(([key,title,count])=><button key={key} type="button"
       className={filter===key?"active":""} aria-pressed={filter===key} onClick={()=>setFilter(key)}>
       {title}<small>{count}</small>

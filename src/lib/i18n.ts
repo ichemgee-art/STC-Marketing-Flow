@@ -5,6 +5,6 @@ export const labels: Record<Status, [string, string]> = {
   tomorrow: ["Tomorrow", "غدًا"],
   waiting_review: ["Waiting for Review", "بانتظار المراجعة"],
   changes_requested: ["Changes Requested", "مطلوب تعديلات"],
-  approved: ["Approved", "معتمدة"],
+  approved: ["Approved", "تم الاعتماد"],
 };
 export type Lang = "en" | "ar";

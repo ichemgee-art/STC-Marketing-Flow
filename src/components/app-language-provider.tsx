@@ -53,7 +53,7 @@ function translateText(source: string): string {
   if (importDone) return leading + "Imported " + importDone[1] + " worksheets with " + importDone[2] + " screenshots. You can open them in the app." + trailing;
   const targetsCopied = core.match(/^الشهر الجديد اتفتح واتنسخ (\d+) تارجت من ([0-9-]+)، من غير إنجازات قديمة\.$/);
   if (targetsCopied) return leading + "Month created; " + targetsCopied[1] + " targets copied from " + targetsCopied[2] + " without previous completions." + trailing;
-  const metricApproved = core.match(/^تمام، مقارنة (.+) اتعمدت وظهرت بالأخضر\.$/);
+  const metricApproved = core.match(/^تمام، مقارنة (.+) تم اعتمادها وظهرت بالأخضر\.$/);
   if (metricApproved) return leading + metricApproved[1] + " comparison approved." + trailing;
   const metricSent = core.match(/^(.+) اتبعت لناردين بأرقام قبل وبعد\. ✅$/);
   if (metricSent) return leading + metricSent[1] + " Before/After results sent to Nardine ✅" + trailing;

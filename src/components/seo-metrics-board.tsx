@@ -131,13 +131,13 @@ function MetricCard({row,def,manager,memberId,onSaved,onNotice,onError}:{
   async function review(status:"approved"|"changes_requested") {
     if(!manager)return;
     await write({status,review_note:reviewNote.trim()},
-      status==="approved"?"تمام، مقارنة "+def.label+" اتعمدت وظهرت بالأخضر.":"المقارنة رجعت للموظف للتعديل.");
+      status==="approved"?"تمام، مقارنة "+def.label+" تم اعتمادها وظهرت بالأخضر.":"المقارنة رجعت للموظف للتعديل.");
   }
   return <article className={"seo-metric-card"+(approved?" is-approved":submitted?" is-pending":needsFix?" is-fix":"")}>
     <div className="seo-metric-card__top">
       <div className="seo-metric-card__icon"><Activity size={19}/></div>
       <span className={"seo-metric-card__status seo-metric-card__status--"+row.status}>
-        {approved?"اتراجعت واتعمدت ✓":submitted?"مستني مراجعة ناردين":needsFix?"مطلوب تعديل":"لسه مش متسلّم"}
+        {approved?"تم الاعتماد":submitted?"مستني مراجعة ناردين":needsFix?"مطلوب تعديل":"لسه مش متسلّم"}
       </span>
     </div>
     <h3>{def.label}</h3>
@@ -165,7 +165,7 @@ function MetricCard({row,def,manager,memberId,onSaved,onNotice,onError}:{
       </div>}
       {!submitted&&<div className={"seo-metric-feedback"+(approved?" green":"")}>
         {approved?<CheckCircle2 size={17}/>:<Clock3 size={17}/>}
-        {approved?"المقارنة اتعمدت":needsFix?"مستنيين الموظف يعدّل الأرقام":"مستنيين الموظف يبعت رقمي قبل وبعد"}
+        {approved?"تم الاعتماد":needsFix?"مستنيين الموظف يعدّل الأرقام":"مستنيين الموظف يبعت رقمي قبل وبعد"}
       </div>}
     </> : <>
       {!submitted&&!approved ? <div className="seo-metric-employee-actions">
@@ -254,7 +254,7 @@ export default function SeoMetricsBoard({profileId,monthKey,manager,memberId,onN
       <div className="seo-metrics-counter">
         <div><strong>{submitted}</strong><span>اتسجلت</span></div>
         <div><strong>{waiting}</strong><span>مستنية مراجعة</span></div>
-        <div><strong>{approved}</strong><span>اتعمدت</span></div>
+        <div><strong>{approved}</strong><span>تم الاعتماد</span></div>
       </div>
     </header>
     {loading&&!rows.length&&<p className="seo-empty-inline">بنحمّل مؤشرات الموقع…</p>}
