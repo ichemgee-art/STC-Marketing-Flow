@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, LogOut, MessageCircle, Pencil, Plus, Send, Trash2, X, CalendarDays, UserRound, AlertCircle, ListTodo, HardDrive, Sparkles, Filter, History, Megaphone } from "lucide-react";
 import { supabase, configured } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
+import { readableError, createRefreshScheduler } from "@/lib/workspace-quality";
 import { confirmInCurrentLanguage } from "./app-language-provider";
 import { clearFlowLocation, getFlowLocation, setFlowLocation } from "@/lib/flow-location";
 import type { Task, Member, Notice, Attachment, Comment } from "@/lib/domain";
@@ -49,6 +50,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
     try{return sessionStorage.getItem(noteKey)||"";}catch{return "";}
   });
   const [edit,setEdit]=useState(false);
+  const editVersion=useRef(task.version);
   const [taskEvents,setTaskEvents]=useState<{id:string;actor_id:string|null;action:string;created_at:string}[]>([]);
   useEffect(()=>{
     try{if(note)sessionStorage.setItem(noteKey,note);else sessionStorage.removeItem(noteKey);}catch{}
@@ -70,9 +72,10 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
   },[task.id]);
   useEffect(()=>{void getExtra();},[getExtra]);
   async function run(fn:()=>Promise<void>,message:string,shouldClose=true){
+    if(busy)return;
     setBusy(true);setErr("");
-    try{await fn();await refresh();notify(message);if(shouldClose)close();else await getExtra();}
-    catch(e){const message=e instanceof Error?e.message:"حصلت مشكلة، جرّب تاني.";setErr(message);showToast(message,"error");}
+    try{if(!navigator.onLine)throw new Error("الإنترنت مقطوع. بياناتك لسه موجودة، حاول تاني لما يرجع.");await fn();notify(message);if(shouldClose)close();await refresh();if(!shouldClose)await getExtra();}
+    catch(e){const message=readableError(e);setErr(message);showToast(message,"error");}
     finally{setBusy(false);}
   }
   async function change(status:Task["status"]){
@@ -100,9 +103,9 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
         title:String(f.get("title")||"").trim(),description:String(f.get("description")||""),
         assignee_id:String(f.get("assignee")),due_date:f.get("due")||null,
         priority:String(f.get("priority")),
-      }).eq("id",task.id).eq("version",task.version).is("deleted_at",null).select("id");
+      }).eq("id",task.id).eq("version",editVersion.current).is("deleted_at",null).select("id");
       if(r.error)throw r.error;
-      if(!r.data?.length)throw new Error("التاسك اتغيّر، افتحيه تاني.");
+      if(!r.data?.length)throw new Error("حد عدّل التاسك أثناء التعديل. بياناتك لسه موجودة؛ راجعي أحدث نسخة قبل الحفظ.");
     },"التعديل اتحفظ وظهر عند صاحب التاسك.");
   }
   async function remove(){
@@ -132,7 +135,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
   }
   return <div className="easy-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)close();}}>
     <section className="easy-dialog" role="dialog" aria-modal="true" aria-labelledby="easy-task-title">
-      <div className="easy-dialog-top"><span className={"easy-tag easy-tag--"+task.status}>{stage(task.status)}</span><button className="easy-icon" onClick={close} aria-label="قفل"><X size={20}/></button></div>
+      <div className="easy-dialog-top"><span className={"easy-tag easy-tag--"+task.status}>{stage(task.status)}</span><button className="easy-icon" disabled={busy} onClick={close} aria-label="قفل"><X size={20}/></button></div>
       <h2 id="easy-task-title">{task.title}</h2>
       {task.description&&<p className="easy-description">{task.description}</p>}
       <div className="easy-dialog-meta"><span><UserRound size={17}/>{team.find(p=>p.id===task.assignee_id)?.display_name||"من التيم"}</span><span><CalendarDays size={17}/>{date(task.due_date)}</span></div>
@@ -174,7 +177,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
       </details>}
       {manager&&<div className="easy-manager-tools">
         <div className="easy-tool-buttons">
-          {task.status!=="approved"&&<button type="button" className="easy-link-btn" disabled={busy} onClick={()=>setEdit(v=>!v)}><Pencil size={16}/>{edit?"إلغاء التعديل":"عدّلي التاسك"}</button>}
+          {task.status!=="approved"&&<button type="button" className="easy-link-btn" disabled={busy} onClick={()=>{if(!edit)editVersion.current=task.version;setEdit(v=>!v);}}><Pencil size={16}/>{edit?"إلغاء التعديل":"عدّلي التاسك"}</button>}
           <button type="button" className="easy-link-btn easy-danger" disabled={busy} onClick={()=>void remove()}><Trash2 size={16}/> امسحي التاسك</button>
         </div>
         {edit&&task.status!=="approved"&&<form className="easy-form" onSubmit={e=>{e.preventDefault();void saveEdit(e.currentTarget);}}>
@@ -255,6 +258,17 @@ export default function SimpleWorkspace(){
   const [tab,setCurrentTab]=useState("all"),[reviewOnly,setReviewOnly]=useState(false);
   const [selected,setSelected]=useState<Task|null>(null),[creating,setCreating]=useState(false);
   const [showNotices,setShowNotices]=useState(false),[online,setOnline]=useState(false);
+  const [reviewExpanded,setReviewExpanded]=useState(false);
+  const [taskLimit,setTaskLimit]=useState(24);
+  const noticeRef=useRef<HTMLElement|null>(null);
+  const bellRef=useRef<HTMLButtonElement|null>(null);
+  useEffect(()=>{
+    if(!showNotices)return;
+    const outside=(event:PointerEvent)=>{if(event.target instanceof Node&&!noticeRef.current?.contains(event.target)&&!bellRef.current?.contains(event.target))setShowNotices(false);};
+    const key=(event:KeyboardEvent)=>{if(event.key==="Escape"){setShowNotices(false);bellRef.current?.focus();}};
+    document.addEventListener("pointerdown",outside);document.addEventListener("keydown",key);
+    return()=>{document.removeEventListener("pointerdown",outside);document.removeEventListener("keydown",key);};
+  },[showNotices]);
   const [err,setErr]=useState(""),[busy,setBusy]=useState(false);
   const activeUser=useRef<string|null>(null);
   const refreshSerial=useRef(0);
@@ -278,7 +292,7 @@ export default function SimpleWorkspace(){
       clearStorageManagerCache();clearSeoDataCache();clearMediaBuyerCache();
       setMember(null);setTeam([]);setTasks([]);setNotices([]);
       setSeoPeople([]);setMediaPeople([]);setSeoView(null);setMediaView(false);setStorageView(false);setStorageAccess(false);
-      setSeoPending({});setSeoReviews([]);setMediaPending(0);setFlowFilter("all");
+      setSeoPending({});setSeoReviews([]);setMediaPending(0);setFlowFilter("all");setReviewExpanded(false);setShowNotices(false);setTaskLimit(24);
       pendingTaskId.current=null;setSelected(null);return;
     }
     const prev=cache.get(userId);
@@ -334,13 +348,10 @@ export default function SimpleWorkspace(){
     setStorageAccess(storagePerm.error===null&&storagePerm.data===true);
     setErr("");
     if(m.data.role==="manager"){
-      const pending=await supabase.from("stc_seo_metrics")
-       .select("id,profile_id,metric_key,month_key,before_value,after_value,status")
-       .eq("status","pending_review");
-      const mediaQueue=await supabase.from("stc_media_submissions")
-        .select("id,stc_media_briefs!inner(id,deleted_at)")
-        .eq("status","pending_review")
-        .is("stc_media_briefs.deleted_at",null);
+      const [pending,mediaQueue]=await Promise.all([
+        supabase.from("stc_seo_metrics").select("id,profile_id,metric_key,month_key,before_value,after_value,status").eq("status","pending_review"),
+        supabase.from("stc_media_submissions").select("id,stc_media_briefs!inner(id,deleted_at)").eq("status","pending_review").is("stc_media_briefs.deleted_at",null),
+      ]);
       if(activeUser.current===userId&&serial===refreshSerial.current&&!mediaQueue.error)
         setMediaPending(mediaQueue.data?.length||0);
       if(activeUser.current===userId&&serial===refreshSerial.current&&!pending.error){
@@ -360,29 +371,30 @@ export default function SimpleWorkspace(){
   useEffect(()=>{void refresh();},[refresh]);
   useEffect(()=>{
     if(!userId)return;
+    const scheduled=createRefreshScheduler(()=>void refresh(),200);
     const ch=supabase.channel("simple-"+userId)
-      .on("postgres_changes",{event:"*",schema:"public",table:"stc_tasks"},()=>void refresh())
-      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_metrics"},()=>void refresh())
-      .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_results"},()=>void refresh())
-      .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_campaigns"},()=>void refresh())
-      .on("postgres_changes",{event:"DELETE",schema:"public",table:"stc_notifications"},()=>void refresh())
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_tasks"},scheduled.request)
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_metrics"},scheduled.request)
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_briefs"},scheduled.request)
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_submissions"},scheduled.request)
+      .on("postgres_changes",{event:"DELETE",schema:"public",table:"stc_notifications"},scheduled.request)
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"stc_notifications",filter:"recipient_id=eq."+userId},payload=>{
         const n=payload.new as Notice;
-        if(n.kind==="deleted"){void refresh();return;}
+        if(n.kind==="deleted"){scheduled.request();return;}
         const message=n.kind==="waiting_review"?"سلّم التاسك ومستني مراجعتك"
           :n.kind==="approved"?"ناردين وافقت على التاسك ✅"
           :n.kind==="changes_requested"?"ناردين طلبت تعديل"
           :n.kind==="updated"?"ناردين عدّلت التاسك"
           :n.kind==="assigned"||n.kind==="reassigned"?"جالك تاسك جديد":"جالك تحديث";
         announce((n.actor_name?n.actor_name+": ":"")+message+(n.task_title?" — "+n.task_title:""));
-        void refresh();
+        scheduled.request();
       }).subscribe(state=>{
         setOnline(state==="SUBSCRIBED");
-        if(state==="SUBSCRIBED")void refresh();
+        if(state==="SUBSCRIBED")scheduled.request();
       });
     const poll=setInterval(()=>{
-      if(document.visibilityState==="visible")void refresh();
-    },25000);
+      if(document.visibilityState==="visible")scheduled.request();
+    },45000);
     // Let the SDK restore/refresh its persisted session under its own auth lock
     // before refreshing workspace data after sleep, backgrounding or reconnecting.
     let resuming=false;
@@ -402,7 +414,7 @@ export default function SimpleWorkspace(){
     window.addEventListener("online",onlineAgain);
     document.addEventListener("visibilitychange",resume);
     return()=>{
-      disposed=true;
+      disposed=true;scheduled.cancel();
       void supabase.removeChannel(ch);clearInterval(poll);
       window.removeEventListener("focus",resume);
       window.removeEventListener("online",onlineAgain);
@@ -414,7 +426,6 @@ export default function SimpleWorkspace(){
   const canOpenStorage=!!manager||storageAccess;
   const people=useMemo(()=>team.filter(p=>p.role==="member"&&p.active
     && !seoPeople.some(sp=>sp.member_id===p.id) && !mediaPeople.some(mp=>mp.member_id===p.id)
-    && !["Sandra","Mohamed Omar","Ahmed El Kholy"].includes(p.display_name)
   ),[team,seoPeople,mediaPeople]);
   const reviewTasks=tasks.filter(t=>t.status==="waiting_review");
   const today=cairoDay();
@@ -435,6 +446,8 @@ export default function SimpleWorkspace(){
   if(!manager)visible.sort((a,b)=>priorityOf(a)-priorityOf(b)||
     (a.due_date||"9999").localeCompare(b.due_date||"9999"));
   const unread=notices.filter(n=>!n.read_at).length;
+  const reviewCount=reviewTasks.length+seoReviews.length+mediaPending;
+  useEffect(()=>{setTaskLimit(24);},[userId,tab,flowFilter,reviewOnly]);
   const seoReviewCount=Object.values(seoPending).reduce((sum,n)=>sum+n,0);
   useEffect(()=>{
     if(!userId)return;
@@ -533,6 +546,7 @@ export default function SimpleWorkspace(){
       </form>{err&&<p className="easy-error" role="alert">{err}</p>}
     </section>
   </main>;
+  if(!member||member.id!==session.user.id)return <div className="easy-loading">{err?<><p role="alert">{err}</p><button className="easy-btn easy-btn--light" onClick={()=>void refresh()}>حاول تاني</button><button className="easy-btn easy-btn--light" onClick={()=>void logout()}>خروج</button></>:"بنحمّل مساحة شغلك…"}</div>;
   if(member&&canOpenStorage&&storageView)return <StorageDashboard userId={member.id}
     readOnly={!manager} onBack={returnToTasks}/>;
   if(member&&((manager&&mediaView)||assignedMedia))return <MediaBuyerWorkspace
@@ -547,26 +561,23 @@ export default function SimpleWorkspace(){
       <div className="easy-header-buttons"><span className={online?"easy-online":"easy-offline"}>{online?"متصل":"بيوصل…"}</span>
         {canOpenStorage&&<button type="button" className="easy-storage-entry" onClick={enterStorage}
           title="متابعة استهلاك Supabase Storage"><HardDrive size={18}/><span>التخزين والملفات</span></button>}
-        <button className="easy-icon easy-bell" onClick={()=>setShowNotices(v=>!v)} aria-label="الإشعارات" title="الإشعارات"><Bell size={21}/>{unread>0&&<i>{unread}</i>}</button>
+        <button ref={bellRef} className="easy-icon easy-bell" aria-expanded={showNotices} aria-controls="stc-notices-panel" onClick={()=>setShowNotices(v=>!v)} aria-label="الإشعارات" title="الإشعارات"><Bell size={21}/>{unread>0&&<i>{unread}</i>}</button>
         <button className="easy-icon easy-logout" onClick={()=>void logout()} title="خروج"><LogOut size={19}/><span>خروج</span></button>
       </div>
     </header>
     <main className="easy-content">
-      <section className="easy-intro"><div><span className="easy-eyebrow">{manager?"لوحة الإدارة":"مساحة شغلي"}</span>
-        <h1>{manager?"إدارة شغل الفريق":"شغلك النهارده"}</h1>
+      <section className="easy-intro"><div><h1>{manager?"إدارة شغل الفريق":"شغلك النهارده"}</h1>
         <p>{manager?"راجعي التسليمات، أو اختاري القسم اللي عايزة تتابعيه.":"ابدأ بالأولوية الأولى، وباقي التاسكات تحت."}</p></div>
-        {manager&&<button className="easy-btn easy-btn--navy easy-create-button" onClick={()=>setCreating(true)}><Plus size={19}/> تاسك جديد</button>}
+        {manager&&managerSection==="content"&&<button className="easy-btn easy-btn--navy easy-create-button" onClick={()=>setCreating(true)}><Plus size={19}/> تاسك جديد</button>}
       </section>
       {err&&<div className="easy-error" role="alert">{err}<button onClick={()=>void refresh()}>جرّب تاني</button></div>}
       {manager&&<>
         <section className="flow-review-inbox">
-          <div className="flow-inbox-title"><div><span className="easy-eyebrow">REVIEW INBOX</span>
-            <h2>مستني مراجعتك</h2>
-            <p>التسليمات اللي محتاجة قرار منك، في مكان واحد.</p></div>
-            <strong>{reviewTasks.length+seoReviews.length+mediaPending} مستنيين مراجعتك</strong>
+          <div className="flow-inbox-title"><div><h2><CheckCircle2 size={19}/> المراجعات <span className="stc-review-count">{reviewCount}</span></h2><p>{reviewCount?"تسليمات محتاجة قرار منك":"كل التسليمات متراجعة"}</p></div>
+            {reviewCount>0&&<button className="stc-review-toggle" type="button" aria-expanded={reviewExpanded} aria-controls="stc-review-list" onClick={()=>setReviewExpanded(v=>!v)}>{reviewExpanded?"إخفاء التفاصيل":"عرض المراجعات"}<ChevronLeft size={16}/></button>}
           </div>
-          {reviewTasks.length+seoReviews.length+mediaPending?<div className="flow-inbox-list">
-            {reviewTasks.slice(0,4).map(t=><button type="button" key={t.id} onClick={()=>openTask(t)}>
+          {reviewExpanded&&reviewCount>0&&<div className="flow-inbox-list" id="stc-review-list">
+            {reviewTasks.map(t=><button type="button" key={t.id} onClick={()=>openTask(t)}>
               <span className="flow-kind">Task</span><span><b>{t.title}</b>
                 <small>{team.find(p=>p.id===t.assignee_id)?.display_name||"من التيم"}</small></span>
               <ChevronLeft size={17}/></button>)}
@@ -574,14 +585,14 @@ export default function SimpleWorkspace(){
               <span className="flow-kind seo">ADS</span><span><b>نتايج حملات أحمد الخولي</b>
                 <small>{mediaPending} تقرير مستني مراجعتك</small></span><ChevronLeft size={17}/>
             </button>}
-            {seoReviews.slice(0,4).map(k=>{
+            {seoReviews.map(k=>{
               const person=seoPeople.find(p=>p.id===k.profile_id);
               return <button type="button" key={k.id} onClick={()=>person&&enterSeo(person.slug,"metrics",k.month_key)}>
                 <span className="flow-kind seo">SEO</span><span><b>{k.metric_key.replaceAll("_"," ")}</b>
                   <small>{person?.display_name||"فريق SEO"} · {k.month_key} · قبل: {k.before_value??"—"} · بعد: {k.after_value??"—"}</small></span>
                 <ChevronLeft size={17}/></button>;
             })}
-          </div>:<p className="flow-all-clear"><CheckCircle2 size={17}/> مفيش تسليمات مستنية دلوقتي.</p>}
+          </div>}
         </section>
         <nav className="flow-department-switch" aria-label="اختاري القسم">
           <button type="button" className={managerSection==="content"?"active":""}
@@ -622,9 +633,7 @@ export default function SimpleWorkspace(){
           </div>
         </section>}
         {managerSection==="content"&&<section className="flow-department-panel">
-          <div className="flow-department-title"><h2>تاسكات المحتوى والتصميم</h2>
-            <p>اختاري الموظف أو تابعي كل التاسكات.</p>
-          </div>
+          <div className="flow-department-title"><h2>فريق المحتوى</h2></div>
           <nav className="easy-tabs" aria-label="فريق المحتوى والتصميم">
             <button className={"easy-tab "+(tab==="all"&&!reviewOnly?"active":"")} onClick={()=>choose("all")}>
               <ListTodo size={18}/> كل التيم <b>{tasks.length}</b>
@@ -641,22 +650,23 @@ export default function SimpleWorkspace(){
       </>}
       {(!manager||managerSection==="content")&&<section className="flow-task-area">
       <div className="easy-section-heading"><h2>{reviewOnly?"مستنية مراجعتك":manager?(tab==="all"?"كل التاسكات":"تاسكات "+(people.find(p=>p.id===tab)?.display_name||"التيم")):"التاسكات بتاعتك"} <span>{visible.length}</span></h2>
-        <p>{reviewOnly?"راجعي أي كارت واضغطي موافقة أو رجّعيه للتعديل.":"كل كارت فيه المطلوب وحالة التاسك وميعاد التسليم."}</p>
+
       </div>
       <nav className="flow-filters" aria-label="فلترة التاسكات حسب الحالة"><Filter size={17}/>
         {filterOptions.map(f=><button key={f.id} type="button" className={flowFilter===f.id?"active":""}
-          onClick={()=>changeFilter(f.id)}>{f.label}<small>{scoped.filter(t=>matches(t,f.id)).length}</small></button>)}
+          aria-pressed={flowFilter===f.id} onClick={()=>changeFilter(f.id)}>{f.label}{(f.id==="all"||scoped.some(t=>matches(t,f.id)))&&<small>{scoped.filter(t=>matches(t,f.id)).length}</small>}</button>)}
       </nav>
-      <div className="easy-grid">{visible.map(task=><Tile key={task.id} task={task} manager={!!manager} who={people.find(p=>p.id===task.assignee_id)?.display_name} open={()=>openTask(task)}/>)}</div>
+      <div className="easy-grid">{visible.slice(0,taskLimit).map(task=><Tile key={task.id} task={task} manager={!!manager} who={people.find(p=>p.id===task.assignee_id)?.display_name} open={()=>openTask(task)}/>)}</div>
+      {visible.length>taskLimit&&<button className="stc-show-more" type="button" onClick={()=>setTaskLimit(n=>n+24)}>عرض المزيد ({visible.length-taskLimit})</button>}
       {!visible.length&&<div className="easy-empty"><ListTodo size={34}/><h3>{reviewOnly?"مفيش تاسكات مستنية مراجعتك ✨":manager?"لسه مفيش تاسكات هنا":"لسه مفيش تاسكات عندك"}</h3><p>{reviewOnly?"كل التسليمات متراجعة دلوقتي.":manager?"ابعتِ تاسك جديد وهيظهر هنا.":"أول ما ناردين تبعتلك تاسك هتلاقيه هنا."}</p></div>}
       </section>}
     </main>
-    {showNotices&&<aside className="easy-notifications"><div className="easy-notification-top"><strong>الإشعارات {unread>0?"("+unread+" جديد)":""}</strong><button className="easy-icon" onClick={()=>setShowNotices(false)}><X size={18}/></button></div>
+    {showNotices&&<aside ref={noticeRef} id="stc-notices-panel" aria-label="الإشعارات" className="easy-notifications"><div className="easy-notification-top"><strong>الإشعارات {unread>0?"("+unread+" جديد)":""}</strong><button className="easy-icon" aria-label="إغلاق الإشعارات" onClick={()=>{setShowNotices(false);bellRef.current?.focus();}}><X size={18}/></button></div>
       {!notices.length&&<p>مفيش إشعارات لسه.</p>}
       {notices.map(n=><button key={n.id} className={"easy-notification "+(!n.read_at?"unread":"")} onClick={()=>void clickNotice(n)}><b>{n.kind==="waiting_review"?"تاسك مستني مراجعتك":n.kind==="approved"?"التاسك اتعمد ✓":n.kind==="changes_requested"?"مطلوب تعديل":n.kind==="deleted"?"التاسك اتمسح":n.kind==="updated"?"التاسك اتعدل":"تحديث جديد"}</b><span>{n.actor_name?n.actor_name+" · ":""}{n.task_title||tasks.find(t=>t.id===n.task_id)?.title||"تاسك"}</span><small>{new Date(n.created_at).toLocaleString("ar-EG",{timeZone:"Africa/Cairo"})}</small></button>)}
       {unread>0&&<button className="easy-read-all" onClick={()=>void(async()=>{const r=await supabase.from("stc_notifications").update({read_at:new Date().toISOString()}).is("read_at",null);if(r.error)setErr(r.error.message);else await refresh();})()}><CheckCheck size={17}/> علّمي الكل مقروء</button>}
     </aside>}
-    {selected&&member&&<TaskDialog task={selected} member={member} team={team} close={closeTask} refresh={refresh} notify={announce}/>}
+    {selected&&member&&<TaskDialog key={selected.id} task={selected} member={member} team={team} close={closeTask} refresh={refresh} notify={announce}/>}
     {creating&&member&&<CreateDialog people={people} initial={tab} memberId={member.id} close={()=>setCreating(false)} refresh={refresh} notify={announce}/>}
   </div>;
 }

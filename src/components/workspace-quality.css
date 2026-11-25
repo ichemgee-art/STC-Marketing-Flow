@@ -1,0 +1,71 @@
+/* Shared final polish. Brand lockups and status semantics remain unchanged. */
+:root{--stc-navy:#253a55;--stc-gold:#f3b820;--stc-bg:#f4f6f9;--stc-muted:#52677e;--stc-line:#dfe6ee;--stc-radius:12px;--stc-width:1300px}
+body .easy-shell,body .seo-shell,body .mb2-page,body .storage-screen{background:var(--stc-bg);color:var(--stc-navy)}
+body .easy-content,body .seo-main,body .mb2-container,body .storage-content{max-width:var(--stc-width);padding:24px 24px 72px;margin-inline:auto}
+body .easy-header,body .seo-topbar,body .mb2-topbar,body .storage-top{min-height:70px;height:auto;box-shadow:none;border-bottom:1px solid var(--stc-line);background:#fff;padding:10px max(24px,calc((100vw - 1252px)/2))}
+body .easy-intro,body .seo-headline,body .mb2-hero,body .storage-intro{margin:0 0 20px;gap:12px}
+body .easy-intro h1,body .seo-headline h1,body .mb2-hero h1,body .storage-intro h1{font-size:clamp(23px,2.3vw,30px);line-height:1.4;font-weight:800}
+body .easy-intro p,body .seo-headline p,body .mb2-hero p,body .storage-intro p{font-size:13px;color:var(--stc-muted);line-height:1.7}
+body .easy-btn,body .mb2-primary,body .mb2-secondary,body .seo-back,body .seo-target-add,body .storage-back,body .storage-refresh{border-radius:10px;min-height:44px;box-shadow:none;font-weight:800}
+body .easy-btn--navy,body .mb2-primary,body .seo-target-add{background:var(--stc-navy);color:white;border:1px solid var(--stc-navy)}
+body .easy-btn:hover,body .easy-task:hover,body .mb2-card:hover{transform:none}
+body .easy-task,body .mb2-card,body .seo-gallery,body .storage-section,body .flow-department-panel,body .flow-review-inbox{border-radius:var(--stc-radius);box-shadow:none;border-color:var(--stc-line)}
+body .easy-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,285px),1fr));gap:12px}
+body .easy-task{min-height:200px}
+body .easy-task h3{font-size:16px;padding-inline:15px}
+body .easy-task>p{font-size:13px;color:var(--stc-muted);padding-inline:15px;-webkit-line-clamp:2}
+body .easy-task-head,body .easy-task-meta,body .easy-task-footer{padding-inline:15px}
+body .easy-task-footer{min-height:43px;padding-block:9px;margin-top:auto}
+body .easy-task--approved{border-color:#aad6bb}
+body .easy-task--waiting_review{border-color:#ead294}
+body .easy-section-heading{margin-bottom:12px}
+body .easy-section-heading h2{font-size:19px}
+body .easy-empty,body .mb2-empty{padding:36px 16px;border-radius:var(--stc-radius);min-height:0}
+body .flow-review-inbox{margin:0 0 14px;padding:12px 15px}
+body .flow-inbox-title{margin:0;flex-wrap:nowrap}
+body .flow-inbox-title h2{display:flex;align-items:center;gap:8px;font-size:16px}
+body .flow-inbox-title p{font-size:12px;color:var(--stc-muted)}
+body .flow-inbox-list{margin-top:12px;max-height:320px;overflow-y:auto;align-content:start}
+.stc-review-count{display:inline-flex;align-items:center;justify-content:center;min-width:25px;padding:1px 7px;border-radius:20px;background:#f0f3f7;color:var(--stc-navy);font-size:12px}
+.stc-review-toggle,.stc-show-more{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--stc-line);background:#fff;color:var(--stc-navy);border-radius:10px;padding:8px 13px;min-height:40px;font-size:12px;font-weight:800;white-space:nowrap}
+.stc-show-more{display:flex;margin:16px auto}
+.stc-review-toggle[aria-expanded=true] svg{transform:rotate(-90deg)}
+body .flow-department-switch{gap:8px;margin-bottom:12px}
+body .flow-department-switch button{min-height:52px;box-shadow:none;border-radius:10px}
+body .flow-department-switch button small{display:none}
+body .flow-department-switch button.active{background:#fff4d8;border-color:#e3b84b;box-shadow:none}
+body .flow-department-panel{padding:12px 14px 2px}
+body .flow-department-title{margin-bottom:8px}
+body .flow-department-title h2{font-size:15px}
+body .flow-filters,body .mb2-filters,body .seo-action-tabs{padding:6px;gap:5px;border:1px solid var(--stc-line);background:#fff;border-radius:10px;box-shadow:none}
+body .flow-filters button,body .mb2-filters button,body .seo-action-tabs>button{min-height:38px;border-radius:8px;font-size:12px;box-shadow:none}
+body .flow-filters button.active,body .mb2-filters button.active,body .seo-action-tabs>button.selected{background:#fff1c9;color:#614708;border-color:#e6c66f;box-shadow:none}
+body .flow-filters button small,body .mb2-filters button small{font-size:11px}
+body .seo-month-tabs button{min-height:42px;min-width:110px;border-radius:10px}
+body .seo-month-context{border-radius:12px;box-shadow:none}
+body .seo-overview-strip{gap:8px;margin-block:10px}
+body .seo-overview-strip button{border-radius:10px;box-shadow:none}
+body .mb2-live:empty{display:none}
+body .easy-notifications{top:108px;max-height:calc(100dvh - 130px);border-radius:12px;padding:12px;box-shadow:0 8px 32px #253a5526}
+body .easy-notification{padding:12px 8px;gap:3px}
+body .easy-notification.unread{background:#fff7df;border-inline-start:3px solid var(--stc-gold)}
+body .easy-notification small{font-size:11px;color:var(--stc-muted)}
+body .easy-notification b{font-size:14px}
+body .easy-notification span{font-size:13px}
+body :is(.easy-shell,.seo-shell,.mb2-page,.storage-screen) :is(button,a,input,select,textarea,summary):focus-visible{outline:2px solid #a47810;outline-offset:2px}
+body :is(.easy-shell,.seo-shell,.mb2-page,.storage-screen) :is(input,select,textarea){border-radius:9px}
+@media(max-width:700px){
+ body .easy-content,body .seo-main,body .mb2-container,body .storage-content{padding:16px 12px 65px}
+ body .easy-header,body .seo-topbar,body .mb2-topbar,body .storage-top{min-height:58px;padding:8px 12px;gap:8px}
+ body .easy-header-buttons{gap:5px}
+ body .easy-intro h1,body .seo-headline h1,body .mb2-hero h1,body .storage-intro h1{font-size:22px}
+ body .flow-inbox-list{grid-template-columns:1fr}
+ body .flow-department-switch button{min-height:54px;flex-direction:column;padding:8px 5px;gap:3px}
+ body .flow-department-switch button strong{font-size:11px}
+ body .easy-grid{grid-template-columns:1fr}
+ body .flow-filters,body .mb2-filters,body .seo-action-tabs{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:thin}
+ body .flow-filters button,body .mb2-filters button,body .seo-action-tabs>button{flex-shrink:0;white-space:nowrap}
+ body .easy-notifications{top:100px;inset-inline-end:12px;max-height:calc(100dvh - 120px)}
+ body .easy-storage-entry span{display:none}
+}
+@media(prefers-reduced-motion:reduce){body :is(.easy-shell,.seo-shell,.mb2-page,.storage-screen) *{scroll-behavior:auto!important;transition:none!important}}

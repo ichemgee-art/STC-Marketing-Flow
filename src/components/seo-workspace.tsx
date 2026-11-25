@@ -220,7 +220,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_targets"},()=>void loadSnapshot())
       .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_metrics"},()=>void loadSnapshot())
       .subscribe();
-    const poll=setInterval(()=>void loadSnapshot(),30000);
+    const poll=setInterval(()=>{if(document.visibilityState==="visible")void loadSnapshot();},45000);
     return()=>{clearInterval(poll);void supabase.removeChannel(channel);};
   },[profile?.id,selected,member.id,loadSnapshot]);
 
@@ -403,7 +403,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       <button type="button" onClick={onBack} className="seo-back"><ArrowRight size={18}/>{manager?"رجوع للتيم":"خروج"}</button>
     </header>
     <main className="seo-main">
-      <div className="seo-headline"><div><span className="seo-eyebrow">متابعة السيو · {chart}</span><h1>شغل {label} 👋</h1>
+      <div className="seo-headline"><div><span className="seo-eyebrow">متابعة السيو · {chart}</span><h1>متابعة SEO</h1>
         <p>{manager?"راجعي التارجت والنتايج من التبويبات.":"اختار الشهر، وبعدها ابدأ بالتارجت أو سجّل شغل اليوم."}</p></div>
         {manager&&<details className="seo-import-more">
           <summary><FileSpreadsheet size={16}/> استيراد شيت قديم</summary>
@@ -451,20 +451,20 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         </button>
       </div>}
       <nav className="seo-action-tabs" aria-label="أقسام شغل SEO">
-        <button type="button" className={section==="targets"?"selected":""} onClick={()=>chooseSection("targets")}>
+        <button type="button" className={section==="targets"?"selected":""} aria-pressed={section==="targets"} onClick={()=>chooseSection("targets")}>
           <Target size={19}/><span>التارجت والـDone</span>
         </button>
-        <button type="button" className={section==="metrics"?"selected":""} onClick={()=>chooseSection("metrics")}>
+        <button type="button" className={section==="metrics"?"selected":""} aria-pressed={section==="metrics"} onClick={()=>chooseSection("metrics")}>
           <Activity size={19}/><span>مؤشرات الموقع</span>
           {snapshot.pending>0&&<b className="seo-tab-count">{snapshot.pending}</b>}
         </button>
-        <button type="button" className={section==="daily"?"selected":""} onClick={()=>chooseSection("daily")}>
+        <button type="button" className={section==="daily"?"selected":""} aria-pressed={section==="daily"} onClick={()=>chooseSection("daily")}>
           <Clock3 size={19}/><span>التقرير اليومي</span>
         </button>
-        <button type="button" className={section==="evidence"?"selected":""} onClick={()=>chooseSection("evidence")}>
+        <button type="button" className={section==="evidence"?"selected":""} aria-pressed={section==="evidence"} onClick={()=>chooseSection("evidence")}>
           <ImageIcon size={19}/><span>الاسكرينات</span>
         </button>
-        <button type="button" className={"seo-archive-tab "+(section==="archive"?"selected":"")} onClick={()=>chooseSection("archive")}>
+        <button type="button" className={"seo-archive-tab "+(section==="archive"?"selected":"")} aria-pressed={section==="archive"} onClick={()=>chooseSection("archive")}>
           <FileSpreadsheet size={18}/><span>الأرشيف</span>
         </button>
       </nav>

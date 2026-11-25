@@ -431,7 +431,7 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
    }).eq("id",brief.id).eq("version",brief.version).is("deleted_at",null).select("id");
    if(r.error)throw r.error;
    if(!r.data?.length)throw new Error("التكليف اتغير. حدّثي الصفحة وجربي تاني.");
-   if(activeId===brief.id)choose("");
+   if(activeId===brief.id){setActiveId(null);try{localStorage.removeItem("stc:media:v2:selected:"+member.id);}catch{}}
    await load();showToast("التكليف اتمسح من عند أحمد، والتقرير محفوظ في السجل.","delete");
   }catch(e){showToast(e instanceof Error?e.message:"مقدرناش نمسح التكليف.","error");}
   finally{setBusy(false);}
@@ -454,7 +454,7 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
    <BrandLockup size="compact"/>
    <div className="mb2-topbar-title"><b>Media Buying</b>
     <small>STC Marketing Flow · Ahmed El Kholy</small></div>
-   <span className="mb2-live"><i/> Live</span>
+   <span className="mb2-live" aria-hidden="true"></span>
    <button type="button" className="mb2-icon-button" title="تحديث" aria-label="تحديث" onClick={()=>void load()}>
     <RefreshCw size={18}/></button>
    <button type="button" className="mb2-secondary mb2-back" onClick={onBack}>
@@ -479,7 +479,7 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
       ["all","الكل",briefs.length],["todo","مطلوب شغل",waiting.length],
       ["review","مستني مراجعة",pending.length],["finished","معتمد",completed.length],
      ] as const).map(([key,title,count])=><button key={key} type="button"
-      className={filter===key?"active":""} onClick={()=>setFilter(key)}>
+      className={filter===key?"active":""} aria-pressed={filter===key} onClick={()=>setFilter(key)}>
       {title}<small>{count}</small>
      </button>)}
     </nav>

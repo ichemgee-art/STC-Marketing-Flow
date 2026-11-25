@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "@/components/simple-workspace.css";
+import "@/components/workspace-quality.css";
 import ToastHost from "@/components/toast-host";
 import ConfirmDialogHost from "@/components/confirm-dialog-host";
 import AppLanguageProvider from "@/components/app-language-provider";

@@ -93,7 +93,7 @@ export default function StorageDashboard({userId,onBack,readOnly=false}:{
     void refresh(true);
     const interval=window.setInterval(()=>{
       if(document.visibilityState==="visible")void refresh(true);
-    },10000);
+    },30000);
     const onFocus=()=>void refresh(true);
     const onVisible=()=>{
       if(document.visibilityState==="visible")void refresh(true);
@@ -153,7 +153,7 @@ export default function StorageDashboard({userId,onBack,readOnly=false}:{
     <header className="storage-top">
       <BrandLockup size="compact"/>
       <div className="storage-top-copy"><strong>التخزين والملفات</strong>
-        <small>{readOnly?"صفحة جرجس · عرض وتحميل فقط":"لوحة ناردين · Supabase Storage"}</small>
+        <small>{readOnly?"عرض وتحميل فقط":"إدارة الملفات"}</small>
       </div>
       <button type="button" className="storage-back" onClick={onBack}>
         <ArrowRight size={18}/> {readOnly?"رجوع لشغلي":"رجوع للتيم"}
@@ -166,7 +166,7 @@ export default function StorageDashboard({userId,onBack,readOnly=false}:{
           <p>هنا كل الملفات اللي اترفعت: الحجم الفعلي لكل قسم، وعدد الملفات، وآخر الملفات اللي وصلت للسيستم.</p>
         </div>
         <div className="storage-refresh-area">
-          <span className="storage-live"><span/> تحديث تلقائي كل 10 ثواني</span>
+          <span className="storage-live"><span/> تحديث تلقائي كل 30 ثانية</span>
           <button type="button" className="storage-refresh" disabled={loading} onClick={()=>void refresh()}>
             <RefreshCw size={16} className={loading?"storage-spin":""}/> تحديث دلوقتي
           </button>
