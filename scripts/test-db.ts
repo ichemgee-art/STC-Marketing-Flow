@@ -11,7 +11,7 @@ async function main() {
  grant execute on function auth.uid() to authenticated;
  create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
  create table storage.objects(id uuid default gen_random_uuid(),bucket_id text references storage.buckets(id),name text,created_at timestamptz default now(),updated_at timestamptz default now(),metadata jsonb,is_delete_marker boolean default false,archived_at timestamptz);
- create function storage.foldername(name text) returns text[] language sql immutable as $ select (string_to_array(name,'/'))[1:cardinality(string_to_array(name,'/'))-1] $;
+ create function storage.foldername(name text) returns text[] language sql immutable as $folder$ select (string_to_array(name,'/'))[1:cardinality(string_to_array(name,'/'))-1] $folder$;
  grant execute on function storage.foldername(text) to authenticated;
  create publication supabase_realtime;
  alter table storage.objects enable row level security; grant select,insert,delete on storage.objects to authenticated;`);
