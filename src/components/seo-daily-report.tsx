@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {companyMonthRange,inCompanyMonth,companyDefaultDay} from "@/lib/report-period";
+import {scopedSeoProgress} from "@/lib/seo-progress-correction";
 import MonthlyReports from "./monthly-reports";
 import SeoProgressEdit from "./seo-progress-edit";
 import { confirmInCurrentLanguage } from "./app-language-provider";
@@ -46,7 +47,9 @@ export default function SeoDailyReport({
   useEffect(()=>()=>{fetchSeq.current++;},[]);
   const load=useCallback(async()=>{
     const seq=++fetchSeq.current;
-    const t=await supabase.from("stc_seo_targets").select("*").eq("profile_id",profileId);
+    if(!monthKey){setTargets([]);setProgress([]);return;}
+    const bounds=companyMonthRange(monthKey);
+    const t=await supabase.from("stc_seo_targets").select("*").eq("profile_id",profileId).eq("month_key",monthKey);
     if(seq!==fetchSeq.current)return;
     if(t.error){onError(t.error.message);return;}
     if(!t.data.length){
@@ -54,14 +57,17 @@ export default function SeoDailyReport({
       dailyMemory.set(cacheKey,{at:Date.now(),targets:[],progress:[]});
       return;
     }
-    const p=await supabase.from("stc_seo_progress").select("*")
-      .in("target_id",t.data.map(item=>item.id)).order("work_date",{ascending:false}).limit(1000);
-    if(seq!==fetchSeq.current)return;
-    if(p.error){onError(p.error.message);return;}
-    const allTargets=t.data as SeoTarget[],allProgress=p.data as SeoProgress[];
+    const allTargets=t.data as SeoTarget[],allProgress:SeoProgress[]=[];
+    for(let offset=0;;offset+=500){
+      const p=await supabase.from("stc_seo_progress").select("*").in("target_id",allTargets.map(item=>item.id))
+        .gte("work_date",bounds.first).lt("work_date",bounds.next).order("id").range(offset,offset+499);
+      if(seq!==fetchSeq.current)return;
+      if(p.error){onError(p.error.message);return;}
+      allProgress.push(...(p.data as SeoProgress[]));if(p.data.length<500)break;
+    }
     dailyMemory.set(cacheKey,{at:Date.now(),targets:allTargets,progress:allProgress});
     setTargets(allTargets);setProgress(allProgress);
-  },[profileId,onError,cacheKey]);
+  },[profileId,onError,cacheKey,monthKey]);
   useEffect(()=>{void load();},[load]);
   useEffect(()=>{
     const channel=supabase.channel("seo-daily-"+profileId)
@@ -79,14 +85,16 @@ export default function SeoDailyReport({
       void supabase.removeChannel(channel);
     };
   },[profileId,load]);
-  const monthEntries=entries.filter(e=>!monthKey||inCompanyMonth(e.work_date,monthKey));
-  const days=useMemo(()=>[...new Set([date,...monthEntries.map(e=>e.work_date),...progress.filter(e=>!monthKey||inCompanyMonth(e.work_date,monthKey)).map(e=>e.work_date)])].sort().reverse(),[date,monthEntries,progress,monthKey]);
+  const monthEntries=useMemo(()=>entries.filter(e=>e.profile_id===profileId&&!!monthKey&&inCompanyMonth(e.work_date,monthKey)),[entries,profileId,monthKey]);
+  const monthProgress=useMemo(()=>scopedSeoProgress(targets.filter(t=>t.profile_id===profileId),progress,monthKey),[targets,progress,monthKey,profileId]);
+  const days=useMemo(()=>[...new Set([date,...monthEntries.map(e=>e.work_date),...monthProgress.map(e=>e.work_date)])].filter(d=>!!monthKey&&inCompanyMonth(d,monthKey)).sort().reverse(),[date,monthEntries,monthProgress,monthKey]);
   const rows=monthEntries.filter(e=>e.work_date===date).sort((a,b)=>a.start_minutes-b.start_minutes);
-  const achievements=progress.filter(e=>e.work_date===date).sort((a,b)=>b.created_at.localeCompare(a.created_at));
+  const achievements=monthProgress.filter(e=>e.work_date===date).sort((a,b)=>b.created_at.localeCompare(a.created_at));
+  const completedEntries=achievements.filter(e=>e.done_count>0).length;
   const duration=rows.reduce((n,r)=>n+r.end_minutes-r.start_minutes,0);
   const monthDuration=monthEntries.reduce((n,r)=>n+r.end_minutes-r.start_minutes,0);
   async function submitHours() {
-    if(monthKey&&!inCompanyMonth(date,monthKey)){onError("اختار يوم جوه الشهر اللي فاتحه.");return;}
+    if(!monthKey||!inCompanyMonth(date,monthKey)){onError("اختار يوم جوه الشهر اللي فاتحه.");return;}
     const from=asMinutes(start),to=asMinutes(end);
     if(!Number.isInteger(from)||!Number.isInteger(to)||from<0||to>1440||to<=from){
       onError("اتأكد من مواعيد البداية والنهاية.");return;
@@ -124,14 +132,14 @@ export default function SeoDailyReport({
       <div className="seo-daily-actions">
         <label className="seo-daily-picker"><CalendarDays size={18}/> اليوم<input type="date" value={date}
           min={monthKey?companyMonthRange(monthKey).first:undefined} max={monthKey?companyMonthRange(monthKey).last:undefined}
-          onChange={e=>setDate(e.target.value)}/></label>
+          onChange={e=>{if(monthKey&&inCompanyMonth(e.target.value,monthKey))setDate(e.target.value);}}/></label>
         <MonthlyReports department="seo" member={member} people={[{id:profileId,name:profileName,brand}]} initialMonth={monthKey||undefined} scopeLabel="تصدير التقرير اليومي" dailyOnly/>
       </div>
     </div>
     <div className="seo-daily-summary">
       <div><Clock3 size={19}/><span>ساعات اليوم</span><strong>{timeLabel(duration)}</strong></div>
       <div><CalendarDays size={19}/><span>ساعات الشهر</span><strong>{timeLabel(monthDuration)}</strong></div>
-      <div><CheckCircle2 size={19}/><span>الإنجازات اللي اتسجلت</span><strong>{achievements.filter(x=>x.done_count>0).length}</strong></div>
+      <div><CheckCircle2 size={19}/><span>الإنجازات اللي اتسجلت</span><strong>{completedEntries}</strong></div>
     </div>
     {!manager&&<form className="seo-daily-entry-form" onSubmit={e=>{e.preventDefault();void submitHours();}}>
       <h3><Plus size={19}/> ضيف فترة شغل</h3>
@@ -154,12 +162,12 @@ export default function SeoDailyReport({
         </article>)}</div>
       </div>
       <div className="seo-daily-block">
-        <h3><ClipboardCheck size={19}/> الشغل اللي اتسجّل Done ({achievements.length})</h3>
-        {!achievements.length&&<p className="seo-daily-muted">مفيش إنجازات اتسجّلت لليوم ده. الإنجازات بتظهر هنا أول ما تسجّل Done من كارت التارجت.</p>}
+        <h3><ClipboardCheck size={19}/> الشغل اللي اتسجّل Done ({completedEntries})</h3>
+        {!completedEntries&&<p className="seo-daily-muted">مفيش إنجازات اتسجّلت لليوم ده. الإنجازات بتظهر هنا أول ما تسجّل Done من كارت التارجت.</p>}
         <div className="seo-daily-achievements">{achievements.map(row=>{
           const target=targets.find(t=>t.id===row.target_id);
           return <article key={row.id}>
-            <span className="seo-daily-done"><CheckCircle2 size={16}/> {target?.target_count===null?(row.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"):row.done_count}</span>
+            {row.done_count>0?<span className="seo-daily-done"><CheckCircle2 size={16}/> {target?.target_count===null?"تم التنفيذ":row.done_count}</span>:<small>لم يتم التنفيذ</small>}
             <strong>{target?.title||"تارجت"}</strong>
             {row.note&&<p data-no-translate>{row.note}</p>}
             {!manager&&row.created_by===member.id&&<SeoProgressEdit entry={row} qualitative={target?.target_count===null} onSaved={load} onNotice={onNotice} onError={onError}/>}

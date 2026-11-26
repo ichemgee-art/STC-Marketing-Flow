@@ -27,3 +27,12 @@ export function countCompletedMonthlyTargets(
  }
  return targets.filter(t=>t.cadence==="monthly"&&isTargetComplete(t.target_count,sums.get(t.id)||0)).length;
 }
+
+/** Both target ownership and date must match the selected reporting month. */
+export function scopedSeoProgress<T extends {target_id:string;work_date:string;done_count:number}>(
+ targets:readonly {id:string;month_key:string}[], progress:readonly T[], monthKey:string
+):T[]{
+ if(!monthKey)return [];
+ const ids=new Set(targets.filter(t=>t.month_key===monthKey).map(t=>t.id));
+ return progress.filter(row=>ids.has(row.target_id)&&inCompanyMonth(row.work_date,monthKey));
+}

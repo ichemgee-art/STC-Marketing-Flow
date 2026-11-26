@@ -64,10 +64,13 @@ export default function SeoTargetBoard({
      targetMemory.set(cacheKey,{at:Date.now(),targets:[],progress:[]});
      return;
    }
-   const p=await supabase.from("stc_seo_progress").select("*").in("target_id",list.map(x=>x.id)).order("created_at",{ascending:false});
-   if(seq!==fetchSeq.current)return;
-   if(p.error){onError(p.error.message);return;}
-   const entries=p.data as SeoProgress[];
+   const entries:SeoProgress[]=[];
+   for(let offset=0;;offset+=500){
+     const p=await supabase.from("stc_seo_progress").select("*").in("target_id",list.map(x=>x.id)).order("created_at",{ascending:false}).order("id").range(offset,offset+499);
+     if(seq!==fetchSeq.current)return;
+     if(p.error){onError(p.error.message);return;}
+     entries.push(...(p.data as SeoProgress[]));if(p.data.length<500)break;
+   }
    targetMemory.set(cacheKey,{at:Date.now(),targets:list,progress:entries});
    setTargets(list);setProgress(entries);setLoaded(true);
  },[profileId,monthKey,onError,cacheKey]);
@@ -178,7 +181,8 @@ export default function SeoTargetBoard({
       const numeric=target.target_count!==null;
       const pct=target.target_count===null?0:Math.min(100,Math.round((done/target.target_count)*100));
       const completed=isTargetComplete(target.target_count,done);
-      const entries=progress.filter(p=>p.target_id===target.id&&(target.cadence==="monthly"||p.work_date===day||!inCompanyMonth(p.work_date,monthKey)));
+      const entries=progress.filter(p=>p.target_id===target.id&&inCompanyMonth(p.work_date,monthKey)&&(target.cadence==="monthly"||p.work_date===day));
+      const legacy=progress.filter(p=>p.target_id===target.id&&!inCompanyMonth(p.work_date,monthKey));
       return <article key={target.id} className={"seo-live-card"+(completed?" is-done":"")}>
        <div className="seo-live-card-top"><span className={"seo-live-cadence "+target.cadence}>{target.cadence==="daily"?"تارجت يومي":"تارجت شهري"}</span>
          <span className={completed?"seo-live-badge done":"seo-live-badge"}>{completed?"اتعمل ✓":manager?"مستني تنفيذ":"لسه شغال"}</span></div>
@@ -199,6 +203,7 @@ export default function SeoTargetBoard({
        {entries.length>0&&<details className="seo-progress-history"><summary>آخر الإنجازات والملاحظات ({entries.length})</summary>
          {entries.map(entry=><div key={entry.id}><b>{numeric?entry.done_count:entry.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"} · {entry.work_date}</b>{!inCompanyMonth(entry.work_date,monthKey)&&<small>تسجيل سابق خارج الفترة</small>}{entry.note&&<p data-no-translate>{entry.note}</p>}{!manager&&entry.created_by===memberId&&<SeoProgressEdit entry={entry} qualitative={!numeric} onSaved={load} onNotice={onNotice} onError={onError}/>}</div>)}
        </details>}
+       {legacy.length>0&&<details className="seo-progress-history"><summary>تسجيلات قديمة خارج الفترة ({legacy.length})</summary>{legacy.map(entry=><div key={entry.id}><b>{entry.work_date} · {numeric?entry.done_count:entry.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"}</b>{entry.note&&<p data-no-translate>{entry.note}</p>}</div>)}</details>}
       </article>;
     })}</div>
   </>}

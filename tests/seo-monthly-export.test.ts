@@ -30,3 +30,8 @@ test("company December workbook includes November 26 and December 25 only inside
  const result=parseSeoWorkbook(Buffer.from(buildSeoMonthlyWorkbook({profileName:"QA",brand:"STC",monthKey:"2026-12",hours,done:[]})));
  assert.equal(result.sheets[1].cells.E5,"2026-11-26");assert.equal(result.sheets[1].cells.E6,"2026-12-25");assert.equal(result.sheets[1].cells.E7,undefined);
 });
+
+test("zero correction remains in history but is not a completed Done entry",()=>{
+ const parsed=parseSeoWorkbook(Buffer.from(buildSeoMonthlyWorkbook({profileName:"QA",brand:"STC",monthKey:"2026-12",hours:[],done:[{work_date:"2026-11-26",title:"Products",unit:"",done_count:0,note:"Correction"}]})));
+ assert.equal(Number(parsed.sheets[0].cells.E5),0);assert.equal(parsed.sheets[2].cells.D5,"لم يتم التنفيذ");
+});

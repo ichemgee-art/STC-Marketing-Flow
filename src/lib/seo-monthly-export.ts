@@ -51,9 +51,9 @@ export function buildSeoMonthlyWorkbook(report:Report){
  const detail=prefix("STC | فترات العمل",["التاريخ","من الساعة","إلى الساعة","مدة الفترة","الأعمال المنفذة"]);
  for(const h of hours)detail.push([day(h.work_date),time(h.start_minutes),time(h.end_minutes),duration(h.end_minutes-h.start_minutes),c(h.activities)]);
  const daily=prefix("STC | ملخص التقرير",["التاريخ","إجمالي ساعات اليوم","عدد الفترات","الأعمال المسجلة","عدد سجلات Done"]);
- for(const date of days){const rows=hours.filter(h=>h.work_date===date);daily.push([day(date),duration(rows.reduce((n,h)=>n+h.end_minutes-h.start_minutes,0)),c(rows.length),c(rows.map(h=>h.activities).join("\n")),c(done.filter(h=>h.work_date===date).length)]);}
+ for(const date of days){const rows=hours.filter(h=>h.work_date===date);daily.push([day(date),duration(rows.reduce((n,h)=>n+h.end_minutes-h.start_minutes,0)),c(rows.length),c(rows.map(h=>h.activities).join("\n")),c(done.filter(h=>h.work_date===date&&h.done_count>0).length)]);}
  const achievements=prefix("STC | الإنجازات المسجلة Done",["التاريخ","التارجت","المنفذ","حالة التنفيذ","الملاحظات"]);
- for(const h of done)achievements.push([day(h.work_date),c(h.title),c(h.qualitative?"":h.done_count),c(h.qualitative?(h.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"):""),c(h.note||"")]);
+ for(const h of done)achievements.push([day(h.work_date),c(h.title),c(h.qualitative?"":h.done_count),c(h.done_count===0?"لم يتم التنفيذ":h.qualitative?"تم التنفيذ":""),c(h.note||"")]);
  const names=[period.fileKey===report.monthKey?"ملخص الشهر":"ملخص الفترة","فترات العمل","الإنجازات"],sheets=[sheet(daily,[17,23,17,85,22]),sheet(detail,[17,17,17,18,85]),sheet(achievements,[17,42,15,20,75])];
  return packWorkbook(names,sheets);
 }

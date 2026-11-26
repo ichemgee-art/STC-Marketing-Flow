@@ -81,7 +81,8 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const assetsSerial=useRef(0);
   const [section,setSection]=useState<"targets"|"metrics"|"daily"|"evidence"|"archive">("targets");
   const [positionReady,setPositionReady]=useState(false);
-  const [snapshot,setSnapshot]=useState({total:0,completed:0,pending:0,approved:0});
+  const [snapshotState,setSnapshot]=useState<{key:string;total:number;completed:number;pending:number;approved:number}>({key:"",total:0,completed:0,pending:0,approved:0});
+  const snapshot=snapshotState.key===profile?.id+":"+selected?snapshotState:{total:0,completed:0,pending:0,approved:0};
   const [newMonth,setNewMonth]=useState(()=>companyMonthKey(cairoDate(new Date().toISOString())));
   const [showMonthCreator,setShowMonthCreator]=useState(false);
   const [copyPreviousTargets,setCopyPreviousTargets]=useState(false);
@@ -104,12 +105,17 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     if(serial!==refreshSerial.current||!mounted.current)return;
     if(p.error || !p.data){setError(p.error?.message||"مش لاقيين حساب الشخص ده.");return;}
     setProfile(p.data);
-    const [periodsRes,logsRes]=await Promise.all([
-      supabase.from("stc_seo_periods").select("*").eq("profile_id",p.data.id).order("month_key",{ascending:false}),
-      supabase.from("stc_seo_hours").select("*").eq("profile_id",p.data.id).order("work_date",{ascending:false}).limit(1000),
-    ]);
+    const periodsRes=await supabase.from("stc_seo_periods").select("*").eq("profile_id",p.data.id).order("month_key",{ascending:false});
+    const allHours:Hours[]=[];
+    for(let offset=0;;offset+=500){
+      const res=await supabase.from("stc_seo_hours").select("*").eq("profile_id",p.data.id).order("work_date",{ascending:false}).order("id").range(offset,offset+499);
+      if(serial!==refreshSerial.current||!mounted.current)return;
+      if(res.error){setError(res.error.message);return;}
+      allHours.push(...(res.data||[]));if((res.data||[]).length<500)break;
+    }
+    const logsRes={data:allHours,error:null};
     if(serial!==refreshSerial.current||!mounted.current)return;
-    if(periodsRes.error||logsRes.error){setError((periodsRes.error||logsRes.error)?.message||"في مشكلة في تحميل البيانات.");return;}
+    if(periodsRes.error){setError(periodsRes.error.message||"في مشكلة في تحميل البيانات.");return;}
     setPeriods(periodsRes.data||[]);
     setLog(logsRes.data||[]);
     const stored=seoMemory.get(seoCacheKey);
@@ -199,16 +205,21 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     const current=periods.find(p=>p.id===selected);
     if(!current)return;
     const bounds=companyMonthRange(current.month_key);
-    const [a,b,d]=await Promise.all([
+    const [a,b]=await Promise.all([
       supabase.from("stc_seo_targets").select("id,target_count,cadence").eq("profile_id",profile.id).eq("month_key",current.month_key),
       supabase.from("stc_seo_metrics").select("status").eq("profile_id",profile.id).eq("month_key",current.month_key),
-      supabase.from("stc_seo_progress").select("target_id,done_count,work_date").gte("work_date",bounds.first).lt("work_date",bounds.next),
     ]);
-    if(serial!==snapshotSerial.current||!mounted.current||a.error||b.error||d.error)return;
+    if(serial!==snapshotSerial.current||!mounted.current||a.error||b.error)return;
     const targets=a.data||[];
-    setSnapshot({
+    const progress:{target_id:string;done_count:number;work_date:string}[]=[];
+    if(targets.length)for(let offset=0;;offset+=500){
+      const d=await supabase.from("stc_seo_progress").select("target_id,done_count,work_date").in("target_id",targets.map(t=>t.id)).gte("work_date",bounds.first).lt("work_date",bounds.next).order("id").range(offset,offset+499);
+      if(serial!==snapshotSerial.current||!mounted.current||d.error)return;
+      progress.push(...(d.data||[]));if((d.data||[]).length<500)break;
+    }
+    setSnapshot({key:profile.id+":"+selected,
       total:targets.length,
-      completed:countCompletedMonthlyTargets(targets,d.data||[],current.month_key),
+      completed:countCompletedMonthlyTargets(targets,progress,current.month_key),
       pending:(b.data||[]).filter(m=>m.status==="pending_review").length,
       approved:(b.data||[]).filter(m=>m.status==="approved").length,
     });
@@ -486,9 +497,9 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
           :<SeoMetricsBoard key={"metrics-"+period.month_key} profileId={profile.id} memberId={member.id}
              monthKey={period.month_key} manager={manager} onError={setError}
              onNotice={setToast} onUpdated={loadSnapshot}/>)}
-      {section==="daily"&&profile&&
-        <SeoDailyReport key={"daily-"+period?.month_key} profileId={profile.id} profileName={profile.display_name} brand={profile.brand}
-          member={member} monthKey={period?.month_key||""} entries={log}
+      {section==="daily"&&profile&&period?.period_kind==="month"&&
+        <SeoDailyReport key={"daily-"+profile.id+"-"+period.month_key} profileId={profile.id} profileName={profile.display_name} brand={profile.brand}
+          member={member} monthKey={period.month_key} entries={log}
           onRefresh={refresh} onNotice={setToast} onError={setError}/>}
       {section==="evidence"&&period&&<section className="seo-gallery seo-gallery--main" id="seo-photo-upload">
         <div className="seo-section-top"><div>
