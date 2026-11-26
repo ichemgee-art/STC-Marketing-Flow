@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, ClipboardCheck, Pencil, Plus, Target, X, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SeoProgressEdit from "./seo-progress-edit";
-import {progressCount,targetQuantity,isTargetComplete} from "@/lib/seo-progress-correction";
+import {progressCount,targetQuantity,isTargetComplete,countCompletedMonthlyTargets} from "@/lib/seo-progress-correction";
 
 export type SeoTarget = {
   id:string;profile_id:string;month_key:string;title:string;details:string;
@@ -65,7 +65,7 @@ export default function SeoTargetBoard({
    const p=await supabase.from("stc_seo_progress").select("*").in("target_id",list.map(x=>x.id)).order("created_at",{ascending:false});
    if(seq!==fetchSeq.current)return;
    if(p.error){onError(p.error.message);return;}
-   const entries=p.data as SeoProgress[];
+   const entries=(p.data as SeoProgress[]).filter(row=>row.work_date.startsWith(monthKey+"-"));
    targetMemory.set(cacheKey,{at:Date.now(),targets:list,progress:entries});
    setTargets(list);setProgress(entries);setLoaded(true);
  },[profileId,monthKey,onError,cacheKey]);
@@ -84,7 +84,7 @@ export default function SeoTargetBoard({
    const poll=setInterval(()=>{if(document.visibilityState==="visible")void load();},45000);
    return()=>{clearInterval(poll);void supabase.removeChannel(channel);};
  },[profileId,monthKey,load]);
- const monthCompleted=useMemo(()=>targets.filter(t=>t.cadence==="monthly"&&isTargetComplete(t.target_count,countAll(t.id,progress))).length,[targets,progress]);
+ const monthCompleted=useMemo(()=>countCompletedMonthlyTargets(targets,progress,monthKey),[targets,progress,monthKey]);
  async function saveTarget(form:HTMLFormElement){
    const f=new FormData(form);
    const title=String(f.get("title")||"").trim();

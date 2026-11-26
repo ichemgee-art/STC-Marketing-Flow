@@ -11,6 +11,7 @@ import { getFlowLocation, setFlowLocation } from "@/lib/flow-location";
 import type { Member } from "@/lib/domain";
 import MonthlyReports from "./monthly-reports";
 import SeoTargetBoard, { clearSeoTargetMemory } from "./seo-target-board";
+import { countCompletedMonthlyTargets } from "@/lib/seo-progress-correction";
 import SeoSourceCards from "./seo-source-cards";
 import SeoDailyReport, { clearSeoDailyMemory } from "./seo-daily-report";
 import SeoMetricsBoard, { clearSeoMetricsMemory } from "./seo-metrics-board";
@@ -75,6 +76,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const [selected,setSelected]=useState<string|null>(()=>warm?.selectedId||null);
   const mounted=useRef(true);
   const refreshSerial=useRef(0);
+  const snapshotSerial=useRef(0);
   const assetsSerial=useRef(0);
   const [section,setSection]=useState<"targets"|"metrics"|"daily"|"evidence"|"archive">("targets");
   const [positionReady,setPositionReady]=useState(false);
@@ -191,6 +193,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     try{sessionStorage.setItem("stc-seo-month-"+member.id+"-"+slug,id);}catch{}
   }
   const loadSnapshot=useCallback(async()=>{
+    const serial=++snapshotSerial.current;
     if(!profile||!selected)return;
     const current=periods.find(p=>p.id===selected);
     if(!current)return;
@@ -202,13 +205,11 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       supabase.from("stc_seo_metrics").select("status").eq("profile_id",profile.id).eq("month_key",current.month_key),
       supabase.from("stc_seo_progress").select("target_id,done_count,work_date").gte("work_date",current.month_key+"-01").lt("work_date",endExclusive),
     ]);
-    if(a.error||b.error||d.error)return;
+    if(serial!==snapshotSerial.current||!mounted.current||a.error||b.error||d.error)return;
     const targets=a.data||[];
-    const sums=new Map<string,number>();
-    for(const progress of d.data||[])sums.set(progress.target_id,(sums.get(progress.target_id)||0)+progress.done_count);
     setSnapshot({
       total:targets.length,
-      completed:targets.filter(t=>t.cadence==="monthly"&&(sums.get(t.id)||0)>=t.target_count).length,
+      completed:countCompletedMonthlyTargets(targets,d.data||[],current.month_key),
       pending:(b.data||[]).filter(m=>m.status==="pending_review").length,
       approved:(b.data||[]).filter(m=>m.status==="approved").length,
     });
@@ -289,7 +290,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     if(periods.some(p=>p.month_key===newMonth)){setError("الشهر ده موجود بالفعل، اختاريه من التابات.");return;}
     setCreatingMonth(true);setError("");
     try{
-      let copied:{title:string;details:string;target_count:number;target_unit:string;cadence:string}[]=[];
+      let copied:{title:string;details:string;target_count:number|null;target_unit:string;cadence:string}[]=[];
       let sourceMonth="";
       if(copyPreviousTargets){
         const past=await supabase.from("stc_seo_targets")
@@ -439,7 +440,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
           <span>تارجت الشهر</span><strong>{snapshot.total}</strong>
         </button>
         <button type="button" onClick={()=>chooseSection("targets")}>
-          <span>تم إنجازه</span><strong>{snapshot.completed}</strong>
+          <span>تارجت شهري مكتمل</span><strong>{snapshot.completed}</strong>
         </button>
         <button type="button" className={snapshot.pending>0?"needs-review":""} onClick={()=>chooseSection("metrics")}>
           <span>{manager?"مستني موافقتك":"مستني مراجعة"}</span><strong>{snapshot.pending}</strong>
