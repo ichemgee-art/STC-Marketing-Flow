@@ -1224,6 +1224,13 @@ const EN_ENTRIES: [string,string][] = [
   ["تم تصدير التقرير بنجاح.","Report exported successfully."],
   ["بيانات الفترة المسجلة في السيستم.","Records saved in the system for the selected period."],
   ["تصدير التقرير اليومي","Export daily report"],
+  ["تعديل الإنجاز","Edit achievement"],
+  ["العدد المنفذ","Completed quantity"],
+  ["حفظ التعديل","Save changes"],
+  ["تم حفظ تعديل الإنجاز وتحديث التقرير.","Achievement updated and report refreshed."],
+  ["الإنجاز اتعدّل من مكان تاني. افتح التعديل من جديد بعد مراجعة آخر قيمة.","This achievement was edited elsewhere. Review the latest value and reopen the editor."],
+  ["العدد ده هيعدّي التارجت المطلوب.","This quantity would exceed the target."],
+  ["مقدرناش نحفظ تعديل الإنجاز.","Couldn't save the achievement changes."],
 ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)

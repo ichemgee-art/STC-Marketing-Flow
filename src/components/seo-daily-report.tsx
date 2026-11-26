@@ -5,6 +5,7 @@ import { CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Plus, Trash2 } from
 import { supabase } from "@/lib/supabase";
 import { monthBounds } from "@/lib/seo-monthly-export";
 import MonthlyReports from "./monthly-reports";
+import SeoProgressEdit from "./seo-progress-edit";
 import { confirmInCurrentLanguage } from "./app-language-provider";
 import type { Member } from "@/lib/domain";
 import type { SeoProgress, SeoTarget } from "./seo-target-board";
@@ -160,7 +161,8 @@ export default function SeoDailyReport({
           return <article key={row.id}>
             <span className="seo-daily-done"><CheckCircle2 size={16}/> {row.done_count} {target?.target_unit||"إنجاز"}</span>
             <strong>{target?.title||"تارجت"}</strong>
-            {row.note&&<p>{row.note}</p>}
+            {row.note&&<p data-no-translate>{row.note}</p>}
+            {!manager&&row.created_by===member.id&&<SeoProgressEdit entry={row} onSaved={load} onNotice={onNotice} onError={onError}/>}
           </article>;
         })}</div>
       </div>

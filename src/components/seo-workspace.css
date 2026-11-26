@@ -749,3 +749,15 @@
 .seo-month-export{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #253a55;background:#253a55;color:#fff;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:800;white-space:nowrap}
 .seo-month-export:hover{background:#35516e}.seo-month-export:disabled{opacity:.6;cursor:wait}
 @media(max-width:550px){.seo-daily-actions{width:100%;align-items:stretch}.seo-daily-actions .seo-daily-picker{flex:1;min-width:0}.seo-month-export{flex:1;white-space:normal}}
+
+/* Edit a saved achievement inline, without opening another card or duplicating it. */
+.seo-progress-correction{margin-top:7px;min-width:0}
+.seo-progress-correction .seo-progress-edit-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid #d6e0ea;border-radius:7px;background:white;color:#253a55;font-size:11px;font-weight:700;min-height:32px;box-shadow:none}
+.seo-progress-correction .seo-progress-edit-btn svg,.seo-progress-edit-actions svg{flex-shrink:0}
+.seo-progress-edit-form{display:grid;gap:8px;padding:10px;background:#f4f6f9;border:1px solid #dfe6ee;border-radius:9px;min-width:0}
+.seo-progress-edit-form label{display:grid;gap:4px;font-size:12px;font-weight:700}
+.seo-progress-edit-form input,.seo-progress-edit-form textarea{box-sizing:border-box;width:100%;min-width:0;padding:8px;border:1px solid #d6e0ea;background:white;border-radius:8px;color:#253a55}
+.seo-progress-edit-form .seo-progress-edit-actions{display:flex;gap:7px;flex-wrap:wrap;background:none;padding:0;border:0}
+.seo-progress-edit-actions button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:6px 9px;border:1px solid #d6e0ea;border-radius:8px;background:white;color:#253a55;font-size:12px;font-weight:700}
+.seo-progress-edit-actions button[type=submit]{background:#253a55;color:white;border-color:#253a55}
+.seo-progress-edit-form .seo-progress-edit-error{color:#a52b2b;font-size:12px;margin:0}

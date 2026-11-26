@@ -2,13 +2,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, ClipboardCheck, Pencil, Plus, Target, X, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import SeoProgressEdit from "./seo-progress-edit";
 
 export type SeoTarget = {
   id:string;profile_id:string;month_key:string;title:string;details:string;
   target_count:number;target_unit:string;cadence:"monthly"|"daily";
 };
 export type SeoProgress = {
-  id:string;target_id:string;work_date:string;done_count:number;note:string;created_by:string;created_at:string;
+  id:string;target_id:string;work_date:string;done_count:number;note:string;created_by:string;created_at:string;version?:number;
 };
 const targetMemory = new Map<string,{at:number;targets:SeoTarget[];progress:SeoProgress[]}>();
 export function clearSeoTargetMemory(){targetMemory.clear();}
@@ -78,8 +79,9 @@ export default function SeoTargetBoard({
    const channel=supabase.channel("seo-targets-"+profileId+"-"+monthKey)
      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_targets"},()=>void load())
      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_progress"},()=>void load())
-     .subscribe();
-   return()=>{void supabase.removeChannel(channel);};
+     .subscribe(state=>{if(state==="SUBSCRIBED")void load();});
+   const poll=setInterval(()=>{if(document.visibilityState==="visible")void load();},45000);
+   return()=>{clearInterval(poll);void supabase.removeChannel(channel);};
  },[profileId,monthKey,load]);
  const monthCompleted=useMemo(()=>targets.filter(t=>t.cadence==="monthly"&&countAll(t.id,progress)>=t.target_count).length,[targets,progress]);
  async function saveTarget(form:HTMLFormElement){
@@ -194,7 +196,7 @@ export default function SeoTargetBoard({
          <button type="submit" disabled={busy}>{busy?"بنسجّل…":"تمام، سجّل الإنجاز"}</button>
        </form>}
        {entries.length>0&&<details className="seo-progress-history"><summary>آخر الإنجازات والملاحظات ({entries.length})</summary>
-         {entries.slice(0,12).map(entry=><div key={entry.id}><b>{entry.done_count} {target.target_unit} · {entry.work_date}</b>{entry.note&&<p>{entry.note}</p>}</div>)}
+         {entries.map(entry=><div key={entry.id}><b>{entry.done_count} {target.target_unit} · {entry.work_date}</b>{entry.note&&<p data-no-translate>{entry.note}</p>}{!manager&&entry.created_by===memberId&&<SeoProgressEdit entry={entry} onSaved={load} onNotice={onNotice} onError={onError}/>}</div>)}
        </details>}
       </article>;
     })}</div>
