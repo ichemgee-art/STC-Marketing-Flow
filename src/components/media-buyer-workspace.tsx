@@ -19,7 +19,7 @@ import "./media-buyer-workspace.css";
 type Profile={id:string;slug:string;display_name:string;member_id:string|null};
 type Brief={
  id:string;profile_id:string;post_url:string;goal:string;instructions:string;
- version:number;created_at:string;updated_at:string;deleted_at:string|null;
+ version:number;created_at:string;updated_at:string;deleted_at:string|null;report_brand?:"stc"|"ichem"|null;
 };
 type ReviewStatus="pending_review"|"approved"|"changes_requested";
 type Submission={
@@ -83,15 +83,15 @@ function BriefEditor({profile,member,existing,onClose,onSaved}:{
 }){
  const draftKey=briefDraftKey+member.id;
  const [fields,setFields]=useState(()=>{
-  if(existing)return {post_url:existing.post_url,instructions:briefNote(existing)};
+  if(existing)return {post_url:existing.post_url,instructions:briefNote(existing),report_brand:existing.report_brand||""};
   try{
    const stored=sessionStorage.getItem(draftKey);
    if(stored){
-    const parsed=JSON.parse(stored) as Partial<{post_url:string;instructions:string}>;
-    return {post_url:parsed.post_url||"",instructions:parsed.instructions||""};
+    const parsed=JSON.parse(stored) as Partial<{post_url:string;instructions:string;report_brand:string}>;
+    return {post_url:parsed.post_url||"",instructions:parsed.instructions||"",report_brand:parsed.report_brand||""};
    }
   }catch{}
-  return {post_url:"",instructions:""};
+  return {post_url:"",instructions:"",report_brand:""};
  });
  const [busy,setBusy]=useState(false),[error,setError]=useState("");
  useEffect(()=>{
@@ -104,7 +104,7 @@ function BriefEditor({profile,member,existing,onClose,onSaved}:{
   setBusy(true);setError("");
   try{
    if(!navigator.onLine)throw new Error("الإنترنت مش متصل. بياناتك لسه موجودة.");
-   const values={post_url:fields.post_url.trim(),goal:"",instructions:fields.instructions.trim()};
+   const values={post_url:fields.post_url.trim(),goal:"",instructions:fields.instructions.trim(),report_brand:fields.report_brand};
    const result=existing?
     await supabase.from("stc_media_briefs").update(values).eq("id",existing.id)
       .eq("version",existing.version).is("deleted_at",null).select("id"):
@@ -122,8 +122,9 @@ function BriefEditor({profile,member,existing,onClose,onSaved}:{
   }finally{setBusy(false);}
  }
  return <Modal title={existing?"تعديل تكليف الحملة":"تكليف Campaign جديدة"}
-  description="خانتين بس: لينك البوست إجباري، والهدف والتعليمات في ملاحظة واحدة اختيارية." onClose={onClose}>
+  description="اختاري الشركة، واكتبي لينك البوست والهدف والتعليمات لو حابة." onClose={onClose}>
   <form className="mb2-form" onSubmit={event=>void save(event)}>
+   <label className="mb2-field">الشركة<select required value={fields.report_brand} onChange={e=>setFields(v=>({...v,report_brand:e.target.value}))}><option value="">اختار الشركة</option><option value="stc">STC</option><option value="ichem">iChem</option></select></label>
    <label className="mb2-field">01 · لينك البوست <span className="mb2-required">*</span>
     <input required type="url" dir="ltr" maxLength={2000} value={fields.post_url}
      onChange={e=>setFields(v=>({...v,post_url:e.target.value}))}

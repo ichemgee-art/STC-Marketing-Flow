@@ -1,5 +1,5 @@
 import {supabase} from "./supabase";
-import {inReportPeriod,campaignOverlaps,type ReportPeriod} from "./report-period";
+import {cairoDate,inReportPeriod,campaignOverlaps,type ReportPeriod} from "./report-period";
 export type Brand="stc"|"ichem";
 export type Usage={id:string;task_id:string;quantity:number;state:string;activity_date:string;note:string};
 export type WeeklyRow=(string|number)[];export type WeeklySection={title:string;headers:string[];rows:WeeklyRow[]};
@@ -26,7 +26,7 @@ export type WeeklySource=Awaited<ReturnType<typeof loadWeeklySource>>;
 export function makeWeeklyReport(source:WeeklySource,brand:Brand,period:ReportPeriod,posts:Record<string,string>,whatsapp:string,notes:string):WeeklyPayload{
  const name=(id:string)=>source.team.find(t=>t.id===id)?.display_name||"Team member";
  const approved=source.tasks.filter(t=>t.report_brand===brand&&t.status==="approved"&&source.events.some(e=>e.task_id===t.id&&inReportPeriod(e.created_at,period)));
- const achievements:WeeklyRow[]=approved.map(t=>[name(t.assignee_id),cats[t.report_category]||"Unclassified",t.title,t.actual_quantity??"Not recorded",source.events.find(e=>e.task_id===t.id&&inReportPeriod(e.created_at,period))?.created_at?.slice(0,10)||""]);
+ const achievements:WeeklyRow[]=approved.map(t=>[name(t.assignee_id),cats[t.report_category]||"Unclassified",t.title,t.actual_quantity??"Not recorded",cairoDate(source.events.find(e=>e.task_id===t.id&&inReportPeriod(e.created_at,period))!.created_at)]);
  const usageRows:WeeklyRow[]=[];
  for(const t of source.tasks.filter(t=>t.report_brand===brand&&t.status==="approved")){
   const all=source.usage.filter(u=>u.task_id===t.id);const within=all.filter(u=>inReportPeriod(u.activity_date,period));

@@ -1,0 +1,1 @@
+grant update (report_brand,report_category,requested_quantity,actual_quantity) on public.stc_tasks to authenticated; grant update (report_brand) on public.stc_media_briefs to authenticated;

@@ -1,0 +1,5 @@
+import {test} from "node:test";import assert from "node:assert/strict";
+import {buildWeeklyWorkbook} from "../src/lib/seo-monthly-export";
+import {parseSeoWorkbook} from "../src/lib/seo-workbook";
+import type {WeeklyPayload} from "../src/lib/weekly-report";
+test("weekly workbook embeds original logo bytes and report notes",()=>{const report:WeeklyPayload={brand:"ichem",first:"2026-11-14",last:"2026-11-20",notes:"Reviewed",sections:["A","B","C","D","E","F"].map(title=>({title,headers:["X","Y","Z"],rows:[["x","y","z"]]}))};const logo=new Uint8Array([137,80,78,71,13,10,26,10]);const bytes=Buffer.from(buildWeeklyWorkbook(report,logo));assert.ok(bytes.includes(Buffer.from("xl/media/logo.png")));assert.ok(bytes.includes(Buffer.from(logo)));const parsed=parseSeoWorkbook(bytes);assert.equal(parsed.sheets.length,7);assert.equal(parsed.sheets[6].cells.C5,"Reviewed");});
