@@ -3,7 +3,9 @@
  * Source-of-truth work descriptions and spreadsheet content remain unchanged.
  * Keys are the application's existing Arabic copy, not identifiers from the DB.
  */
+import {seoMetricTranslations} from "./seo-metric-labels";
 const EN_ENTRIES: [string,string][] = [
+  ...seoMetricTranslations,
   // Core and statuses
   ["العربية","Arabic"],["الإنجليزية","English"],["اللغة","Language"],
   ["الكل","All"],["كل","All"],["الكل","All"],["عرض الكل","Show all"],

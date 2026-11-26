@@ -6,6 +6,7 @@ import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, Log
 import { supabase, configured } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
 import MonthlyReports from "./monthly-reports";
+import {seoMetricLabel} from "@/lib/seo-metric-labels";
 import { notifySound, unlockSound, type SoundKind } from "@/lib/notification-sound";
 import { readableError, createRefreshScheduler } from "@/lib/workspace-quality";
 import { confirmInCurrentLanguage } from "./app-language-provider";
@@ -616,7 +617,7 @@ export default function SimpleWorkspace(){
             {seoReviews.map(k=>{
               const person=seoPeople.find(p=>p.id===k.profile_id);
               return <button type="button" key={k.id} onClick={()=>person&&enterSeo(person.slug,"metrics",k.month_key)}>
-                <span className="flow-kind seo">SEO</span><span><b>{k.metric_key.replaceAll("_"," ")}</b>
+                <span className="flow-kind seo">SEO</span><span><b>{seoMetricLabel(k.metric_key)}</b>
                   <small>{person?.display_name||"فريق SEO"} · {k.month_key} · قبل: {k.before_value??"—"} · بعد: {k.after_value??"—"}</small></span>
                 <ChevronLeft size={17}/></button>;
             })}

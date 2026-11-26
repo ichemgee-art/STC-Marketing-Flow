@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, CheckCircle2, ChevronDown, Clock3, Send, TrendingDown, TrendingUp, XCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import {seoMetricLabel} from "@/lib/seo-metric-labels";
 
 type Metric = {
   id: string;
@@ -23,16 +24,16 @@ const metricsMemory=new Map<string,{at:number;rows:Metric[]}>();
 export function clearSeoMetricsMemory(){metricsMemory.clear();}
 
 const fields: Definition[] = [
-  { key: "organic_traffic", label: "Organic Traffic", unit: "زيارة", hint: "زيارات الموقع اللي جاية من نتائج البحث" },
-  { key: "impressions", label: "Impressions", unit: "ظهور", hint: "عدد مرات ظهور الموقع في نتائج البحث" },
-  { key: "ctr", label: "CTR", unit: "%", hint: "نسبة الناس اللي ضغطت على النتيجة" },
-  { key: "average_position", label: "Average Position", unit: "مركز", hint: "متوسط مركز الموقع في جوجل", lowerIsBetter: true },
-  { key: "ranking_keywords", label: "Ranking Keywords", unit: "كلمة", hint: "كلمات البحث اللي الموقع ظاهر فيها" },
-  { key: "referring_domains", label: "Referring Domains", unit: "دومين", hint: "عدد المواقع اللي بتشير لموقعنا" },
-  { key: "backlinks", label: "Backlinks", unit: "رابط", hint: "الروابط اللي بتوصل للموقع" },
-  { key: "ga4_tracking", label: "GA4 / CRM / Forms", unit: "حدث", hint: "عدد أحداث التتبع المتسجلة" },
-  { key: "ai_responses", label: "AI Responses", unit: "ظهور", hint: "الظهور في إجابات أدوات الذكاء الاصطناعي" },
-  { key: "top_keywords", label: "Top Keywords", unit: "كلمة", hint: "الكلمات الأساسية اللي بنتابعها" },
+  { key: "organic_traffic", label: seoMetricLabel("organic_traffic"), unit: "زيارة", hint: "زيارات الموقع اللي جاية من نتائج البحث" },
+  { key: "impressions", label: seoMetricLabel("impressions"), unit: "ظهور", hint: "عدد مرات ظهور الموقع في نتائج البحث" },
+  { key: "ctr", label: seoMetricLabel("ctr"), unit: "%", hint: "نسبة الناس اللي ضغطت على النتيجة" },
+  { key: "average_position", label: seoMetricLabel("average_position"), unit: "مركز", hint: "متوسط مركز الموقع في جوجل", lowerIsBetter: true },
+  { key: "ranking_keywords", label: seoMetricLabel("ranking_keywords"), unit: "كلمة", hint: "كلمات البحث اللي الموقع ظاهر فيها" },
+  { key: "referring_domains", label: seoMetricLabel("referring_domains"), unit: "دومين", hint: "عدد المواقع اللي بتشير لموقعنا" },
+  { key: "backlinks", label: seoMetricLabel("backlinks"), unit: "رابط", hint: "الروابط اللي بتوصل للموقع" },
+  { key: "ga4_tracking", label: seoMetricLabel("ga4_tracking"), unit: "حدث", hint: "عدد أحداث التتبع المتسجلة" },
+  { key: "ai_responses", label: seoMetricLabel("ai_responses"), unit: "ظهور", hint: "الظهور في إجابات أدوات الذكاء الاصطناعي" },
+  { key: "top_keywords", label: seoMetricLabel("top_keywords"), unit: "كلمة", hint: "الكلمات الأساسية اللي بنتابعها" },
 ];
 const format = (value: number | null) =>
   value === null ? "لسه مش متسجل" : new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);

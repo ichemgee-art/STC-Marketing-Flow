@@ -54,9 +54,9 @@ function translateText(source: string): string {
   const targetsCopied = core.match(/^الشهر الجديد اتفتح واتنسخ (\d+) تارجت من ([0-9-]+)، من غير إنجازات قديمة\.$/);
   if (targetsCopied) return leading + "Month created; " + targetsCopied[1] + " targets copied from " + targetsCopied[2] + " without previous completions." + trailing;
   const metricApproved = core.match(/^تمام، مقارنة (.+) تم اعتمادها وظهرت بالأخضر\.$/);
-  if (metricApproved) return leading + metricApproved[1] + " comparison approved." + trailing;
+  if (metricApproved) return leading + translateText(metricApproved[1]) + " comparison approved." + trailing;
   const metricSent = core.match(/^(.+) اتبعت لناردين بأرقام قبل وبعد\. ✅$/);
-  if (metricSent) return leading + metricSent[1] + " Before/After results sent to Nardine ✅" + trailing;
+  if (metricSent) return leading + translateText(metricSent[1]) + " Before/After results sent to Nardine ✅" + trailing;
   const screenshotDelete = core.match(/^متأكد إنك عايز تمسح الاسكرين دي نهائيًا من شهر (.+)؟$/);
   if (screenshotDelete) return leading + "Permanently delete this screenshot from " + translateText(screenshotDelete[1]) + "?" + trailing;
   // Date and duration values are presentation details, not workbook data.

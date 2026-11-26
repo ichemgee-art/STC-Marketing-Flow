@@ -1,4 +1,5 @@
 import {supabase} from "./supabase";
+import {seoMetricLabel} from "./seo-metric-labels";
 import {monthBounds,type DepartmentSheet} from "./seo-monthly-export";
 export type Department="content"|"seo"|"media";
 export type ReportPerson={id:string;name:string;brand?:string};
@@ -55,7 +56,7 @@ async function seo(person:ReportPerson,month:string):Promise<Row[]>{
  for(const h of hours.sort((a,b)=>a.work_date.localeCompare(b.work_date)||a.start_minutes-b.start_minutes))rows.push([h.work_date,"فترة عمل",mins(h.start_minutes)+" – "+mins(h.end_minutes),h.activities,"",mins(h.end_minutes-h.start_minutes)]);
  for(const t of targets){const done=progress.filter(x=>x.target_id===t.id).reduce((n,x)=>n+x.done_count,0);rows.push([month,"تارجت",t.title,lines(t.details,"المطلوب: "+t.target_count+" "+t.target_unit,"الدورية: "+t.cadence),"المنفذ",done]);}
  for(const x of progress){const t=Array.isArray(x.stc_seo_targets)?x.stc_seo_targets[0]:x.stc_seo_targets;rows.push([x.work_date,"إنجاز Done",t?.title||"تارجت",lines(x.note,t?.target_unit), "",x.done_count]);}
- for(const x of metrics)rows.push([month,"مؤشر SEO",x.metric_key,lines("قبل: "+str(x.before_value),"بعد: "+str(x.after_value),x.note,x.review_note),label(x.status),""]);
+ for(const x of metrics)rows.push([month,"مؤشر SEO",seoMetricLabel(x.metric_key),lines("قبل: "+str(x.before_value),"بعد: "+str(x.after_value),x.note,x.review_note),label(x.status),""]);
  for(const x of periods)for(const [addr,value] of Object.entries(x.cells||{}))rows.push([month,"بيانات تاريخية",x.source_sheet+" / "+addr,lines(str(value),x.comments?.[addr],x.links?.[addr]),"",""]);
  return rows;
 }
