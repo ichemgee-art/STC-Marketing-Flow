@@ -8,3 +8,5 @@ test("department report has one sheet per employee, distinct names and literal t
  assert.deepEqual(parsed.sheets.map(s=>s.name),["Sandra","Mohamed","Sandra 2","Esraa"]);
  assert.equal(parsed.sheets[0].cells.D5,"=1+2");assert.equal(parsed.sheets[0].cells.F5,"8");assert.ok(!Buffer.from(data).includes(Buffer.from("<f>")));
 });
+
+test("content export has five clear columns, no movement column",()=>{const parsed=parseSeoWorkbook(Buffer.from(buildDepartmentWorkbook([{name:"Gerges",subtitle:"Content",kind:"content",headers:["التاسك","التفاصيل","تاريخ التكليف","موعد التسليم","الحالة"],rows:[["Marketing system","updates","26/11/2026","—","بانتظار المراجعة"]]}])));assert.equal(parsed.sheets[0].cells.A5,"Marketing system");assert.equal(parsed.sheets[0].cells.E5,"بانتظار المراجعة");assert.equal(parsed.sheets[0].cells.F5,undefined);});

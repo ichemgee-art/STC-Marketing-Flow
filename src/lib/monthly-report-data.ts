@@ -1,4 +1,5 @@
 import {supabase} from "./supabase";
+import {CONTENT_HEADERS,contentReportRows,type ContentTask} from "./content-report";
 import {type DepartmentSheet,type ReportHour} from "./seo-monthly-export";
 import {inReportPeriod,campaignOverlaps,inCompanyMonth,companyMonthKey,companyMonthRange,type ReportPeriod} from "./report-period";
 export type Department="content"|"seo"|"media";
@@ -23,23 +24,12 @@ async function content(person:ReportPerson,period:ReportPeriod):Promise<Row[]>{
  const start=new Date(Date.parse(first+"T00:00:00Z")-86400000).toISOString(),end=new Date(Date.parse(next+"T00:00:00Z")+86400000).toISOString();
  for(const ids of chunks(tasks.map(t=>t.id))){
   const [e,c,f]=await Promise.all([
-   pages((a,b)=>supabase.from("stc_events").select("id,task_id,action,created_at").in("task_id",ids).gte("created_at",start).lt("created_at",end).order("id").range(a,b)),
+   pages((a,b)=>supabase.from("stc_events").select("id,task_id,action,created_at,details").in("task_id",ids).lt("created_at",end).order("id").range(a,b)),
    pages((a,b)=>supabase.from("stc_comments").select("id,task_id,body,created_at").in("task_id",ids).gte("created_at",start).lt("created_at",end).order("id").range(a,b)),
    pages((a,b)=>supabase.from("stc_attachments").select("id,task_id,filename,size,created_at").in("task_id",ids).gte("created_at",start).lt("created_at",end).order("id").range(a,b))
-  ]);events.push(...e.filter(x=>inReportPeriod(x.created_at,period)));comments.push(...c.filter(x=>inReportPeriod(x.created_at,period)));attachments.push(...f.filter(x=>inReportPeriod(x.created_at,period)));
+  ]);events.push(...e);comments.push(...c.filter(x=>inReportPeriod(x.created_at,period)));attachments.push(...f.filter(x=>inReportPeriod(x.created_at,period)));
  }
- const rows:Row[]=[];
- for(const t of tasks){
-  const e=events.filter(x=>x.task_id===t.id),c=comments.filter(x=>x.task_id===t.id),f=attachments.filter(x=>x.task_id===t.id);
-  if(!inReportPeriod(t.created_at,period)&&!inReportPeriod(t.updated_at,period)&&!e.length&&!c.length&&!f.length)continue;
-  const relevant=[...e,...c,...f].map(x=>x.created_at).sort();
-  const date=inReportPeriod(t.created_at,period)?stamp(t.created_at):relevant.length?stamp(relevant[0]):stamp(t.updated_at);
-  rows.push([date,"تاسك",t.title,lines(t.description,"تاريخ الإنشاء: "+stamp(t.created_at),t.due_date&&"ميعاد التسليم: "+t.due_date,Array.isArray(t.text_deliverables)&&t.text_deliverables.length>0&&t.text_deliverables.map((v:string,i:number)=>(t.report_category==="caption"?"Caption ":"Content ")+(i+1)+": "+v).join("\n"),t.submission_note&&"ملاحظة التسليم: "+t.submission_note,t.review_note&&"ملاحظة المراجعة: "+t.review_note,"آخر تحديث: "+stamp(t.updated_at)),label(t.status),t.priority]);
-  for(const x of e)rows.push([stamp(x.created_at),"حركة التاسك",t.title,"",label(x.action),""]);
-  for(const x of c)rows.push([stamp(x.created_at),"ملاحظة",t.title,x.body,"",""]);
-  for(const x of f)rows.push([stamp(x.created_at),"مرفق",t.title,x.filename,"",x.size+" bytes"]);
- }
- return rows.sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+ return contentReportRows(tasks as ContentTask[],events as Parameters<typeof contentReportRows>[1],comments as Parameters<typeof contentReportRows>[2],attachments as Parameters<typeof contentReportRows>[3],period);
 }
 export async function loadSeoDaily(person:ReportPerson,period:ReportPeriod){
  const {first,next}=period;
@@ -90,6 +80,6 @@ export async function monthlyReport(department:Department,people:ReportPerson[],
  const title={content:"المحتوى والتصميم",seo:"SEO",media:"Media Buying"}[department];
  const result:DepartmentSheet[]=[];
  for(const person of people){const rows=await (department==="content"?content(person,period):department==="seo"?seo(person,period,dailyOnly):media(person,period));
-  result.push({name:person.name,subtitle:person.name+" | "+(person.brand||title)+" | "+period.label,rows:rows.length?rows:[["","لا توجد بيانات مسجلة","","","",""]]});}
+  result.push({name:person.name,subtitle:person.name+" | "+(person.brand||title)+" | "+period.label,rows:department==="content"?rows:rows.length?rows:[["","لا توجد بيانات مسجلة","","","",""]],...(department==="content"?{kind:"content" as const,headers:CONTENT_HEADERS}: {})});}
  return result;
 }

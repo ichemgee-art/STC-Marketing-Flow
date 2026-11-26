@@ -67,7 +67,7 @@ function packWorkbook(names:string[],sheets:string[]){
  });
 }
 
-export type DepartmentSheet={name:string;subtitle:string;rows:(string|number)[][]};
+export type DepartmentSheet={name:string;subtitle:string;rows:(string|number)[][];kind?:"content";headers?:string[]};
 export function buildDepartmentWorkbook(reports:DepartmentSheet[]){
  const used=new Set<string>();
  const names=reports.map(r=>{
@@ -75,7 +75,7 @@ export function buildDepartmentWorkbook(reports:DepartmentSheet[]){
   let name=base,i=2;while(used.has(name.toLowerCase()))name=base.slice(0,26)+" "+i++;
   used.add(name.toLowerCase());return name;
  });
- const sheets=reports.map(r=>sheet([[c("STC | تقرير الفترة",1)],[c(r.subtitle)],[c("البيانات المسجلة في السيستم")],header(["التاريخ","النوع","العمل / العنوان","التفاصيل","الحالة","القيمة / المدة"]),...r.rows.map(row=>row.map(v=>c(v)))],[23,24,42,105,24,22]));
+ const sheets=reports.map(r=>sheet([[c("STC | تقرير الفترة",1)],[c(r.subtitle)],[c("البيانات المسجلة في السيستم")],header(r.headers??["التاريخ","النوع","العمل / العنوان","التفاصيل","الحالة","القيمة / المدة"]),...r.rows.map(row=>row.map(v=>c(v)))],r.kind==="content"?[42,100,20,20,27]:[23,24,42,105,24,22]));
  return packWorkbook(names,sheets);
 }
 
