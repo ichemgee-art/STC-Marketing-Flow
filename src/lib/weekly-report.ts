@@ -56,7 +56,7 @@ export function weeklySeo(source:WeeklySource,brand:Brand,period:ReportPeriod){
   .sort((a,b)=>String(a.work_date).localeCompare(String(b.work_date))||Number(a.start_minutes)-Number(b.start_minutes));
  const days=new Map<string,{date:string;activities:string[];minutes:number}>();
  for(const h of entries){
-  const item=days.get(h.work_date)||{date:h.work_date,activities:[],minutes:0};
+  const item: {date:string;activities:string[];minutes:number}=days.get(h.work_date)??{date:String(h.work_date),activities:[],minutes:0};
   if(typeof h.activities==="string"&&h.activities.trim())item.activities.push(h.activities.trim());
   const from=Number(h.start_minutes),to=Number(h.end_minutes);
   if(Number.isInteger(from)&&Number.isInteger(to)&&from>=0&&to<=1440&&to>from)item.minutes+=to-from;
