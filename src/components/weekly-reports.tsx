@@ -3,8 +3,9 @@ import {useEffect,useRef,useState} from "react";
 import {ArrowRight,Download,RefreshCw} from "lucide-react";
 import type {Member} from "@/lib/domain";
 import {supabase} from "@/lib/supabase";
-import {cairoDate,addDays,reportPeriod} from "@/lib/report-period";
-import {loadWeeklySource,makeWeeklyReport,brandName,brandLogo,platforms,weeklyTotals,weeklySeo,weeklyCampaigns,allocationValues,emptyAllocation,type Allocations,type Brand,type WeeklySource,type WeeklyPayload,type WeeklyDepartment} from "@/lib/weekly-report";
+import {reportPeriod} from "@/lib/report-period";
+import {browserDraftStore,readSelection,readDraft,saveSelection,saveDraft,type Selection,type Draft} from "@/lib/weekly-report-draft";
+import {loadWeeklySource,makeWeeklyReport,brandName,brandLogo,platforms,weeklyTotals,weeklySeo,weeklyCampaigns,allocationValues,emptyAllocation,type Brand,type WeeklySource,type WeeklyPayload,type WeeklyDepartment} from "@/lib/weekly-report";
 import {buildWeeklyWorkbook} from "@/lib/seo-monthly-export";
 import {reportGroups,reportWord,type ReportLanguage} from "@/lib/weekly-report-language";
 import {readableError} from "@/lib/workspace-quality";
@@ -22,12 +23,39 @@ function printReport(report:WeeklyPayload,lang:ReportLanguage){
 }
 async function excel(report:WeeklyPayload){const response=await fetch(brandLogo(report.brand));if(!response.ok)throw Error("Logo unavailable");const logo=new Uint8Array(await response.arrayBuffer());const bytes=buildWeeklyWorkbook(report,logo);const url=URL.createObjectURL(new Blob([new Uint8Array(bytes)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));const a=document.createElement("a");a.href=url;a.download=brandName(report.brand)+"-Marketing-"+report.first+"-to-"+report.last+".xlsx";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 export default function WeeklyReports({member,onBack}:{member:Member;onBack:()=>void}){
- const [brand,setBrand]=useState<Brand>("stc"),[last,setLast]=useState(()=>cairoDate(new Date().toISOString())),[first,setFirst]=useState(()=>addDays(cairoDate(new Date().toISOString()),-6)),[department,setDepartment]=useState<WeeklyDepartment>("content"),[lang,setLang]=useState<ReportLanguage>("en"),[source,setSource]=useState<WeeklySource|null>(null),[posts,setPosts]=useState<Record<string,string>>({}),[whatsapp,setWhatsapp]=useState(""),[notes,setNotes]=useState(""),[saved,setSaved]=useState<{id:string;payload:WeeklyPayload}|null>(null),[busy,setBusy]=useState(false),[err,setErr]=useState(""),[archive,setArchive]=useState<{id:string;payload:WeeklyPayload;created_at:string}[]>([]),[allocations,setAllocations]=useState<Allocations>({}),[selected,setSelected]=useState<string[]>([]),[preview,setPreview]=useState(false);
+ const [editor,setEditor]=useState(()=>{const store=browserDraftStore(),selection=readSelection(store,member.id);return {selection,draft:readDraft(store,member.id,selection)};});
+ const latest=useRef(editor);
+ const [storageError,setStorageError]=useState(false);
+ const {brand,first,last,department,lang}=editor.selection;
+ const {posts,whatsapp,notes,allocations,selected}=editor.draft;
+ const [source,setSource]=useState<WeeklySource|null>(null),[saved,setSaved]=useState<{id:string;payload:WeeklyPayload}|null>(null),[busy,setBusy]=useState(false),[err,setErr]=useState(""),[archive,setArchive]=useState<{id:string;payload:WeeklyPayload;created_at:string}[]>([]),[preview,setPreview]=useState(false);
+ // Persist synchronously in input handlers, not a delayed effect that can lose the final keystroke on refresh.
+ function updateDraft<K extends keyof Draft>(key:K,value:Draft[K]|((old:Draft[K])=>Draft[K])){
+  const old=latest.current;
+  const next={...old,draft:{...old.draft,[key]:typeof value==="function"?(value as (old:Draft[K])=>Draft[K])(old.draft[key]):value}};
+  latest.current=next;setEditor(next);
+  const store=browserDraftStore();
+  const draftOk=saveDraft(store,member.id,next.selection,next.draft),selectionOk=saveSelection(store,member.id,next.selection);
+  setStorageError(!draftOk||!selectionOk);
+ }
+ function updateSelection(patch:Partial<Selection>){
+  const old=latest.current,selection={...old.selection,...patch},store=browserDraftStore();
+  const changedScope=old.selection.brand!==selection.brand||old.selection.first!==selection.first||old.selection.last!==selection.last;
+  const next={selection,draft:changedScope?readDraft(store,member.id,selection):old.draft};
+  latest.current=next;setEditor(next);
+  setStorageError(!saveSelection(store,member.id,selection));
+  if(changedScope){setSaved(null);setPreview(false);}
+ }
+ const setBrand=(brand:Brand)=>updateSelection({brand}),setFirst=(first:string)=>updateSelection({first}),setLast=(last:string)=>updateSelection({last}),setDepartment=(department:WeeklyDepartment)=>updateSelection({department}),setLang=(lang:ReportLanguage)=>updateSelection({lang});
+ const setPosts=(v:Draft["posts"]|((old:Draft["posts"])=>Draft["posts"]))=>updateDraft("posts",v);
+ const setWhatsapp=(v:string)=>updateDraft("whatsapp",v),setNotes=(v:string)=>updateDraft("notes",v);
+ const setAllocations=(v:(old:Draft["allocations"])=>Draft["allocations"])=>updateDraft("allocations",v);
+ const setSelected=(v:Draft["selected"]|((old:Draft["selected"])=>Draft["selected"]))=>updateDraft("selected",v);
+
  const lock=useRef(false);
  async function reload(){const [s,a]=await Promise.all([loadWeeklySource(),supabase.from("stc_weekly_report_snapshots").select("id,payload,created_at").order("created_at",{ascending:false}).limit(100)]);if(a.error)throw a.error;setSource(s);setArchive(a.data as typeof archive);}
  useEffect(()=>{void reload().catch(e=>setErr(readableError(e)));},[]);
  async function run(fn:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);setErr("");try{await fn();}catch(e){setErr(readableError(e));}finally{lock.current=false;setBusy(false);}}
- function reset(){setSaved(null);setPosts({});setWhatsapp("");setNotes("");setAllocations({});setSelected([]);setPreview(false);}
  const period=(()=>{try{return reportPeriod(first,last);}catch{return null;}})();
  const data=source&&period?weeklyTotals(source,brand,period):null;
  const seo=source&&period?weeklySeo(source,brand,period):[];
@@ -41,8 +69,9 @@ export default function WeeklyReports({member,onBack}:{member:Member;onBack:()=>
  function archiveReport(payload:WeeklyPayload){void run(async()=>{const r=await supabase.from("stc_weekly_report_snapshots").insert({brand:payload.brand,period_start:payload.first,period_end:payload.last,payload,created_by:member.id});if(r.error)throw r.error;await reload();showToast("تم حفظ التقرير في الأرشيف.","success");});}
  async function removeArchive(id:string){if(!(await confirmInCurrentLanguage("حذف التقرير المحفوظ من الأرشيف فقط؟ بيانات التاسكات الأصلية لن تتغير.")))return;void run(async()=>{const r=await supabase.from("stc_weekly_report_snapshots").delete().eq("id",id).select("id");if(r.error)throw r.error;if(!r.data?.length)throw Error("Report not found");if(saved?.id===id)setSaved(null);await reload();showToast("تم حذف التقرير.","success");});}
  return <div className="easy-shell" dir="rtl"><header className="easy-header"><div className="wr-brand"><img src={brandLogo(brand)} alt={brandName(brand)}/><strong>تقارير الماركتنج الرسمية</strong></div><button className="easy-btn easy-btn--light" onClick={onBack}><ArrowRight size={18}/> رجوع للتيم</button></header><main className="easy-content wr-page">
- <section className="wr-panel"><h1>التقرير الأسبوعي</h1><div className="wr-fields"><label>الشركة<select value={brand} onChange={e=>{setBrand(e.target.value as Brand);reset();}}><option value="stc">STC</option><option value="ichem">iChem</option></select></label><label>من تاريخ<input type="date" value={first} onChange={e=>{setFirst(e.target.value);reset();}}/></label><label>إلى تاريخ<input type="date" value={last} min={first} onChange={e=>{setLast(e.target.value);reset();}}/></label></div><div className="wr-tabs">{([["content","المحتوى والتصميم"],["seo","SEO والمواقع"],["media","الإعلانات"],["all","كل الأقسام"]] as const).map(([key,label])=><button type="button" key={key} aria-pressed={department===key} onClick={()=>{setDepartment(key);setSaved(null);setPreview(false);}}>{label}</button>)}</div><div className="stc-report-actions"><button className="easy-link-btn" disabled={busy} onClick={()=>void run(reload)}><RefreshCw size={16}/> تحديث البيانات</button><span className="wr-meta">البيانات بتتسحب تلقائيًا من السيستم.</span></div></section>
+ <section className="wr-panel"><h1>التقرير الأسبوعي</h1><div className="wr-fields"><label>الشركة<select value={brand} onChange={e=>{setBrand(e.target.value as Brand);}}><option value="stc">STC</option><option value="ichem">iChem</option></select></label><label>من تاريخ<input type="date" value={first} onChange={e=>{setFirst(e.target.value);}}/></label><label>إلى تاريخ<input type="date" value={last} min={first} onChange={e=>{setLast(e.target.value);}}/></label></div><div className="wr-tabs">{([["content","المحتوى والتصميم"],["seo","SEO والمواقع"],["media","الإعلانات"],["all","كل الأقسام"]] as const).map(([key,label])=><button type="button" key={key} aria-pressed={department===key} onClick={()=>{setDepartment(key);setSaved(null);setPreview(false);}}>{label}</button>)}</div><div className="stc-report-actions"><button className="easy-link-btn" disabled={busy} onClick={()=>void run(reload)}><RefreshCw size={16}/> تحديث البيانات</button><span className="wr-meta">البيانات بتتسحب تلقائيًا من السيستم.</span>{!storageError&&<span className="wr-meta">المسودة بتتحفظ تلقائيًا على الجهاز.</span>}</div></section>
  {err&&<p role="alert" className="easy-error">{err}</p>}
+ {storageError&&<p role="alert" className="wr-warning">تعذر حفظ المسودة على الجهاز. متقفليش الصفحة قبل حفظ التقرير.</p>}
  {!source&&<p>جاري تحميل التقرير…</p>}{!period&&<p role="alert">اختار فترة صحيحة.</p>}
  {!saved&&source&&period&&<>
  {showContent&&<section className="wr-panel"><h2>إنجازات المحتوى والتصميم</h2><p>إجمالي المخرجات المعتمدة خلال الفترة. وزعي العدد حسب الاستخدام.</p>

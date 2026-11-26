@@ -1308,6 +1308,8 @@ const EN_ENTRIES: [string,string][] = [
   ["تم حذف التقرير.","Report deleted."],
   ["حذف التقرير المحفوظ من الأرشيف فقط؟ بيانات التاسكات الأصلية لن تتغير.","Delete only this archived report? Original task data will not change."],
   ["نسخة قديمة","Older version"],
+  ["تعذر حفظ المسودة على الجهاز. متقفليش الصفحة قبل حفظ التقرير.","Draft could not be saved on this device. Keep this page open until you archive the report."],
+  ["المسودة بتتحفظ تلقائيًا على الجهاز.","Draft is saved automatically on this device."],
 ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)

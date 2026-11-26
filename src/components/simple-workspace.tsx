@@ -307,7 +307,7 @@ export default function SimpleWorkspace(){
       cache.clear();
       clearStorageManagerCache();clearSeoDataCache();clearMediaBuyerCache();
       setMember(null);setTeam([]);setTasks([]);setNotices([]);
-      setSeoPeople([]);setMediaPeople([]);setSeoView(null);setMediaView(false);setStorageView(false);setStorageAccess(false);
+      setSeoPeople([]);setMediaPeople([]);setSeoView(null);setMediaView(false);setStorageView(false);setWeeklyView(false);setStorageAccess(false);
       setSeoPending({});setSeoReviews([]);setMediaPending(0);setFlowFilter("all");setReviewExpanded(false);setShowNotices(false);setTaskLimit(24);
       pendingTaskId.current=null;setSelected(null);return;
     }
@@ -328,6 +328,7 @@ export default function SimpleWorkspace(){
     setSeoView(last.view==="seo"?last.person||null:null);
     setMediaView(last.view==="media");
     setStorageView(last.view==="storage");
+    setWeeklyView(last.view==="weekly");
   },[userId]);
   const refresh=useCallback(async()=>{
     if(!userId)return;
@@ -530,8 +531,13 @@ export default function SimpleWorkspace(){
     setStorageView(true);setMediaView(false);setSeoView(null);
     if(userId)setFlowLocation(userId,{view:"storage"},"push");
   }
+  function enterWeekly(){
+    if(!manager||!userId)return;
+    setWeeklyView(true);setSeoView(null);setMediaView(false);setStorageView(false);
+    setFlowLocation(userId,{view:"weekly"},"push");
+  }
   function returnToTasks(){
-    setSeoView(null);setMediaView(false);setStorageView(false);
+    setSeoView(null);setMediaView(false);setStorageView(false);setWeeklyView(false);
     if(userId)setFlowLocation(userId,{view:"tasks",tab,review:reviewOnly},"push");
     void refresh();
   }
@@ -541,7 +547,7 @@ export default function SimpleWorkspace(){
     refreshSerial.current++;
     clearFlowLocation(id);
     cache.clear();clearStorageManagerCache();clearSeoDataCache();clearMediaBuyerCache();
-    setStorageView(false);setSeoView(null);setMediaView(false);
+    setStorageView(false);setSeoView(null);setMediaView(false);setWeeklyView(false);
     if(id)cache.delete(id);setMember(null);setTasks([]);setTeam([]);setNotices([]);
   }
   async function clickNotice(n:Notice){
@@ -556,6 +562,7 @@ export default function SimpleWorkspace(){
     const pop=()=>{
       const saved=getFlowLocation(userId);
       setStorageView(saved.view==="storage");
+      setWeeklyView(saved.view==="weekly");
       setMediaView(saved.view==="media");
       setSeoView(saved.view==="seo"?saved.person||null:null);
       setCurrentTab(saved.view==="tasks"?saved.tab||"all":"all");
@@ -585,7 +592,7 @@ export default function SimpleWorkspace(){
     </section>
   </main>;
   if(!member||member.id!==session.user.id)return <div className="easy-loading">{err?<><p role="alert">{err}</p><button className="easy-btn easy-btn--light" onClick={()=>void refresh()}>حاول تاني</button><button className="easy-btn easy-btn--light" onClick={()=>void logout()}>خروج</button></>:"بنحمّل مساحة شغلك…"}</div>;
-  if(manager&&weeklyView)return <WeeklyReports member={member} onBack={()=>setWeeklyView(false)}/>;
+  if(manager&&weeklyView)return <WeeklyReports key={member.id} member={member} onBack={returnToTasks}/>;
   if(member&&canOpenStorage&&storageView)return <StorageDashboard userId={member.id}
     readOnly={!manager} onBack={returnToTasks}/>;
   if(member&&((manager&&mediaView)||assignedMedia))return <MediaBuyerWorkspace
@@ -607,7 +614,7 @@ export default function SimpleWorkspace(){
     <main className="easy-content">
       <section className="easy-intro"><div><h1>{manager?"إدارة شغل الفريق":"شغلك النهارده"}</h1>
         <p>{manager?"راجعي التسليمات، أو اختاري القسم اللي عايزة تتابعيه.":"ابدأ بالأولوية الأولى، وباقي التاسكات تحت."}</p></div>
-        <div className="stc-report-actions">{manager&&<button type="button" className="easy-btn easy-btn--light" onClick={()=>setWeeklyView(true)}>تقارير الماركتنج الرسمية</button>}<MonthlyReports key={manager?managerSection:"personal"} department={manager?managerSection:"content"} member={member} people={manager?(managerSection==="content"?people.map(p=>({id:p.id,name:p.display_name})):managerSection==="seo"?seoPeople.map(p=>({id:p.id,name:p.display_name,brand:p.brand})):mediaPeople.map(p=>({id:p.id,name:p.display_name}))):[{id:member.id,name:member.display_name}]} scopeLabel={manager?"تقرير القسم":"تقريري الشهري"}/>
+        <div className="stc-report-actions">{manager&&<button type="button" className="easy-btn easy-btn--light" onClick={enterWeekly}>تقارير الماركتنج الرسمية</button>}<MonthlyReports key={manager?managerSection:"personal"} department={manager?managerSection:"content"} member={member} people={manager?(managerSection==="content"?people.map(p=>({id:p.id,name:p.display_name})):managerSection==="seo"?seoPeople.map(p=>({id:p.id,name:p.display_name,brand:p.brand})):mediaPeople.map(p=>({id:p.id,name:p.display_name}))):[{id:member.id,name:member.display_name}]} scopeLabel={manager?"تقرير القسم":"تقريري الشهري"}/>
         {manager&&managerSection==="content"&&<button className="easy-btn easy-btn--navy easy-create-button" onClick={()=>setCreating(true)}><Plus size={19}/> تاسك جديد</button>}</div>
       </section>
       {err&&<div className="easy-error" role="alert">{err}<button onClick={()=>void refresh()}>جرّب تاني</button></div>}
