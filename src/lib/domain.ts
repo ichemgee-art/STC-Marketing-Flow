@@ -29,6 +29,10 @@ export type Task = {
   version: number;
   deleted_at?: string | null;
   deleted_by?: string | null;
+  report_brand?: "stc"|"ichem"|null;
+  report_category?: string|null;
+  requested_quantity?: number|null;
+  actual_quantity?: number|null;
 };
 export type Notice = {
   id: string;

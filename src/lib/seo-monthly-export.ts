@@ -30,10 +30,10 @@ function sheet(rows:Cell[][],widths:number[]){
 const styles=xml+'<styleSheet xmlns="'+ns+'"><numFmts count="3"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="[h]:mm"/><numFmt numFmtId="166" formatCode="[h]:mm"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Arial"/><color rgb="FF253A55"/></font><font><b/><sz val="12"/><name val="Arial"/><color rgb="FFFFFFFF"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF253A55"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF1C9"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="166" fontId="0" fillId="3" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 const enc=new TextEncoder();
 function crc(data:Uint8Array){let v=0xffffffff;for(const b of data){v^=b;for(let i=0;i<8;i++)v=(v>>>1)^((v&1)?0xedb88320:0);}return (v^0xffffffff)>>>0;}
-function zip(files:Record<string,string>){
+function zip(files:Record<string,string|Uint8Array>){
  const chunks:Uint8Array[]=[],central:Uint8Array[]=[];let offset=0,total=0;
  for(const [name,content] of Object.entries(files)){
-  const n=enc.encode(name),data=enc.encode(content),sum=crc(data);
+  const n=enc.encode(name),data=typeof content==="string"?enc.encode(content):content,sum=crc(data);
   const local=new Uint8Array(30+n.length),l=new DataView(local.buffer);
   l.setUint32(0,0x04034b50,true);l.setUint16(4,20,true);l.setUint32(14,sum,true);l.setUint32(18,data.length,true);l.setUint32(22,data.length,true);l.setUint16(26,n.length,true);local.set(n,30);
   const ct=new Uint8Array(46+n.length),v=new DataView(ct.buffer);
@@ -80,4 +80,22 @@ export function buildDepartmentWorkbook(reports:DepartmentSheet[]){
  });
  const sheets=reports.map(r=>sheet([[c("STC | تقرير الفترة",1)],[c(r.subtitle)],[c("البيانات المسجلة في السيستم")],header(["التاريخ","النوع","العمل / العنوان","التفاصيل","الحالة","القيمة / المدة"]),...r.rows.map(row=>row.map(v=>c(v)))],[23,24,42,105,24,22]));
  return packWorkbook(names,sheets);
+}
+
+import type {WeeklyPayload} from "./weekly-report";
+export function buildWeeklyWorkbook(report:WeeklyPayload,logo:Uint8Array){
+ const names=["Achievements","Utilization","Social media","SEO","Campaigns","WhatsApp"];
+ const sheets=report.sections.map(section=>sheet([[c(section.title,1)],[c(report.brand==="stc"?"STC":"iChem")],[c(report.first+" — "+report.last) ],header(section.headers),...section.rows.map(row=>row.map(v=>c(v)))],section.headers.map((_,i)=>i===2?55:28)));
+ const drawing=xml+'<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><xdr:oneCellAnchor><xdr:from><xdr:col>3</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx="1100000" cy="450000"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="1" name="Company logo"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip xmlns:r="'+rel+'" r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>';
+ const linked=sheets.map(s=>s.replace('</worksheet>','<drawing xmlns:r="'+rel+'" r:id="rId1"/></worksheet>'));
+ const relationships=(body:string)=>xml+'<Relationships xmlns="'+pkg+'">'+body+'</Relationships>';
+ const relationship=(id:string,type:string,target:string)=>'<Relationship Id="'+id+'" Type="'+rel+'/'+type+'" Target="'+target+'"/>';
+ const files:Record<string,string|Uint8Array>={
+ "[Content_Types].xml":xml+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'+names.map((_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join("")+'</Types>',
+ "_rels/.rels":relationships(relationship("rId1","officeDocument","xl/workbook.xml")),
+ "xl/workbook.xml":xml+'<workbook xmlns="'+ns+'" xmlns:r="'+rel+'"><sheets>'+names.map((n,i)=>'<sheet name="'+n+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join("")+'</sheets></workbook>',
+ "xl/_rels/workbook.xml.rels":relationships(names.map((_,i)=>relationship("rId"+(i+1),"worksheet","worksheets/sheet"+(i+1)+".xml")).join("")+relationship("rId"+(names.length+1),"styles","styles.xml")),
+ "xl/styles.xml":styles,"xl/drawings/drawing1.xml":drawing,"xl/drawings/_rels/drawing1.xml.rels":relationships(relationship("rId1","image","../media/logo.png")),"xl/media/logo.png":logo};
+ linked.forEach((s,i)=>{files["xl/worksheets/sheet"+(i+1)+".xml"]=s;files["xl/worksheets/_rels/sheet"+(i+1)+".xml.rels"]=relationships(relationship("rId1","drawing","../drawings/drawing1.xml"));});
+ return zip(files);
 }

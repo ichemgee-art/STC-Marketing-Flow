@@ -6,6 +6,8 @@ import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, Log
 import { supabase, configured } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
 import MonthlyReports from "./monthly-reports";
+import WeeklyReports from "./weekly-reports";
+import {ReportTaskFields,reportTaskValues} from "./report-task-fields";
 import {seoMetricLabel} from "@/lib/seo-metric-labels";
 import { notifySound, unlockSound, type SoundKind } from "@/lib/notification-sound";
 import { readableError, createRefreshScheduler } from "@/lib/workspace-quality";
@@ -53,6 +55,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
     try{return sessionStorage.getItem(noteKey)||"";}catch{return "";}
   });
   const [edit,setEdit]=useState(false);
+  const [actual,setActual]=useState(String(task.actual_quantity??task.requested_quantity??1));
   const editVersion=useRef(task.version);
   const [taskEvents,setTaskEvents]=useState<{id:string;actor_id:string|null;action:string;created_at:string}[]>([]);
   useEffect(()=>{
@@ -84,7 +87,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
   async function change(status:Task["status"]){
     await run(async()=>{
       const values:Record<string,unknown>={status};
-      if(status==="waiting_review")values.submission_note=note.trim();
+      if(status==="waiting_review"){values.submission_note=note.trim();if(task.report_brand&&task.report_category){const n=Number(actual);if(!Number.isInteger(n)||n<1||n>1000000)throw Error("اكتب العدد المنفذ بشكل صحيح.");values.actual_quantity=n;}}
       if(status==="approved"||status==="changes_requested")values.review_note=note.trim();
       const r=await supabase.from("stc_tasks").update(values).eq("id",task.id).eq("version",task.version).is("deleted_at",null).select("id");
       if(r.error)throw r.error;
@@ -105,7 +108,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
       const r=await supabase.from("stc_tasks").update({
         title:String(f.get("title")||"").trim(),description:String(f.get("description")||""),
         assignee_id:String(f.get("assignee")),due_date:f.get("due")||null,
-        priority:String(f.get("priority")),
+        priority:String(f.get("priority")),...reportTaskValues(f),
       }).eq("id",task.id).eq("version",editVersion.current).is("deleted_at",null).select("id");
       if(r.error)throw r.error;
       if(!r.data?.length)throw new Error("حد عدّل التاسك أثناء التعديل. بياناتك لسه موجودة؛ راجعي أحدث نسخة قبل الحفظ.");
@@ -152,6 +155,8 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
         <textarea id="easy-note" value={note} onChange={e=>setNote(e.target.value)} rows={3} placeholder="اكتب ملاحظتك هنا لو حابب…"/>
         {!!note.trim()&&<button type="button" className="easy-link-btn" disabled={busy} onClick={()=>void saveNote()}><MessageCircle size={15}/> احفظ الملاحظة بس</button>}
       </div>}
+      {!edit&&!manager&&task.report_brand&&task.report_category&&task.status!=="approved"&&task.status!=="waiting_review"&&<label className="wr-quantity">العدد المنفذ<input type="number" min={1} max={1000000} value={actual} onChange={e=>setActual(e.target.value)}/></label>}
+      {task.report_brand&&<p className="wr-meta">{task.report_brand==="stc"?"STC":"iChem"} · {task.actual_quantity??"—"} / {task.requested_quantity??"—"}</p>}
       {!edit&&task.status!=="approved"&&<div className="easy-dialog-actions">
         {!manager&&task.status!=="waiting_review"&&<>
           {task.status!=="in_progress"&&<button className="easy-btn easy-btn--light" disabled={busy} onClick={()=>void change("in_progress")}>بدأت أشتغل عليها</button>}
@@ -187,6 +192,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
           <label>اسم التاسك<input name="title" required maxLength={300} defaultValue={task.title}/></label>
           <label>المطلوب<textarea name="description" rows={3} defaultValue={task.description}/></label>
           <label>مين هيعمله؟<select name="assignee" defaultValue={task.assignee_id}>{team.filter(p=>p.role==="member"&&p.active).map(p=><option key={p.id} value={p.id}>{p.display_name}</option>)}</select></label>
+          <ReportTaskFields task={task}/>
           <label>الميعاد<input name="due" type="date" defaultValue={task.due_date||""}/></label>
           <label>الأولوية<select name="priority" defaultValue={task.priority}><option value="normal">عادية</option><option value="high">مستعجلة</option><option value="low">مش مستعجلة</option></select></label>
           <button type="submit" className="easy-btn easy-btn--navy" disabled={busy}>احفظي التعديل</button>
@@ -211,7 +217,7 @@ function CreateDialog({people,initial,memberId,close,refresh,notify}:{people:Mem
   const keepDraft=(form:HTMLFormElement)=>{
     const data=new FormData(form);
     try{sessionStorage.setItem(draftKey,JSON.stringify(Object.fromEntries(
-      ["title","description","assignee","due","priority"].map(key=>[key,String(data.get(key)||"")])
+      ["title","description","assignee","due","priority","report_brand","report_category","requested_quantity"].map(key=>[key,String(data.get(key)||"")])
     )));}catch{}
   };
   return <div className="easy-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)close();}}>
@@ -224,7 +230,7 @@ function CreateDialog({people,initial,memberId,close,refresh,notify}:{people:Mem
           if(!navigator.onLine)throw new Error("الإنترنت مش متصل. المسودة محفوظة.");
           const r=await supabase.from("stc_tasks").insert({
             title:String(f.get("title")||"").trim(),description:String(f.get("description")||""),
-            assignee_id:String(f.get("assignee")),due_date:f.get("due")||null,priority:String(f.get("priority")),
+            assignee_id:String(f.get("assignee")),due_date:f.get("due")||null,priority:String(f.get("priority")),...reportTaskValues(f),
           });
           if(r.error)throw r.error;
           try{sessionStorage.removeItem(draftKey);}catch{}
@@ -233,6 +239,7 @@ function CreateDialog({people,initial,memberId,close,refresh,notify}:{people:Mem
       }}>
         <label>اسم التاسك<input name="title" required maxLength={300} defaultValue={draft.title||""} placeholder="مثلاً: بوست عن منتج جديد"/></label>
         <label>مين هيعمله؟<select name="assignee" defaultValue={people.some(p=>p.id===draft.assignee)?draft.assignee:people.some(p=>p.id===initial)?initial:people[0]?.id} required>{people.map(p=><option key={p.id} value={p.id}>{p.display_name}</option>)}</select></label>
+        <ReportTaskFields draft={draft} required/>
         <label>مطلوب منه إيه؟<textarea name="description" rows={3} defaultValue={draft.description||""} placeholder="التفاصيل والتعليمات…"/></label>
         <div className="easy-form-row"><label>ميعاد التسليم<input type="date" name="due" defaultValue={draft.due||""}/></label>
           <label>الأولوية<select name="priority" defaultValue={draft.priority||"normal"}><option value="normal">عادية</option><option value="high">مستعجلة</option><option value="low">مش مستعجلة</option></select></label>
@@ -254,6 +261,7 @@ export default function SimpleWorkspace(){
   const [mediaPending,setMediaPending]=useState(0);
   const [seoView,setSeoView]=useState<string|null>(null);
   const [storageView,setStorageView]=useState(false);
+  const [weeklyView,setWeeklyView]=useState(false);
   const [storageAccess,setStorageAccess]=useState(false);
   const [seoPending,setSeoPending]=useState<Record<string,number>>({});
   const [seoReviews,setSeoReviews]=useState<SeoReview[]>([]);
@@ -575,6 +583,7 @@ export default function SimpleWorkspace(){
     </section>
   </main>;
   if(!member||member.id!==session.user.id)return <div className="easy-loading">{err?<><p role="alert">{err}</p><button className="easy-btn easy-btn--light" onClick={()=>void refresh()}>حاول تاني</button><button className="easy-btn easy-btn--light" onClick={()=>void logout()}>خروج</button></>:"بنحمّل مساحة شغلك…"}</div>;
+  if(manager&&weeklyView)return <WeeklyReports member={member} onBack={()=>setWeeklyView(false)}/>;
   if(member&&canOpenStorage&&storageView)return <StorageDashboard userId={member.id}
     readOnly={!manager} onBack={returnToTasks}/>;
   if(member&&((manager&&mediaView)||assignedMedia))return <MediaBuyerWorkspace
@@ -596,7 +605,7 @@ export default function SimpleWorkspace(){
     <main className="easy-content">
       <section className="easy-intro"><div><h1>{manager?"إدارة شغل الفريق":"شغلك النهارده"}</h1>
         <p>{manager?"راجعي التسليمات، أو اختاري القسم اللي عايزة تتابعيه.":"ابدأ بالأولوية الأولى، وباقي التاسكات تحت."}</p></div>
-        <div className="stc-report-actions"><MonthlyReports key={manager?managerSection:"personal"} department={manager?managerSection:"content"} member={member} people={manager?(managerSection==="content"?people.map(p=>({id:p.id,name:p.display_name})):managerSection==="seo"?seoPeople.map(p=>({id:p.id,name:p.display_name,brand:p.brand})):mediaPeople.map(p=>({id:p.id,name:p.display_name}))):[{id:member.id,name:member.display_name}]} scopeLabel={manager?"تقرير القسم":"تقريري الشهري"}/>
+        <div className="stc-report-actions">{manager&&<button type="button" className="easy-btn easy-btn--light" onClick={()=>setWeeklyView(true)}>تقارير الماركتنج الرسمية</button>}<MonthlyReports key={manager?managerSection:"personal"} department={manager?managerSection:"content"} member={member} people={manager?(managerSection==="content"?people.map(p=>({id:p.id,name:p.display_name})):managerSection==="seo"?seoPeople.map(p=>({id:p.id,name:p.display_name,brand:p.brand})):mediaPeople.map(p=>({id:p.id,name:p.display_name}))):[{id:member.id,name:member.display_name}]} scopeLabel={manager?"تقرير القسم":"تقريري الشهري"}/>
         {manager&&managerSection==="content"&&<button className="easy-btn easy-btn--navy easy-create-button" onClick={()=>setCreating(true)}><Plus size={19}/> تاسك جديد</button>}</div>
       </section>
       {err&&<div className="easy-error" role="alert">{err}<button onClick={()=>void refresh()}>جرّب تاني</button></div>}
