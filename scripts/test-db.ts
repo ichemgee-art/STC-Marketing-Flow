@@ -271,6 +271,15 @@ async function main() {
   await db.exec(`update public.stc_tasks set status='approved' where id='${copy}'`);
   await asUser(shared);
   assert.equal((await db.query(`select id from public.stc_notifications where task_id='${copy}' and kind='approved'`)).rows.length,1);
+  // Historical member identity remains assignable, but old access tokens are denied.
+  await asUser(b);
+  assert.equal((await db.query("select id from public.stc_members")).rows.length,0);
+  assert.equal((await db.query("select id from public.stc_tasks")).rows.length,0);
+  assert.equal((await db.query("select id from public.stc_notifications")).rows.length,0);
+  await asUser(shared);
+  assert.equal((await db.query(`select id from public.stc_tasks where id='${copy}'`)).rows.length,1);
+  await asUser(manager);
+  assert.equal((await db.query(`select id from public.stc_members where id='${b}' and active`)).rows.length,1);
   await db.close();
   console.log(
     "PASS: Postgres schema, RLS isolation, role escalation, workflow, deadline preservation, immutable audit, storage authorization, replay-safe atomic import, provenance, deactivated member.",
