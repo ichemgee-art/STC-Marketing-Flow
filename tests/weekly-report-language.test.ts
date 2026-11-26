@@ -1,0 +1,5 @@
+import {test} from "node:test";import assert from "node:assert/strict";import {localizedSections,reportGroups} from "../src/lib/weekly-report-language";import type {WeeklyPayload} from "../src/lib/weekly-report";
+test("Arabic PDF localizes interface and status without translating user task names",()=>{
+ const p:WeeklyPayload={brand:"stc",first:"2026-11-14",last:"2026-11-20",notes:"",sections:[{title:"01 — Team Achievements",headers:["Team member","Work type","Work performed","Quantity","Status","Activity date"],rows:[["Nardine","Graphic Design","Approved",2,"Approved","2026-11-20"]]},{title:"04 — SEO Achievements",headers:["Work"],rows:[]},{title:"02 — Deliverables Utilization",headers:["Status"],rows:[["Published"]]},{title:"03 — Social Media Posting",headers:["Platform"],rows:[["Facebook"]]}]};
+ const ar=localizedSections(p,"ar");assert.deepEqual(ar[0].rows[0],["Nardine","تصميم جرافيك","Approved",2,"تم الاعتماد","2026-11-20"]);assert.equal(localizedSections(p,"en")[0].rows[0][4],"Approved");assert.equal(reportGroups(p,"ar").length,3);assert.equal(reportGroups(p,"en")[0].sections.length,2);
+});

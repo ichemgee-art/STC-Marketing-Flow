@@ -8,3 +8,14 @@ export function localizedSections(report:WeeklyPayload,lang:ReportLanguage):Week
  return {title:reportWord(section.title,lang),headers:section.headers.map(h=>reportWord(h,lang)),rows:section.rows.map(row=>row.map((v,i)=>typeof v==="string"&&(cols.includes(i)||((section.headers[i]==="Quantity"||section.headers[i]==="Count"||section.headers[i]==="Published posts"||section.headers[i]==="Daily budget")&&v==="Not recorded"))?reportWord(v,lang):v))};
  });
 }
+
+export function reportGroups(report:WeeklyPayload,lang:ReportLanguage){
+ const sections=localizedSections(report,lang);
+ const groups=[{title:lang==="ar"?"١. إنجازات الفريق":"1. Team Weekly Achievements",sections:[] as WeeklySection[]},{title:lang==="ar"?"٢. استخدام المخرجات":"2. Deliverables Utilization Details",sections:[] as WeeklySection[]},{title:lang==="ar"?"٣. النشر على منصات التواصل":"3. Social Media Posting",sections:[] as WeeklySection[]}];
+ report.sections.forEach((s,i)=>{
+ const index=s.title.includes("Utilization")?1:s.title.includes("Social Media")?2:0;
+ const title=s.title.includes("Team Achievements")||index!==0?"":sections[i].title.replace(/^\d+\s*—\s*/,"");
+ groups[index].sections.push({...sections[i],title});
+ });
+ return groups.filter(g=>g.sections.length);
+}

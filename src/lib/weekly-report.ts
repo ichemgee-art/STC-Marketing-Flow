@@ -33,7 +33,7 @@ export function makeWeeklyReport(source:WeeklySource,brand:Brand,period:ReportPe
  const events=source.events.filter(e=>e.task_id===t.id&&inReportPeriod(e.created_at,period)).sort((a,b)=>a.created_at.localeCompare(b.created_at));
  const latest=events.at(-1);const state=latest?.details?.after?.status??(latest?.action==="assigned"?"todo":latest?.action??"todo");
  const delivery=events.filter(e=>e.action==="waiting_review"||e.action==="approved").at(-1);
- const quantity=delivery?(delivery.details?.after?.actual_quantity??t.actual_quantity??"Not recorded"):"—";
+ const quantity=delivery?(delivery.details?.after?.actual_quantity??(t.status==="approved"||t.status==="waiting_review"?t.actual_quantity:null)??"Not recorded"):"—";
  return [name(t.assignee_id),cats[t.report_category]||"Unclassified",t.title,quantity,taskStatus[state]||state,latest?cairoDate(latest.created_at):cairoDate(t.created_at)];
  });
  const usageRows:WeeklyRow[]=[];
