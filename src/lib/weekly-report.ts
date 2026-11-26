@@ -12,16 +12,16 @@ export const states=[["published","Published"],["used","Used"],["scheduled","Sch
 export const cats:Record<string,string>={design:"Graphic Design",ai_image:"AI Images",ai_video:"AI Videos",video:"Videos",caption:"Captions",datasheet:"Datasheets",photo:"Photography",other:"Other"};
 async function pages(query:(a:number,b:number)=>PromiseLike<{data:any[]|null;error:unknown}>){const rows:any[]=[];for(let a=0;;a+=500){const r=await query(a,a+499);if(r.error)throw r.error;const d=r.data||[];rows.push(...d);if(d.length<500)return rows;}}
 export async function loadWeeklySource(){
- const [tasks,events,team,usage,profiles,progress,briefs,submissions]=await Promise.all([
+ const [tasks,events,team,usage,profiles,hours,briefs,submissions]=await Promise.all([
  pages((a,b)=>supabase.from("stc_tasks").select("*").is("deleted_at",null).order("id").range(a,b)),
  pages((a,b)=>supabase.from("stc_events").select("id,task_id,action,created_at,details").in("action",["assigned","reassigned","in_progress","waiting_review","changes_requested","approved","tomorrow"]).order("id").range(a,b)),
  pages((a,b)=>supabase.from("stc_members").select("id,display_name").order("id").range(a,b)),
  pages((a,b)=>supabase.from("stc_deliverable_usage").select("*").order("id").range(a,b)),
  pages((a,b)=>supabase.from("stc_seo_profiles").select("id,brand,display_name").order("id").range(a,b)),
- pages((a,b)=>supabase.from("stc_seo_progress").select("*,stc_seo_targets!inner(title,target_unit,profile_id)").order("id").range(a,b)),
+ pages((a,b)=>supabase.from("stc_seo_hours").select("id,profile_id,work_date,start_minutes,end_minutes,activities").order("id").range(a,b)),
  pages((a,b)=>supabase.from("stc_media_briefs").select("*").is("deleted_at",null).order("id").range(a,b)),
  pages((a,b)=>supabase.from("stc_media_submissions").select("*").order("id").range(a,b))]);
- return {tasks,events,team,usage:usage as Usage[],profiles,progress,briefs,submissions};
+ return {tasks,events,team,usage:usage as Usage[],profiles,hours,briefs,submissions};
 }
 export type WeeklySource=Awaited<ReturnType<typeof loadWeeklySource>>;
 export type Allocation={published:string;next:string;unused:string};
@@ -49,22 +49,33 @@ export function allocationValues(total:number,entry:Allocation=emptyAllocation){
 export function weeklyCampaigns(source:WeeklySource,brand:Brand,period:ReportPeriod){
  return source.briefs.filter(b=>b.report_brand===brand).map(b=>({brief:b,result:source.submissions.find(x=>x.brief_id===b.id)})).filter(({brief:b,result:r})=>inReportPeriod(b.created_at,period)||inReportPeriod(r?.created_at,period)||inReportPeriod(r?.updated_at,period)||campaignOverlaps(r?.start_date,r?.end_date,period));
 }
+/** Official weekly SEO work comes exclusively from the daily work log, not target progress. */
 export function weeklySeo(source:WeeklySource,brand:Brand,period:ReportPeriod){
- const map=new Map<string,{title:string;unit:string;total:number}>();
- for(const p of source.progress){const target=Array.isArray(p.stc_seo_targets)?p.stc_seo_targets[0]:p.stc_seo_targets;const profile=source.profiles.find(t=>t.id===target?.profile_id);if(profile?.brand?.toLowerCase()!==brand||!inReportPeriod(p.work_date,period))continue;const title=String(target.title),unit=String(target.target_unit||"");const key=JSON.stringify([title,unit]);const item=map.get(key)||{title,unit,total:0};item.total+=Number(p.done_count)||0;map.set(key,item);}
- return [...map.values()];
+ const ids=new Set(source.profiles.filter(p=>String(p.brand).toLowerCase()===brand).map(p=>p.id));
+ const entries=source.hours.filter(h=>ids.has(h.profile_id)&&inReportPeriod(h.work_date,period))
+  .sort((a,b)=>String(a.work_date).localeCompare(String(b.work_date))||Number(a.start_minutes)-Number(b.start_minutes));
+ const days=new Map<string,{date:string;activities:string[];minutes:number}>();
+ for(const h of entries){
+  const item=days.get(h.work_date)||{date:h.work_date,activities:[],minutes:0};
+  if(typeof h.activities==="string"&&h.activities.trim())item.activities.push(h.activities.trim());
+  const from=Number(h.start_minutes),to=Number(h.end_minutes);
+  if(Number.isInteger(from)&&Number.isInteger(to)&&from>=0&&to<=1440&&to>from)item.minutes+=to-from;
+  days.set(h.work_date,item);
+ }
+ return [...days.values()];
 }
+export const formatSeoDuration=(minutes:number)=>Math.floor(minutes/60)+":"+String(minutes%60).padStart(2,"0");
 export function makeWeeklyReport(source:WeeklySource,brand:Brand,period:ReportPeriod,posts:Record<string,string>,whatsapp:string,notes:string,department:WeeklyDepartment="all",allocations:Allocations={},selectedCampaigns:string[]=[]):WeeklyPayload{
  const {rows}=weeklyTotals(source,brand,period);
  const achievements:WeeklyRow[]=rows.map(r=>[r.label,r.total]);
  const usageRows:WeeklyRow[]=rows.map(r=>{const a=allocationValues(r.total,allocations[r.key]);if(!a.valid)throw Error("Invalid allocation");return [r.label,r.total,...a.values,a.remaining];});
- const seoRows:WeeklyRow[]=weeklySeo(source,brand,period).map(r=>[r.title,r.total,r.unit]);
+ const seoRows:WeeklyRow[]=weeklySeo(source,brand,period).map(r=>[r.date,r.activities.join("\n"),formatSeoDuration(r.minutes)]);
  const mediaRows:WeeklyRow[]=weeklyCampaigns(source,brand,period).filter(({brief})=>selectedCampaigns.includes(brief.id)).map(({brief:b,result:r})=>[r?.campaign_post||b.post_url,r?.campaign_goal||b.instructions||"",r?.daily_budget??"Not recorded",r?.currency||"",r?.start_date||"",r?.end_date||"",r?.results||"Not recorded",r?.status||"Assigned"]);
  const sections:WeeklySection[]=[
  {title:"01 — Team Achievements",headers:["Work type","Completed quantity"],rows:achievements},
  {title:"02 — Deliverables Utilization",headers:["Work type","Completed quantity","Published / used","Next week","Unused","Not classified"],rows:usageRows},
  {title:"03 — Social Media Posting",headers:["Platform","Published posts","Source"],rows:platforms.map(p=>[p,posts[p]?.trim()?Number(posts[p]):"Not recorded","Manager entry"])},
- {title:"04 — SEO Achievements",headers:["Work","Quantity","Unit"],rows:seoRows},
+ {title:"04 — SEO Achievements",headers:["Date","Work performed","Hours worked (h:mm)"],rows:seoRows},
  {title:"05 — Paid Campaigns",headers:["Post","Goal","Daily budget","Currency","From","To","Results","Status"],rows:mediaRows},
  {title:"06 — WhatsApp",headers:["Metric","Count","Source"],rows:[["Messages",whatsapp.trim()?Number(whatsapp):"Not recorded","Manager entry"]]}];
  const indices=department==="content"?[0,1,2]:department==="seo"?[3]:department==="media"?[4,5]:[0,1,2,3,4,5];

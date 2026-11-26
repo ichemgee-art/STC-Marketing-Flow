@@ -1310,6 +1310,11 @@ const EN_ENTRIES: [string,string][] = [
   ["نسخة قديمة","Older version"],
   ["تعذر حفظ المسودة على الجهاز. متقفليش الصفحة قبل حفظ التقرير.","Draft could not be saved on this device. Keep this page open until you archive the report."],
   ["المسودة بتتحفظ تلقائيًا على الجهاز.","Draft is saved automatically on this device."],
+  ["الأعمال المسجلة في التقرير اليومي خلال الفترة المختارة.","Work recorded in the daily report during the selected period."],
+  ["ساعات العمل (ساعة:دقيقة)","Hours worked (h:mm)"],
+  ["إجمالي ساعات الفترة:","Total hours for the period:"],
+  ["لا توجد أعمال مسجلة في التقرير اليومي خلال الفترة.","No work recorded in the daily report during this period."],
+  ["الأعمال المنفذة","Work performed"],
 ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)
