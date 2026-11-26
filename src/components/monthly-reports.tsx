@@ -37,10 +37,10 @@ export default function MonthlyReports({department,member,people,initialMonth,sc
   lock.current=true;setBusy(true);
   try{
    // The supplied scope is additionally enforced by authenticated database RLS.
-   const bytes=format==="excel"&&dailyOnly&&people.length===1?await (async()=>{const person=people[0];const {hours,done}=await loadSeoDaily(person,period);return buildSeoMonthlyWorkbook({profileName:person.name,brand:person.brand||"",monthKey:companyMonthKey(period.first),hours,done,period});})():null;
+   const bytes=format==="excel"&&dailyOnly&&people.length===1?await (async()=>{const person=people[0];const {hours}=await loadSeoDaily(person,period);return buildSeoMonthlyWorkbook({profileName:person.name,brand:person.brand||"",monthKey:companyMonthKey(period.first),hours,done:[],period,hoursOnly:true});})():null;
    const data=bytes?[]:await monthlyReport(department,people,period,dailyOnly);
    if(format==="pdf"&&win){printable(win,data,period.label);}
-   else{const blob=new Blob([new Uint8Array(bytes??buildDepartmentWorkbook(data))],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=("STC-"+department+"-"+(people.length===1?people[0].name:"Team")+"-"+period.fileKey+".xlsx").replace(/[\\/:*?"<>|]/g,"-");document.body.append(a);a.click();a.remove();window.setTimeout(()=>URL.revokeObjectURL(url),1000);}
+   else{const blob=new Blob([new Uint8Array(bytes??buildDepartmentWorkbook(data))],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=("STC-"+department+(department==="seo"?(dailyOnly?"-daily":"-targets"):"")+"-"+(people.length===1?people[0].name:"Team")+"-"+period.fileKey+".xlsx").replace(/[\\/:*?"<>|]/g,"-");document.body.append(a);a.click();a.remove();window.setTimeout(()=>URL.revokeObjectURL(url),1000);}
    if(menu.current)menu.current.open=false;showToast(format==="excel"?"تم تصدير التقرير بنجاح.":"التقرير جاهز للحفظ PDF.","success");
   }catch(e){win?.close();showToast(readableError(e),"error");}finally{lock.current=false;setBusy(false);}
  }

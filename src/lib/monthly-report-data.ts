@@ -1,7 +1,6 @@
 import {supabase} from "./supabase";
-import {seoMetricLabel} from "./seo-metric-labels";
-import {type DepartmentSheet,type ReportAchievement,type ReportHour} from "./seo-monthly-export";
-import {inReportPeriod,campaignOverlaps,inCompanyMonth,type ReportPeriod} from "./report-period";
+import {type DepartmentSheet,type ReportHour} from "./seo-monthly-export";
+import {inReportPeriod,campaignOverlaps,inCompanyMonth,companyMonthKey,companyMonthRange,type ReportPeriod} from "./report-period";
 export type Department="content"|"seo"|"media";
 export type ReportPerson={id:string;name:string;brand?:string};
 type Row=(string|number)[];
@@ -44,32 +43,32 @@ async function content(person:ReportPerson,period:ReportPeriod):Promise<Row[]>{
 }
 export async function loadSeoDaily(person:ReportPerson,period:ReportPeriod){
  const {first,next}=period;
- const [hours,progress]=await Promise.all([
-  pages((a,b)=>supabase.from("stc_seo_hours").select("*").eq("profile_id",person.id).gte("work_date",first).lt("work_date",next).order("id").range(a,b)),
-  pages((a,b)=>supabase.from("stc_seo_progress").select("*,stc_seo_targets!inner(title,target_count,profile_id,month_key)").eq("stc_seo_targets.profile_id",person.id).gte("work_date",first).lt("work_date",next).order("id").range(a,b))
- ]);
+ const hours=await pages((a,b)=>supabase.from("stc_seo_hours").select("work_date,start_minutes,end_minutes,activities").eq("profile_id",person.id).gte("work_date",first).lt("work_date",next).order("id").range(a,b));
  const work:ReportHour[]=hours.map(h=>({work_date:h.work_date,start_minutes:h.start_minutes,end_minutes:h.end_minutes,activities:h.activities}));
- const scopedProgress=progress.filter(x=>{const t=Array.isArray(x.stc_seo_targets)?x.stc_seo_targets[0]:x.stc_seo_targets;return t?.profile_id===person.id&&typeof t.month_key==="string"&&inCompanyMonth(String(x.work_date),t.month_key);});
- const done:ReportAchievement[]=scopedProgress.map(x=>{const t=Array.isArray(x.stc_seo_targets)?x.stc_seo_targets[0]:x.stc_seo_targets;return {work_date:x.work_date,title:t?.title||"تارجت",unit:"",qualitative:t?.target_count===null,done_count:x.done_count,note:x.note||""};});
- return {hours:work,done,progress:scopedProgress};
+ return {hours:work};
 }
 async function seo(person:ReportPerson,period:ReportPeriod,dailyOnly=false):Promise<Row[]>{
- const {hours,done,progress}=await loadSeoDaily(person,period);
- const rows:Row[]=[["","إجمالي الساعات","ساعات الفترة","","",mins(hours.reduce((n,x)=>n+x.end_minutes-x.start_minutes,0))]];
- for(const h of hours.sort((a,b)=>a.work_date.localeCompare(b.work_date)||a.start_minutes-b.start_minutes))rows.push([h.work_date,"فترة عمل",mins(h.start_minutes)+" – "+mins(h.end_minutes),h.activities,"",mins(h.end_minutes-h.start_minutes)]);
- for(const x of done)rows.push([x.work_date,x.done_count>0?"إنجاز Done":"سجل بدون إنجاز",x.title,x.note,x.done_count===0?"لم يتم التنفيذ":x.qualitative?"تم التنفيذ":"",x.qualitative?"":x.done_count]);
- if(dailyOnly)return rows;
- // Monthly snapshots are not weekly data. Include them only for fully selected company reporting months.
- if(!period.fullMonths.length){rows.push(["","ملاحظة","المؤشرات والتارجت الشهري","تظهر البيانات الشهرية عند اختيار شهر كامل؛ التقرير الحالي يشمل الساعات والإنجازات الفعلية للفترة.","",""]);return rows;}
- for(const month of period.fullMonths){
-  const [targets,metrics,periods]=await Promise.all([
-   pages((a,b)=>supabase.from("stc_seo_targets").select("*").eq("profile_id",person.id).eq("month_key",month).order("id").range(a,b)),
-   pages((a,b)=>supabase.from("stc_seo_metrics").select("*").eq("profile_id",person.id).eq("month_key",month).order("id").range(a,b)),
-   pages((a,b)=>supabase.from("stc_seo_periods").select("label,cells,links,comments,source_sheet,image_count,id").eq("profile_id",person.id).eq("month_key",month).order("id").range(a,b))
-  ]);
-  for(const t of targets){const completed=progress.filter(x=>x.target_id===t.id&&inCompanyMonth(String(x.work_date),month)).reduce((n,x)=>n+x.done_count,0);rows.push([month,"تارجت شهري",t.title,lines(t.details,t.target_count==null?"مهمة بدون عدد":"المطلوب: "+t.target_count,"الدورية: "+t.cadence),t.target_count==null?(completed>0?"تم التنفيذ":"لم يتم التنفيذ"):"المنفذ",t.target_count==null?"":completed]);}
-  for(const x of metrics)rows.push([month,"مؤشر SEO شهري",seoMetricLabel(x.metric_key),lines("قبل: "+str(x.before_value),"بعد: "+str(x.after_value),x.note,x.review_note),label(x.status),""]);
-  for(const x of periods)for(const [addr,value] of Object.entries(x.cells||{}))rows.push([month,"بيانات تاريخية شهرية",x.source_sheet+" / "+addr,lines(str(value),x.comments?.[addr],x.links?.[addr]),"",""]);
+ if(dailyOnly){
+  const {hours}=await loadSeoDaily(person,period);
+  const rows:Row[]=[["","إجمالي الساعات","ساعات الفترة","","",mins(hours.reduce((n,x)=>n+x.end_minutes-x.start_minutes,0))]];
+  for(const h of hours.sort((a,b)=>a.work_date.localeCompare(b.work_date)||a.start_minutes-b.start_minutes))rows.push([h.work_date,"فترة عمل",mins(h.start_minutes)+" – "+mins(h.end_minutes),h.activities,"",mins(h.end_minutes-h.start_minutes)]);
+  return rows;
+ }
+ const months:string[]=[];
+ for(let m=companyMonthKey(period.first);m<=companyMonthKey(period.last);m=companyMonthKey(companyMonthRange(m).next))months.push(m);
+ const rows:Row[]=[];
+ for(const month of months){
+  const targets=await pages((a,b)=>supabase.from("stc_seo_targets").select("*").eq("profile_id",person.id).eq("month_key",month).order("id").range(a,b));
+  const progress:RecordRow[]=[];
+  for(const ids of chunks(targets.map(t=>t.id)))progress.push(...await pages((a,b)=>supabase.from("stc_seo_progress").select("target_id,work_date,done_count,note").in("target_id",ids).gte("work_date",period.first).lt("work_date",period.next).order("id").range(a,b)));
+  for(const t of targets){
+   const entries=progress.filter(x=>x.target_id===t.id&&inCompanyMonth(String(x.work_date),month));
+   const done=entries.reduce((n,x)=>n+Number(x.done_count),0);
+   const qualitative=t.target_count==null;
+   const daily=t.cadence==="daily";
+   const state=qualitative?(done>0?"تم التنفيذ":"لم يتم التنفيذ"):daily?"تارجت يومي":done>=t.target_count?"تم التنفيذ":"لسه ناقص";
+   rows.push([month,daily?"تارجت يومي":"تارجت شهري",t.title,lines(t.details,qualitative?"مهمة بدون عدد":"المطلوب: "+t.target_count,entries.map(e=>e.work_date+" · "+(qualitative?(e.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"):e.done_count)+(e.note?" · "+e.note:"")).join("\n")),state,qualitative?"":done]);
+  }
  }
  return rows;
 }

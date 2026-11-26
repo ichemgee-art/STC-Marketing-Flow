@@ -2,7 +2,7 @@
 export type ReportHour={work_date:string;start_minutes:number;end_minutes:number;activities:string};
 export type ReportAchievement={work_date:string;title:string;unit:string;qualitative?:boolean;done_count:number;note:string};
 import {companyReportMonth,companyMonthRange,type ReportPeriod} from "./report-period";
-type Report={profileName:string;brand:string;monthKey:string;hours:ReportHour[];done:ReportAchievement[];period?:ReportPeriod};
+type Report={profileName:string;brand:string;monthKey:string;hours:ReportHour[];done:ReportAchievement[];period?:ReportPeriod;hoursOnly?:boolean};
 export function monthBounds(month:string){return companyMonthRange(month);}
 
 type Cell={v:string|number;s:number};
@@ -44,18 +44,18 @@ export function buildSeoMonthlyWorkbook(report:Report){
  const period=report.period??companyReportMonth(report.monthKey);
  const {first,next}=period,inMonth=(s:string)=>s>=first&&s<next;
  const hours=report.hours.filter(h=>inMonth(h.work_date)).sort((a,b)=>a.work_date.localeCompare(b.work_date)||a.start_minutes-b.start_minutes);
- const done=report.done.filter(h=>inMonth(h.work_date)).sort((a,b)=>a.work_date.localeCompare(b.work_date));
+ const done=(report.hoursOnly?[]:report.done).filter(h=>inMonth(h.work_date)).sort((a,b)=>a.work_date.localeCompare(b.work_date));
  const days=[...new Set([...hours.map(h=>h.work_date),...done.map(h=>h.work_date)])].sort();
  const total=hours.reduce((n,h)=>n+h.end_minutes-h.start_minutes,0);
  const prefix=(title:string,labels:string[])=>[[c(title,1)],[c(report.profileName+" | "+report.brand+" | "+period.label)],[c("إجمالي ساعات الفترة"),c(total/1440,5)],header(labels)];
  const detail=prefix("STC | فترات العمل",["التاريخ","من الساعة","إلى الساعة","مدة الفترة","الأعمال المنفذة"]);
  for(const h of hours)detail.push([day(h.work_date),time(h.start_minutes),time(h.end_minutes),duration(h.end_minutes-h.start_minutes),c(h.activities)]);
- const daily=prefix("STC | ملخص التقرير",["التاريخ","إجمالي ساعات اليوم","عدد الفترات","الأعمال المسجلة","عدد سجلات Done"]);
- for(const date of days){const rows=hours.filter(h=>h.work_date===date);daily.push([day(date),duration(rows.reduce((n,h)=>n+h.end_minutes-h.start_minutes,0)),c(rows.length),c(rows.map(h=>h.activities).join("\n")),c(done.filter(h=>h.work_date===date&&h.done_count>0).length)]);}
+ const daily=prefix("STC | ملخص التقرير",["التاريخ","إجمالي ساعات اليوم","عدد الفترات","الأعمال المسجلة",...(report.hoursOnly?[]:["عدد سجلات Done"])]);
+ for(const date of days){const rows=hours.filter(h=>h.work_date===date);daily.push([day(date),duration(rows.reduce((n,h)=>n+h.end_minutes-h.start_minutes,0)),c(rows.length),c(rows.map(h=>h.activities).join("\n")),...(report.hoursOnly?[]:[c(done.filter(h=>h.work_date===date&&h.done_count>0).length)])]);}
  const achievements=prefix("STC | الإنجازات المسجلة Done",["التاريخ","التارجت","المنفذ","حالة التنفيذ","الملاحظات"]);
  for(const h of done)achievements.push([day(h.work_date),c(h.title),c(h.qualitative?"":h.done_count),c(h.done_count===0?"لم يتم التنفيذ":h.qualitative?"تم التنفيذ":""),c(h.note||"")]);
  const names=[period.fileKey===report.monthKey?"ملخص الشهر":"ملخص الفترة","فترات العمل","الإنجازات"],sheets=[sheet(daily,[17,23,17,85,22]),sheet(detail,[17,17,17,18,85]),sheet(achievements,[17,42,15,20,75])];
- return packWorkbook(names,sheets);
+ return packWorkbook(report.hoursOnly?names.slice(0,2):names,report.hoursOnly?[sheet(daily,[17,23,17,85]),sheets[1]]:sheets);
 }
 function packWorkbook(names:string[],sheets:string[]){
  return zip({
@@ -81,7 +81,7 @@ export function buildDepartmentWorkbook(reports:DepartmentSheet[]){
 
 import type {WeeklyPayload} from "./weekly-report";
 export function buildWeeklyWorkbook(report:WeeklyPayload,logo:Uint8Array){
- const names=[...report.sections.map((s,i)=>s.title.includes("Team Achievements")?"Achievements":s.title.includes("Utilization")?"Utilization":s.title.includes("Social Media")?"Social media":s.title.includes("SEO")?"SEO":s.title.includes("Campaigns")?"Campaigns":s.title.includes("WhatsApp")?"WhatsApp":"Section "+(i+1)),"Report notes"];
+ const names=[...report.sections.map((s,i)=>s.title.includes("Team Achievements")?"Achievements":s.title.includes("Utilization")?"Utilization":s.title.includes("Social Media")?"Social media":s.chart==="seo-target"?"SEO targets":s.title.includes("SEO")?"SEO daily":s.title.includes("Campaigns")?"Campaigns":s.title.includes("WhatsApp")?"WhatsApp":"Section "+(i+1)),"Report notes"];
  const sections=[...report.sections,{title:"Report notes",headers:["Prepared by","Role","Notes"],rows:[["Nardine Gamal","Marketing Manager",report.notes]]}];
  const sheets=sections.map(section=>sheet([[c(section.title,1)],[c(report.brand==="stc"?"STC":"iChem")],[c(report.first+" — "+report.last) ],header(section.headers),...section.rows.map(row=>row.map(v=>c(v)))],section.headers.map((_,i)=>i===2?55:28)));
  const png=new DataView(logo.buffer,logo.byteOffset,logo.byteLength);const width=logo.byteLength>=24?png.getUint32(16):1,height=logo.byteLength>=24?png.getUint32(20):1;const scale=Math.min(1100000/Math.max(1,width),450000/Math.max(1,height));const cx=Math.max(1,Math.round(width*scale)),cy=Math.max(1,Math.round(height*scale));

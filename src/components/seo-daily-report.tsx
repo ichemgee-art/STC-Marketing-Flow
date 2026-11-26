@@ -1,15 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Plus, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CalendarDays, Clock3, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {companyMonthRange,inCompanyMonth,companyDefaultDay} from "@/lib/report-period";
-import {scopedSeoProgress} from "@/lib/seo-progress-correction";
 import MonthlyReports from "./monthly-reports";
-import SeoProgressEdit from "./seo-progress-edit";
 import { confirmInCurrentLanguage } from "./app-language-provider";
 import type { Member } from "@/lib/domain";
-import type { SeoProgress, SeoTarget } from "./seo-target-board";
 
 export type SeoHours = {
   id: string; profile_id: string; work_date: string; start_minutes: number;
@@ -19,10 +16,6 @@ const cairoToday=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Cairo",ye
 const formatTime=(minutes:number)=>String(Math.floor(minutes/60)).padStart(2,"0")+":"+String(minutes%60).padStart(2,"0");
 const asMinutes=(value:string)=>{const [hours,minutes]=value.split(":").map(Number);return hours*60+minutes;};
 const timeLabel=(m:number)=>Math.floor(m/60)+" ساعة"+(m%60?" و"+m%60+" دقيقة":"");
-const dailyMemory=new Map<string,{at:number;targets:SeoTarget[];progress:SeoProgress[]}>();
-export function clearSeoDailyMemory(){dailyMemory.clear();}
-
-
 export default function SeoDailyReport({
   profileId, profileName, brand, member, monthKey, entries, onRefresh, onNotice, onError,
 }: {
@@ -30,9 +23,6 @@ export default function SeoDailyReport({
   onRefresh:()=>Promise<void>; onNotice:(message:string)=>void; onError:(message:string)=>void;
 }) {
   const manager=member.role==="manager";
-  const cacheKey=member.id+":"+profileId+":"+monthKey;
-  const recent=dailyMemory.get(cacheKey);
-  const warm=recent&&Date.now()-recent.at<120_000?recent:null;
   const [date,setDate]=useState(()=>{
     const now=cairoToday();
     return monthKey?companyDefaultDay(monthKey,now):now;
@@ -41,56 +31,9 @@ export default function SeoDailyReport({
   const [end,setEnd]=useState("17:00");
   const [activity,setActivity]=useState("");
   const [saving,setSaving]=useState(false);
-  const [targets,setTargets]=useState<SeoTarget[]>(()=>warm?.targets||[]);
-  const [progress,setProgress]=useState<SeoProgress[]>(()=>warm?.progress||[]);
-  const fetchSeq=useRef(0);
-  useEffect(()=>()=>{fetchSeq.current++;},[]);
-  const load=useCallback(async()=>{
-    const seq=++fetchSeq.current;
-    if(!monthKey){setTargets([]);setProgress([]);return;}
-    const bounds=companyMonthRange(monthKey);
-    const t=await supabase.from("stc_seo_targets").select("*").eq("profile_id",profileId).eq("month_key",monthKey);
-    if(seq!==fetchSeq.current)return;
-    if(t.error){onError(t.error.message);return;}
-    if(!t.data.length){
-      setTargets([]);setProgress([]);
-      dailyMemory.set(cacheKey,{at:Date.now(),targets:[],progress:[]});
-      return;
-    }
-    const allTargets=t.data as SeoTarget[],allProgress:SeoProgress[]=[];
-    for(let offset=0;;offset+=500){
-      const p=await supabase.from("stc_seo_progress").select("*").in("target_id",allTargets.map(item=>item.id))
-        .gte("work_date",bounds.first).lt("work_date",bounds.next).order("id").range(offset,offset+499);
-      if(seq!==fetchSeq.current)return;
-      if(p.error){onError(p.error.message);return;}
-      allProgress.push(...(p.data as SeoProgress[]));if(p.data.length<500)break;
-    }
-    dailyMemory.set(cacheKey,{at:Date.now(),targets:allTargets,progress:allProgress});
-    setTargets(allTargets);setProgress(allProgress);
-  },[profileId,onError,cacheKey,monthKey]);
-  useEffect(()=>{void load();},[load]);
-  useEffect(()=>{
-    const channel=supabase.channel("seo-daily-"+profileId)
-      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_progress"},()=>void load())
-      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_targets"},()=>void load())
-      .subscribe();
-    const resume=()=>{if(document.visibilityState==="visible")void load();};
-    const interval=setInterval(()=>{if(document.visibilityState==="visible")void load();},60000);
-    window.addEventListener("focus",resume);
-    document.addEventListener("visibilitychange",resume);
-    return()=>{
-      clearInterval(interval);
-      window.removeEventListener("focus",resume);
-      document.removeEventListener("visibilitychange",resume);
-      void supabase.removeChannel(channel);
-    };
-  },[profileId,load]);
   const monthEntries=useMemo(()=>entries.filter(e=>e.profile_id===profileId&&!!monthKey&&inCompanyMonth(e.work_date,monthKey)),[entries,profileId,monthKey]);
-  const monthProgress=useMemo(()=>scopedSeoProgress(targets.filter(t=>t.profile_id===profileId),progress,monthKey),[targets,progress,monthKey,profileId]);
-  const days=useMemo(()=>[...new Set([date,...monthEntries.map(e=>e.work_date),...monthProgress.map(e=>e.work_date)])].filter(d=>!!monthKey&&inCompanyMonth(d,monthKey)).sort().reverse(),[date,monthEntries,monthProgress,monthKey]);
+  const days=useMemo(()=>[...new Set([date,...monthEntries.map(e=>e.work_date)])].filter(d=>!!monthKey&&inCompanyMonth(d,monthKey)).sort().reverse(),[date,monthEntries,monthKey]);
   const rows=monthEntries.filter(e=>e.work_date===date).sort((a,b)=>a.start_minutes-b.start_minutes);
-  const achievements=monthProgress.filter(e=>e.work_date===date).sort((a,b)=>b.created_at.localeCompare(a.created_at));
-  const completedEntries=achievements.filter(e=>e.done_count>0).length;
   const duration=rows.reduce((n,r)=>n+r.end_minutes-r.start_minutes,0);
   const monthDuration=monthEntries.reduce((n,r)=>n+r.end_minutes-r.start_minutes,0);
   async function submitHours() {
@@ -127,7 +70,7 @@ export default function SeoDailyReport({
     <div className="seo-daily-intro">
       <div><span className="seo-target-kicker">تقرير اليوم</span>
         <h2><Clock3 size={23}/> ساعات الشغل والحاجات اللي اتعملت</h2>
-        <p>اختار اليوم وهتشوف الساعات اللي اتسجلت، وكل الإنجازات والملاحظات بتاعته.</p>
+        <p>اختار اليوم وهتشوف ساعات الشغل والأعمال المسجلة في التقرير اليومي فقط.</p>
       </div>
       <div className="seo-daily-actions">
         <label className="seo-daily-picker"><CalendarDays size={18}/> اليوم<input type="date" value={date}
@@ -139,7 +82,7 @@ export default function SeoDailyReport({
     <div className="seo-daily-summary">
       <div><Clock3 size={19}/><span>ساعات اليوم</span><strong>{timeLabel(duration)}</strong></div>
       <div><CalendarDays size={19}/><span>ساعات الشهر</span><strong>{timeLabel(monthDuration)}</strong></div>
-      <div><CheckCircle2 size={19}/><span>الإنجازات اللي اتسجلت</span><strong>{completedEntries}</strong></div>
+      <div><CalendarDays size={19}/><span>فترات الشغل المسجلة اليوم</span><strong>{rows.length}</strong></div>
     </div>
     {!manager&&<form className="seo-daily-entry-form" onSubmit={e=>{e.preventDefault();void submitHours();}}>
       <h3><Plus size={19}/> ضيف فترة شغل</h3>
@@ -150,7 +93,7 @@ export default function SeoDailyReport({
       </div>
       <button type="submit" disabled={saving}><Plus size={17}/>{saving?"بنسجّل…":"سجّل الساعات والشغل"}</button>
     </form>}
-    <div className="seo-daily-column-grid">
+    <div className="seo-daily-column-grid" style={{gridTemplateColumns:"minmax(0,1fr)"}}>
       <div className="seo-daily-block">
         <h3><Clock3 size={19}/> تفاصيل اليوم ({rows.length})</h3>
         {!rows.length&&<p className="seo-daily-muted">مفيش ساعات متسجّلة لليوم ده.</p>}
@@ -160,19 +103,6 @@ export default function SeoDailyReport({
           <p>{row.activities}</p>
           {!manager&&row.created_by===member.id&&<button type="button" onClick={()=>void removeHours(row.id)} aria-label="امسح الفترة"><Trash2 size={16}/></button>}
         </article>)}</div>
-      </div>
-      <div className="seo-daily-block">
-        <h3><ClipboardCheck size={19}/> الشغل اللي اتسجّل Done ({completedEntries})</h3>
-        {!completedEntries&&<p className="seo-daily-muted">مفيش إنجازات اتسجّلت لليوم ده. الإنجازات بتظهر هنا أول ما تسجّل Done من كارت التارجت.</p>}
-        <div className="seo-daily-achievements">{achievements.map(row=>{
-          const target=targets.find(t=>t.id===row.target_id);
-          return <article key={row.id}>
-            {row.done_count>0?<span className="seo-daily-done"><CheckCircle2 size={16}/> {target?.target_count===null?"تم التنفيذ":row.done_count}</span>:<small>لم يتم التنفيذ</small>}
-            <strong>{target?.title||"تارجت"}</strong>
-            {row.note&&<p data-no-translate>{row.note}</p>}
-            {!manager&&row.created_by===member.id&&<SeoProgressEdit entry={row} qualitative={target?.target_count===null} onSaved={load} onNotice={onNotice} onError={onError}/>}
-          </article>;
-        })}</div>
       </div>
     </div>
     <details className="seo-daily-history"><summary>شوف تقارير الأيام التانية ({days.length})</summary>

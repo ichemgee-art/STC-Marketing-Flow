@@ -1327,6 +1327,19 @@ const EN_ENTRIES: [string,string][] = [
   ["تسجيل سابق خارج الفترة","Earlier entry outside the reporting period"],
   ["تسجيلات قديمة خارج الفترة","Historical entries outside the reporting period"],
   ["سجل بدون إنجاز","Entry without completion"],
+  ["تصدير التارجت","Export targets"],
+  ["اختار اليوم وهتشوف ساعات الشغل والأعمال المسجلة في التقرير اليومي فقط.","Select a day to see only the hours and activities recorded in the daily report."],
+  ["فترات الشغل المسجلة اليوم","Work periods recorded today"],
+  ["أداء التارجت الشهري خلال الفترة","Monthly target performance during the period"],
+  ["المنفذ خلال الفترة ÷ العدد المطلوب للشهر بالكامل. التارجت اليومي والمهام بدون عدد لا يدخلان في النسبة.","Completed during the period divided by the full monthly target. Daily and qualitative targets are excluded from the percentage."],
+  ["شهر العمل","Reporting month"],
+  ["التارجت","Target"],
+  ["المطلوب شهريًا","Monthly target"],
+  ["المنفذ خلال الفترة","Completed in period"],
+  ["نسبة التارجت الشهري (%)","Monthly target achieved (%)"],
+  ["تم تسجيل تنفيذ","Work recorded"],
+  ["لم يسجل تنفيذ","No work recorded"],
+  ["لا توجد تارجتات شهرية للفترة.","No monthly targets for the period."],
 ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)

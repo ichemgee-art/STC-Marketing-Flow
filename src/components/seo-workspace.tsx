@@ -14,7 +14,7 @@ import SeoTargetBoard, { clearSeoTargetMemory } from "./seo-target-board";
 import { countCompletedMonthlyTargets } from "@/lib/seo-progress-correction";
 import {companyMonthRange,companyMonthKey,cairoDate} from "@/lib/report-period";
 import SeoSourceCards from "./seo-source-cards";
-import SeoDailyReport, { clearSeoDailyMemory } from "./seo-daily-report";
+import SeoDailyReport from "./seo-daily-report";
 import SeoMetricsBoard, { clearSeoMetricsMemory } from "./seo-metrics-board";
 import SeoHistoricalView from "./seo-historical-view";
 import "./seo-workspace.css";
@@ -36,7 +36,7 @@ type Entry = { address: string; value: string; row: number; column: number; link
 type SeoCacheEntry = { at:number;profile:Profile;periods:Period[];hours:Hours[];selectedId:string|null };
 const seoMemory = new Map<string,SeoCacheEntry>();
 const SEO_CACHE_TTL=120_000;
-export function clearSeoDataCache(){seoMemory.clear();clearSeoTargetMemory();clearSeoMetricsMemory();clearSeoDailyMemory();}
+export function clearSeoDataCache(){seoMemory.clear();clearSeoTargetMemory();clearSeoMetricsMemory();}
 
 function sheetColumn(ref: string) {
   const name = ref.match(/^[A-Z]+/)?.[0] ?? "";
@@ -419,7 +419,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     <main className="seo-main">
       <div className="seo-headline"><div><span className="seo-eyebrow">متابعة السيو · {chart}</span><h1>متابعة SEO</h1>
         <p>{manager?"راجعي التارجت والنتايج من التبويبات.":"اختار الشهر، وبعدها ابدأ بالتارجت أو سجّل شغل اليوم."}</p></div>
-        <div className="stc-report-actions">{profile&&<MonthlyReports department="seo" member={member} people={[{id:profile.id,name:profile.display_name,brand:profile.brand}]} initialMonth={period?.month_key} scopeLabel="التقرير الشهري"/>}
+        <div className="stc-report-actions">{profile&&<MonthlyReports department="seo" member={member} people={[{id:profile.id,name:profile.display_name,brand:profile.brand}]} initialMonth={period?.month_key} scopeLabel="تصدير التارجت"/>}
         {manager&&<details className="seo-import-more">
           <summary><FileSpreadsheet size={16}/> استيراد شيت قديم</summary>
           <div className="seo-upload">

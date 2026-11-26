@@ -35,3 +35,8 @@ test("zero correction remains in history but is not a completed Done entry",()=>
  const parsed=parseSeoWorkbook(Buffer.from(buildSeoMonthlyWorkbook({profileName:"QA",brand:"STC",monthKey:"2026-12",hours:[],done:[{work_date:"2026-11-26",title:"Products",unit:"",done_count:0,note:"Correction"}]})));
  assert.equal(Number(parsed.sheets[0].cells.E5),0);assert.equal(parsed.sheets[2].cells.D5,"لم يتم التنفيذ");
 });
+
+test("daily-only export contains hours and activity but no target sheet or Done count",()=>{
+ const result=parseSeoWorkbook(Buffer.from(buildSeoMonthlyWorkbook({profileName:"QA",brand:"STC",monthKey:"2026-12",hoursOnly:true,hours:[{work_date:"2026-11-26",start_minutes:540,end_minutes:600,activities:"Daily work"}],done:[{work_date:"2026-11-26",title:"Hidden target",unit:"",done_count:5,note:"not daily"}]})));
+ assert.equal(result.sheets.length,2);assert.equal(result.sheets[0].cells.E4,undefined);assert.equal(result.sheets[1].cells.E5,"Daily work");
+});
