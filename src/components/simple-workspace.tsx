@@ -7,6 +7,7 @@ import { supabase, configured } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
 import MonthlyReports from "./monthly-reports";
 import WeeklyReports from "./weekly-reports";
+import TaskUsage from "./task-usage";
 import {ReportTaskFields,reportTaskValues} from "./report-task-fields";
 import {seoMetricLabel} from "@/lib/seo-metric-labels";
 import { notifySound, unlockSound, type SoundKind } from "@/lib/notification-sound";
@@ -183,6 +184,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
           <small>{team.find(p=>p.id===event.actor_id)?.display_name||"من التيم"} · {new Date(event.created_at).toLocaleString("ar-EG",{timeZone:"Africa/Cairo",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}</small>
         </div>)}
       </details>}
+      {manager&&task.status==="approved"&&<TaskUsage task={task} refresh={refresh}/>}
       {manager&&<div className="easy-manager-tools">
         <div className="easy-tool-buttons">
           {task.status!=="approved"&&<button type="button" className="easy-link-btn" disabled={busy} onClick={()=>{if(!edit)editVersion.current=task.version;setEdit(v=>!v);}}><Pencil size={16}/>{edit?"إلغاء التعديل":"عدّلي التاسك"}</button>}

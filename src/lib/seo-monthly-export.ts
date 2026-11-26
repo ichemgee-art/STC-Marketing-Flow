@@ -84,7 +84,7 @@ export function buildDepartmentWorkbook(reports:DepartmentSheet[]){
 
 import type {WeeklyPayload} from "./weekly-report";
 export function buildWeeklyWorkbook(report:WeeklyPayload,logo:Uint8Array){
- const names=["Achievements","Utilization","Social media","SEO","Campaigns","WhatsApp","Report notes"];
+ const names=[...report.sections.map((s,i)=>s.title.includes("Team Achievements")?"Achievements":s.title.includes("Utilization")?"Utilization":s.title.includes("Social Media")?"Social media":s.title.includes("SEO")?"SEO":s.title.includes("Campaigns")?"Campaigns":s.title.includes("WhatsApp")?"WhatsApp":"Section "+(i+1)),"Report notes"];
  const sections=[...report.sections,{title:"Report notes",headers:["Prepared by","Role","Notes"],rows:[["Nardine Gamal","Marketing Manager",report.notes]]}];
  const sheets=sections.map(section=>sheet([[c(section.title,1)],[c(report.brand==="stc"?"STC":"iChem")],[c(report.first+" — "+report.last) ],header(section.headers),...section.rows.map(row=>row.map(v=>c(v)))],section.headers.map((_,i)=>i===2?55:28)));
  const png=new DataView(logo.buffer,logo.byteOffset,logo.byteLength);const width=logo.byteLength>=24?png.getUint32(16):1,height=logo.byteLength>=24?png.getUint32(20):1;const scale=Math.min(1100000/Math.max(1,width),450000/Math.max(1,height));const cx=Math.max(1,Math.round(width*scale)),cy=Math.max(1,Math.round(height*scale));
