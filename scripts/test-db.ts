@@ -9,8 +9,11 @@ async function main() {
  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
  grant usage on schema auth,storage to authenticated;
  grant execute on function auth.uid() to authenticated;
- create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint);
- create table storage.objects(id uuid default gen_random_uuid(),bucket_id text references storage.buckets(id),name text);
+ create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+ create table storage.objects(id uuid default gen_random_uuid(),bucket_id text references storage.buckets(id),name text,created_at timestamptz default now(),updated_at timestamptz default now(),metadata jsonb,is_delete_marker boolean default false,archived_at timestamptz);
+ create function storage.foldername(name text) returns text[] language sql immutable as $ select (string_to_array(name,'/'))[1:cardinality(string_to_array(name,'/'))-1] $;
+ grant execute on function storage.foldername(text) to authenticated;
+ create publication supabase_realtime;
  alter table storage.objects enable row level security; grant select,insert,delete on storage.objects to authenticated;`);
   let paths: string[];
   try {
@@ -22,11 +25,8 @@ async function main() {
     paths = ["supabase/schema.sql"];
   }
   for (const file of paths) {
-    const sql = readFileSync(file, "utf8").replace(
-      /alter publication supabase_realtime[^;]+;/g,
-      "",
-    );
-    await db.exec(sql);
+    const sql = readFileSync(file, "utf8");
+    try { await db.exec(sql); } catch (error) { throw new Error("Migration failed: "+file,{cause:error}); }
   }
   const manager = "00000000-0000-0000-0000-000000000001",
     a = "00000000-0000-0000-0000-000000000002",
@@ -86,22 +86,13 @@ async function main() {
     ).rows[0].due_date,
     "2026-11-01",
   );
-  await denied(
-    `update public.stc_tasks set status='waiting_review' where id='${task}'`,
-  );
-  await db.exec(
-    `update public.stc_tasks set status='waiting_review',submission_note='Ready' where id='${task}'`,
-  );
+  // Notes became optional in the Nov 24 workflow migration.
+  await db.exec(`update public.stc_tasks set status='waiting_review' where id='${task}'`);
   await denied(
     `update public.stc_tasks set submission_note='changed' where id='${task}'`,
   );
   await asUser(manager);
-  await denied(
-    `update public.stc_tasks set status='changes_requested' where id='${task}'`,
-  );
-  await db.exec(
-    `update public.stc_tasks set status='changes_requested',review_note='Fix copy' where id='${task}'`,
-  );
+  await db.exec(`update public.stc_tasks set status='changes_requested' where id='${task}'`);
   await asUser(a);
   await db.exec(
     `update public.stc_tasks set status='waiting_review',submission_note='Fixed' where id='${task}'`,
@@ -233,6 +224,25 @@ async function main() {
     (await db.query("select * from public.stc_daily_reports")).rows.length,
     1,
   );
+  // New migrations must work on a fresh database with synthetic accounts.
+  await db.exec("reset role");
+  const profile=(await db.query<{id:string}>(`insert into public.stc_seo_profiles(slug,display_name,brand,site_url,member_id) values('qa-seo','QA SEO','STC','https://example.com','${a}') returning id`)).rows[0].id;
+  await asUser(manager);
+  const target=(await db.query<{id:string}>(`insert into public.stc_seo_targets(profile_id,month_key,title,target_count) values('${profile}','2026-11','QA target',1) returning id`)).rows[0].id;
+  await db.exec(`update public.stc_seo_targets set target_count=null where id='${target}'`);
+  await asUser(a);
+  const progress=(await db.query<{id:string}>(`insert into public.stc_seo_progress(target_id,work_date,done_count,note) values('${target}','2026-11-23',1,'Test') returning id`)).rows[0].id;
+  await db.exec(`update public.stc_seo_progress set done_count=0 where id='${progress}'`);
+  assert.equal((await db.query<{done_count:number}>(`select done_count from public.stc_seo_progress where id='${progress}'`)).rows[0].done_count,0);
+  await asUser(b);
+  assert.equal((await db.query(`update public.stc_seo_progress set done_count=1 where id='${progress}' returning id`)).rows.length,0);
+  await asUser(manager);
+  assert.equal((await db.query(`select id from public.stc_seo_progress where id='${progress}'`)).rows.length,1);
+  const snapshot=(await db.query<{id:string}>(`insert into public.stc_weekly_report_snapshots(brand,period_start,period_end,payload) values('stc','2026-11-20','2026-11-26','{}') returning id`)).rows[0].id;
+  await asUser(a);
+  assert.equal((await db.query(`delete from public.stc_weekly_report_snapshots where id='${snapshot}' returning id`)).rows.length,0);
+  await asUser(manager);
+  assert.equal((await db.query(`delete from public.stc_weekly_report_snapshots where id='${snapshot}' returning id`)).rows.length,1);
   await db.exec("reset role");
   await db.exec(`update public.stc_members set active=false where id='${a}'`);
   await asUser(a);

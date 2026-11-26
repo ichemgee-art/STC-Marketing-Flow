@@ -1,2 +1,0 @@
-grant delete on public.stc_weekly_report_snapshots to authenticated;
-create policy manager_report_delete on public.stc_weekly_report_snapshots for delete to authenticated using ((select stc_private.is_manager()));
