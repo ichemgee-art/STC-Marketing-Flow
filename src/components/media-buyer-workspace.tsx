@@ -13,6 +13,7 @@ import {showToast} from "@/lib/toasts";
 import {readableError,createRefreshScheduler} from "@/lib/workspace-quality";
 import {confirmInCurrentLanguage} from "./app-language-provider";
 import BrandLockup from "./brand-lockup";
+import MonthlyReports from "./monthly-reports";
 import "./media-buyer-workspace.css";
 
 type Profile={id:string;slug:string;display_name:string;member_id:string|null};
@@ -485,8 +486,9 @@ export default function MediaBuyerWorkspace({member,onBack}:{member:Member;onBac
     <div>
      <h1>{manager?"حملات أحمد الخولي":"حملاتك الإعلانية"}</h1>
      <p>{manager?"ابعتي التكليف، وراجعي تقارير أحمد من نفس الكروت.":"افتح البوست، نفّذ الإعلان، وبعدها سجّل تقريرك."}</p></div>
+    <div className="stc-report-actions">{profile&&<MonthlyReports department="media" member={member} people={[{id:profile.id,name:profile.display_name}]} scopeLabel="التقرير الشهري"/>}
     {manager&&!!profile&&<button type="button" className="mb2-primary"
-      disabled={busy||!!editing} onClick={()=>setEditing("new")}><Plus size={18}/> تكليف جديد</button>}
+      disabled={busy||!!editing} onClick={()=>setEditing("new")}><Plus size={18}/> تكليف جديد</button>}</div>
    </section>
    {error&&<div className="mb2-error" role="alert">{error}
     <button type="button" disabled={refreshing} onClick={()=>void refreshNow()}>حاول تاني</button></div>}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldCheck, UserRound } from "lucide-react";
+import SoundToggle from "./sound-toggle";
 import { supabase } from "@/lib/supabase";
 import "./account-identity.css";
 
@@ -102,6 +103,7 @@ export default function AccountIdentity(){
       <strong className="stc-account-identity__name" dir="auto">{account.displayName}</strong>
       <span className="stc-account-identity__separator" aria-hidden="true"/>
       <span className="stc-account-identity__role">{roleLabel}</span>
+      <SoundToggle key={account.id} userId={account.id}/>
       <span className="stc-account-identity__verified">
         <span className="stc-account-identity__dot" aria-hidden="true"/>
         مسجّل دخول

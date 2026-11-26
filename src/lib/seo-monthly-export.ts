@@ -56,11 +56,26 @@ export function buildSeoMonthlyWorkbook(report:Report){
  const achievements=prefix("STC | الإنجازات المسجلة Done",["التاريخ","التارجت","المنفذ","الوحدة","الملاحظات"]);
  for(const h of done)achievements.push([day(h.work_date),c(h.title),c(h.done_count),c(h.unit),c(h.note||"")]);
  const names=["ملخص الشهر","فترات العمل","الإنجازات"],sheets=[sheet(daily,[17,23,17,85,22]),sheet(detail,[17,17,17,18,85]),sheet(achievements,[17,42,15,20,75])];
+ return packWorkbook(names,sheets);
+}
+function packWorkbook(names:string[],sheets:string[]){
  return zip({
   "[Content_Types].xml":xml+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+names.map((_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join("")+'</Types>',
   "_rels/.rels":xml+'<Relationships xmlns="'+pkg+'"><Relationship Id="rId1" Type="'+rel+'/officeDocument" Target="xl/workbook.xml"/></Relationships>',
   "xl/workbook.xml":xml+'<workbook xmlns="'+ns+'" xmlns:r="'+rel+'"><bookViews><workbookView/></bookViews><sheets>'+names.map((n,i)=>'<sheet name="'+n+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join("")+'</sheets></workbook>',
-  "xl/_rels/workbook.xml.rels":xml+'<Relationships xmlns="'+pkg+'">'+names.map((_,i)=>'<Relationship Id="rId'+(i+1)+'" Type="'+rel+'/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join("")+'<Relationship Id="rId4" Type="'+rel+'/styles" Target="styles.xml"/></Relationships>',
+  "xl/_rels/workbook.xml.rels":xml+'<Relationships xmlns="'+pkg+'">'+names.map((_,i)=>'<Relationship Id="rId'+(i+1)+'" Type="'+rel+'/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join("")+'<Relationship Id="rId'+(names.length+1)+'" Type="'+rel+'/styles" Target="styles.xml"/></Relationships>',
   "xl/styles.xml":styles,...Object.fromEntries(sheets.map((s,i)=>["xl/worksheets/sheet"+(i+1)+".xml",s]))
  });
+}
+
+export type DepartmentSheet={name:string;subtitle:string;rows:(string|number)[][]};
+export function buildDepartmentWorkbook(reports:DepartmentSheet[]){
+ const used=new Set<string>();
+ const names=reports.map(r=>{
+  const base=r.name.replace(/[\\/?*\[\]:]/g," ").replace(/^'+|'+$/g,"").trim().slice(0,28)||"Report";
+  let name=base,i=2;while(used.has(name.toLowerCase()))name=base.slice(0,26)+" "+i++;
+  used.add(name.toLowerCase());return name;
+ });
+ const sheets=reports.map(r=>sheet([[c("STC | التقرير الشهري",1)],[c(r.subtitle)],[c("البيانات المسجلة في السيستم")],header(["التاريخ","النوع","العمل / العنوان","التفاصيل","الحالة","القيمة / المدة"]),...r.rows.map(row=>row.map(v=>c(v)))],[23,24,42,105,24,22]));
+ return packWorkbook(names,sheets);
 }

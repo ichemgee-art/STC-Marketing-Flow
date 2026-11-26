@@ -9,6 +9,7 @@ import { showToast } from "@/lib/toasts";
 import { confirmInCurrentLanguage } from "./app-language-provider";
 import { getFlowLocation, setFlowLocation } from "@/lib/flow-location";
 import type { Member } from "@/lib/domain";
+import MonthlyReports from "./monthly-reports";
 import SeoTargetBoard, { clearSeoTargetMemory } from "./seo-target-board";
 import SeoSourceCards from "./seo-source-cards";
 import SeoDailyReport, { clearSeoDailyMemory } from "./seo-daily-report";
@@ -405,13 +406,14 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     <main className="seo-main">
       <div className="seo-headline"><div><span className="seo-eyebrow">متابعة السيو · {chart}</span><h1>متابعة SEO</h1>
         <p>{manager?"راجعي التارجت والنتايج من التبويبات.":"اختار الشهر، وبعدها ابدأ بالتارجت أو سجّل شغل اليوم."}</p></div>
+        <div className="stc-report-actions">{profile&&<MonthlyReports department="seo" member={member} people={[{id:profile.id,name:profile.display_name,brand:profile.brand}]} initialMonth={period?.month_key} scopeLabel="التقرير الشهري"/>}
         {manager&&<details className="seo-import-more">
           <summary><FileSpreadsheet size={16}/> استيراد شيت قديم</summary>
           <div className="seo-upload">
             <label className={uploading?"seo-uploading":""}><UploadCloud size={18}/>{uploading?"بنستورد…":"اختاري ملف Excel"}
             <input type="file" accept=".xlsx" disabled={uploading} onChange={e=>{const f=e.target.files?.[0];if(f)void importFile(f);e.currentTarget.value="";}}/></label>
           </div>
-        </details>}
+        </details>}</div>
       </div>
       {error&&<div className="seo-error" role="alert">{error}<button type="button" onClick={()=>setError("")}>×</button></div>}
       {manager&&<div className="seo-month-manager">

@@ -5,6 +5,8 @@ import type { Session } from "@supabase/supabase-js";
 import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, LogOut, MessageCircle, Pencil, Plus, Send, Trash2, X, CalendarDays, UserRound, AlertCircle, ListTodo, HardDrive, Sparkles, Filter, History, Megaphone } from "lucide-react";
 import { supabase, configured } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
+import MonthlyReports from "./monthly-reports";
+import { notifySound, type SoundKind } from "@/lib/notification-sound";
 import { readableError, createRefreshScheduler } from "@/lib/workspace-quality";
 import { confirmInCurrentLanguage } from "./app-language-provider";
 import { clearFlowLocation, getFlowLocation, setFlowLocation } from "@/lib/flow-location";
@@ -275,6 +277,8 @@ export default function SimpleWorkspace(){
   const refreshSerial=useRef(0);
   const pendingTaskId=useRef<string|null>(null);
   const userId=session?.user.id||null;
+  const soundRole=useRef<Member["role"]|undefined>(undefined);
+  soundRole.current=member?.role;
   const announce=useCallback((message:string)=>showToast(message,/اتمسح|اتمسحت|مسح|حذف/.test(message)?"delete":"success"),[]);
   useEffect(()=>{
     // INITIAL_SESSION is emitted after Supabase restores and checks the saved session.
@@ -375,13 +379,33 @@ export default function SimpleWorkspace(){
     const scheduled=createRefreshScheduler(()=>void refresh(),200);
     const ch=supabase.channel("simple-"+userId)
       .on("postgres_changes",{event:"*",schema:"public",table:"stc_tasks"},scheduled.request)
-      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_metrics"},scheduled.request)
-      .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_briefs"},scheduled.request)
-      .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_submissions"},scheduled.request)
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_seo_metrics"},payload=>{
+        scheduled.request();
+        if(payload.eventType!=="UPDATE")return;
+        const n=payload.new;
+        if(soundRole.current==="manager"&&n.status==="pending_review"&&n.updated_by!==userId)notifySound(userId,"review","seo:"+n.id+":"+n.updated_at,n.updated_at);
+        if(soundRole.current==="member"&&n.status==="approved"&&n.reviewed_by!==userId)notifySound(userId,"approved","seo:"+n.id+":"+n.updated_at,n.updated_at);
+      })
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"stc_seo_targets"},payload=>{
+        if(soundRole.current==="member"&&payload.new.created_by!==userId)notifySound(userId,"assigned","target:"+payload.new.id,payload.new.created_at);
+      })
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_briefs"},payload=>{
+        scheduled.request();
+        if(payload.eventType==="INSERT"&&soundRole.current==="member"&&payload.new.created_by!==userId)notifySound(userId,"assigned","brief:"+payload.new.id,payload.new.created_at);
+      })
+      .on("postgres_changes",{event:"*",schema:"public",table:"stc_media_submissions"},payload=>{
+        scheduled.request();
+        if(payload.eventType==="DELETE")return;
+        const n=payload.new;
+        if(soundRole.current==="manager"&&n.status==="pending_review"&&n.submitted_by!==userId)notifySound(userId,"review","media:"+n.id+":"+n.updated_at,n.updated_at);
+        if(soundRole.current==="member"&&n.status==="approved"&&n.submitted_by===userId)notifySound(userId,"approved","media:"+n.id+":"+n.updated_at,n.updated_at);
+      })
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"stc_notifications"},scheduled.request)
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"stc_notifications",filter:"recipient_id=eq."+userId},payload=>{
         const n=payload.new as Notice;
         if(n.kind==="deleted"){scheduled.request();return;}
+        const sound:SoundKind|undefined=n.kind==="assigned"||n.kind==="reassigned"?"assigned":n.kind==="waiting_review"?"review":n.kind==="approved"?"approved":undefined;
+        if(sound)notifySound(userId,sound,n.id,n.created_at);
         const message=n.kind==="waiting_review"?"سلّم التاسك ومستني مراجعتك"
           :n.kind==="approved"?"تم الاعتماد"
           :n.kind==="changes_requested"?"ناردين طلبت تعديل"
@@ -571,7 +595,8 @@ export default function SimpleWorkspace(){
     <main className="easy-content">
       <section className="easy-intro"><div><h1>{manager?"إدارة شغل الفريق":"شغلك النهارده"}</h1>
         <p>{manager?"راجعي التسليمات، أو اختاري القسم اللي عايزة تتابعيه.":"ابدأ بالأولوية الأولى، وباقي التاسكات تحت."}</p></div>
-        {manager&&managerSection==="content"&&<button className="easy-btn easy-btn--navy easy-create-button" onClick={()=>setCreating(true)}><Plus size={19}/> تاسك جديد</button>}
+        <div className="stc-report-actions"><MonthlyReports key={manager?managerSection:"personal"} department={manager?managerSection:"content"} member={member} people={manager?(managerSection==="content"?people.map(p=>({id:p.id,name:p.display_name})):managerSection==="seo"?seoPeople.map(p=>({id:p.id,name:p.display_name,brand:p.brand})):mediaPeople.map(p=>({id:p.id,name:p.display_name}))):[{id:member.id,name:member.display_name}]} scopeLabel={manager?"تقرير القسم":"تقريري الشهري"}/>
+        {manager&&managerSection==="content"&&<button className="easy-btn easy-btn--navy easy-create-button" onClick={()=>setCreating(true)}><Plus size={19}/> تاسك جديد</button>}</div>
       </section>
       {err&&<div className="easy-error" role="alert">{err}<button onClick={()=>void refresh()}>جرّب تاني</button></div>}
       {manager&&<>
@@ -654,6 +679,7 @@ export default function SimpleWorkspace(){
       {(!manager||managerSection==="content")&&<section className="flow-task-area">
       <div className="easy-section-heading"><h2>{reviewOnly?"مستنية مراجعتك":manager?(tab==="all"?"كل التاسكات":"تاسكات "+(people.find(p=>p.id===tab)?.display_name||"التيم")):"التاسكات بتاعتك"} <span>{visible.length}</span></h2>
 
+        {manager&&tab!=="all"&&people.some(p=>p.id===tab)&&<MonthlyReports key={tab} department="content" member={member} people={people.filter(p=>p.id===tab).map(p=>({id:p.id,name:p.display_name}))} scopeLabel="تقرير الموظف"/>}
       </div>
       <nav className="flow-filters" aria-label="فلترة التاسكات حسب الحالة"><Filter size={17}/>
         {filterOptions.map(f=><button key={f.id} type="button" className={flowFilter===f.id?"active":""}

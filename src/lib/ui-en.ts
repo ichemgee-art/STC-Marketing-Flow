@@ -186,7 +186,7 @@ const EN_ENTRIES: [string,string][] = [
   ["التارجت","Target"],["التارجت والمتابعة","Targets & progress"],
   ["التارجت والـDone","Targets & completions"],
   ["نتايج SEO","SEO results"],["مؤشرات الموقع","Website metrics"],
-  ["التقرير اليومي","Daily report"],["الاسكرينات","Screenshots"],
+  ["التقرير اليومي","Daily report"],["تقريري الشهري","My monthly report"],["تقرير القسم","Department report"],["تقرير الموظف","Employee report"],["التقرير الشهري","Monthly report"],["اختر الشهر","Choose month"],["جاري تجهيز التقرير…","Preparing report…"],["تفعيل صوت الإشعارات","Enable notification sound"],["كتم صوت الإشعارات","Mute notification sound"],["الاسكرينات","Screenshots"],
   ["الشيتات القديمة","Archived spreadsheets"],["للمرجع بس","Reference only"],
   ["التارجت والمتابعة ببطاقات واضحة، ونتايج SEO، وساعات الشغل بتقرير يومي، والاسكرينات بتتفتح من السيستم.","Track targets in cards, review SEO results, log daily hours and open screenshots directly in the app."],
   ["استيراد شيت قديم","Import original spreadsheet"],
@@ -975,3 +975,4 @@ const EN_ENTRIES: [string,string][] = [
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)
   .sort((a,b)=>b[0].length-a[0].length);
+
