@@ -63,3 +63,11 @@ body:has(.stc-account-identity) .seo-topbar{top:34px}
  .stc-account-identity__name{font-size:11px}
  .stc-account-identity__role{font-size:9px;padding:1px 7px}
 }
+
+/* Compact icon-only audio control: override global button padding so SVG never collapses. */
+.stc-account-identity .stc-sound-toggle{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;flex:0 0 28px;width:28px;height:28px;min-width:28px;min-height:28px;padding:0;gap:0;margin:0;margin-inline-start:3px;line-height:1;border:1px solid #ffffff35;border-radius:7px;background:#ffffff12;color:#ffda88;box-shadow:none;vertical-align:middle}
+.stc-account-identity .stc-sound-toggle svg{display:block;flex:0 0 17px;width:17px;height:17px;min-width:17px;min-height:17px;stroke:currentColor;stroke-width:2;overflow:visible;pointer-events:none}
+.stc-account-identity .stc-sound-toggle[aria-pressed="false"]{color:#d1dfed;background:transparent}
+.stc-account-identity .stc-sound-toggle:hover{background:#ffffff26;box-shadow:none}
+.stc-account-identity .stc-sound-toggle:focus-visible{outline:2px solid #ffda88;outline-offset:1px}
+@media(max-width:650px){.stc-account-identity .stc-sound-toggle{margin-inline-start:auto;flex-basis:28px}}
