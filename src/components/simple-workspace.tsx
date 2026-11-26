@@ -6,7 +6,7 @@ import { Bell, Check, CheckCheck, CheckCircle2, ChevronLeft, Clock3, FileUp, Log
 import { supabase, configured } from "@/lib/supabase";
 import { showToast } from "@/lib/toasts";
 import MonthlyReports from "./monthly-reports";
-import { notifySound, type SoundKind } from "@/lib/notification-sound";
+import { notifySound, unlockSound, type SoundKind } from "@/lib/notification-sound";
 import { readableError, createRefreshScheduler } from "@/lib/workspace-quality";
 import { confirmInCurrentLanguage } from "./app-language-provider";
 import { clearFlowLocation, getFlowLocation, setFlowLocation } from "@/lib/flow-location";
@@ -563,7 +563,7 @@ export default function SimpleWorkspace(){
     <div className="easy-login-brand"><BrandLockup size="large"/><h1>شغلنا كله في مكان واحد.</h1><p>ناردين تبعت التاسك، تخلصه، وهي تراجعه وتوافق عليه.</p></div>
     <section className="easy-login-form"><span className="easy-eyebrow">STC MARKETING FLOW</span><h2>أهلاً بيك 👋</h2><p>سجّل دخول عشان تشوف التاسكات بتاعتك.</p>
       <form className="easy-form" onSubmit={e=>{
-        e.preventDefault();const f=new FormData(e.currentTarget);
+        e.preventDefault();void unlockSound();const f=new FormData(e.currentTarget);
         if(!configured){setErr("إعدادات السيستم ناقصة.");return;}setBusy(true);setErr("");
         void supabase.auth.signInWithPassword({email:String(f.get("email")),password:String(f.get("password"))}).then(r=>{if(r.error)setErr(r.error.message);setBusy(false);});
       }}>

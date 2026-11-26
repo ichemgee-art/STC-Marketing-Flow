@@ -14,6 +14,7 @@ function printable(win:Window,reports:DepartmentSheet[],month:string){
  for(const text of ["التاريخ","النوع","العمل / العنوان","التفاصيل","الحالة","القيمة / المدة"]){const th=doc.createElement("th");th.textContent=text;head.append(th);}
  const body=table.createTBody();for(const row of report.rows){const tr=body.insertRow();for(const value of row){tr.insertCell().textContent=String(value);}}section.append(table);doc.body.append(section);}
  win.focus();
+ win.setTimeout(()=>{if(!win.closed)win.print();},250);
 }
 export default function MonthlyReports({department,member,people,initialMonth,scopeLabel}:{department:Department;member:Member;people:ReportPerson[];initialMonth?:string;scopeLabel:string}){
  const [month,setMonth]=useState(initialMonth||currentMonth()),[busy,setBusy]=useState(false);

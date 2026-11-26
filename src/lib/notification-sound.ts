@@ -17,7 +17,7 @@ export function playSound(kind:SoundKind){
  });
 }
 export function notifySound(user:string,kind:SoundKind,id:string,timestamp:unknown){
- if(!soundEnabled(user)||typeof timestamp!=="string")return;
+ if(!soundEnabled(user)||!context||context.state!=="running"||typeof timestamp!=="string")return;
  const age=Date.now()-Date.parse(timestamp);if(!Number.isFinite(age)||age>120000||age< -120000)return;
  const key=user+":"+kind+":"+id;if(played.has(key))return;
  played.set(key,Date.now());if(played.size>500){const first=played.keys().next().value;if(first)played.delete(first);}
