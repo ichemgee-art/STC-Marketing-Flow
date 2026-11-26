@@ -250,6 +250,27 @@ async function main() {
     (await db.query("select * from public.stc_tasks")).rows.length,
     0,
   );
+  // Shared workspace: use synthetic identities, never production account IDs.
+  await db.exec("reset role");
+  const shared="00000000-0000-0000-0000-000000000004";
+  const outsider="00000000-0000-0000-0000-000000000005";
+  await db.exec(`insert into auth.users values('${shared}'),('${outsider}'); insert into public.stc_members(id,display_name,role,active,shared_team) values('${shared}','Team','member',true,true),('${outsider}','Outside','member',true,false); insert into stc_private.team_memberships values('${shared}','${b}');`);
+  await asUser(manager);
+  const copy=(await db.query<{id:string}>(`insert into public.stc_tasks(title,assignee_id,report_brand,report_category,requested_quantity) values('Caption','${b}','stc','caption',2) returning id`)).rows[0].id;
+  const privateTask=(await db.query<{id:string}>(`insert into public.stc_tasks(title,assignee_id) values('Outside','${outsider}') returning id`)).rows[0].id;
+  await asUser(shared);
+  assert.equal((await db.query(`select id from public.stc_tasks where id='${privateTask}'`)).rows.length,0);
+  assert.equal((await db.query(`select id from public.stc_members`)).rows.length,2);
+  assert.equal((await db.query(`select id from public.stc_notifications where task_id='${copy}' and kind='assigned'`)).rows.length,1);
+  await denied(`update public.stc_tasks set status='waiting_review' where id='${copy}'`);
+  await db.exec(`update public.stc_tasks set text_deliverables='["One","Two"]' where id='${copy}'`);
+  await db.exec(`update public.stc_tasks set status='waiting_review' where id='${copy}'`);
+  assert.equal((await db.query<{actual_quantity:number}>(`select actual_quantity from public.stc_tasks where id='${copy}'`)).rows[0].actual_quantity,2);
+  await denied(`update public.stc_tasks set status='approved' where id='${copy}'`);
+  await asUser(manager);
+  await db.exec(`update public.stc_tasks set status='approved' where id='${copy}'`);
+  await asUser(shared);
+  assert.equal((await db.query(`select id from public.stc_notifications where task_id='${copy}' and kind='approved'`)).rows.length,1);
   await db.close();
   console.log(
     "PASS: Postgres schema, RLS isolation, role escalation, workflow, deadline preservation, immutable audit, storage authorization, replay-safe atomic import, provenance, deactivated member.",

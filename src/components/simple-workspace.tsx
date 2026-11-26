@@ -95,6 +95,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
   async function change(status:Task["status"]){
     await run(async()=>{
       const values:Record<string,unknown>={status};
+      if(!manager&&textTask&&textDirty&&status!=="waiting_review"){if(textVersion.current!==task.version)throw Error("المحتوى اتعدّل من جهاز تاني. اقفل الكارد وافتحه تاني.");values.text_deliverables=texts;}
       if(status==="waiting_review"){values.submission_note=note.trim();if(textTask){if(textVersion.current!==task.version)throw Error("المحتوى اتعدّل من جهاز تاني. اقفل الكارد وافتحه تاني.");const items=submissionTexts(texts);values.text_deliverables=items;values.actual_quantity=items.length;}else if(task.report_brand&&task.report_category){const n=Number(actual);if(!Number.isInteger(n)||n<1||n>1000000)throw Error("اكتب العدد المنفذ بشكل صحيح.");values.actual_quantity=n;}}
       if(status==="approved"||status==="changes_requested")values.review_note=note.trim();
       const r=await supabase.from("stc_tasks").update(values).eq("id",task.id).eq("version",task.version).is("deleted_at",null).select("id");
@@ -626,7 +627,7 @@ export default function SimpleWorkspace(){
     <main className="easy-content">
       <section className="easy-intro"><div><h1>{manager?"إدارة شغل الفريق":sharedTeam?"مساحة فريق المحتوى والتصميم":"شغلك النهارده"}</h1>
         <p>{manager?"راجعي التسليمات، أو اختاري القسم اللي عايزة تتابعيه.":sharedTeam?"اختار اسم من التيم عشان تشوف التاسكات والمحتوى.":"ابدأ بالأولوية الأولى، وباقي التاسكات تحت."}</p></div>
-        <div className="stc-report-actions">{manager&&<button type="button" className="easy-btn easy-btn--light" onClick={enterWeekly}>تقارير الماركتنج الرسمية</button>}<MonthlyReports key={manager?managerSection:"personal"} department={manager?managerSection:"content"} member={member} people={manager?(managerSection==="content"?people.map(p=>({id:p.id,name:p.display_name})):managerSection==="seo"?seoPeople.map(p=>({id:p.id,name:p.display_name,brand:p.brand})):mediaPeople.map(p=>({id:p.id,name:p.display_name}))):sharedTeam?people.map(p=>({id:p.id,name:p.display_name})):[{id:member.id,name:member.display_name}]} scopeLabel={manager?"تقرير القسم":"تقريري الشهري"}/>
+        <div className="stc-report-actions">{manager&&<button type="button" className="easy-btn easy-btn--light" onClick={enterWeekly}>تقارير الماركتنج الرسمية</button>}<MonthlyReports key={manager?managerSection:"personal"} department={manager?managerSection:"content"} member={member} people={manager?(managerSection==="content"?people.map(p=>({id:p.id,name:p.display_name})):managerSection==="seo"?seoPeople.map(p=>({id:p.id,name:p.display_name,brand:p.brand})):mediaPeople.map(p=>({id:p.id,name:p.display_name}))):sharedTeam?people.map(p=>({id:p.id,name:p.display_name})):[{id:member.id,name:member.display_name}]} scopeLabel={manager||sharedTeam?"تقرير القسم":"تقريري الشهري"}/>
         {manager&&managerSection==="content"&&<button className="easy-btn easy-btn--navy easy-create-button" onClick={()=>setCreating(true)}><Plus size={19}/> تاسك جديد</button>}</div>
       </section>
       {err&&<div className="easy-error" role="alert">{err}<button onClick={()=>void refresh()}>جرّب تاني</button></div>}

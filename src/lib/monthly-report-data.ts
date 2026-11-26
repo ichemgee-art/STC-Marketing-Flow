@@ -34,7 +34,7 @@ async function content(person:ReportPerson,period:ReportPeriod):Promise<Row[]>{
   if(!inReportPeriod(t.created_at,period)&&!inReportPeriod(t.updated_at,period)&&!e.length&&!c.length&&!f.length)continue;
   const relevant=[...e,...c,...f].map(x=>x.created_at).sort();
   const date=inReportPeriod(t.created_at,period)?stamp(t.created_at):relevant.length?stamp(relevant[0]):stamp(t.updated_at);
-  rows.push([date,"تاسك",t.title,lines(t.description,"تاريخ الإنشاء: "+stamp(t.created_at),t.due_date&&"ميعاد التسليم: "+t.due_date,t.submission_note&&"ملاحظة التسليم: "+t.submission_note,t.review_note&&"ملاحظة المراجعة: "+t.review_note,"آخر تحديث: "+stamp(t.updated_at)),label(t.status),t.priority]);
+  rows.push([date,"تاسك",t.title,lines(t.description,"تاريخ الإنشاء: "+stamp(t.created_at),t.due_date&&"ميعاد التسليم: "+t.due_date,Array.isArray(t.text_deliverables)&&t.text_deliverables.length>0&&t.text_deliverables.map((v:string,i:number)=>(t.report_category==="caption"?"Caption ":"Content ")+(i+1)+": "+v).join("\n"),t.submission_note&&"ملاحظة التسليم: "+t.submission_note,t.review_note&&"ملاحظة المراجعة: "+t.review_note,"آخر تحديث: "+stamp(t.updated_at)),label(t.status),t.priority]);
   for(const x of e)rows.push([stamp(x.created_at),"حركة التاسك",t.title,"",label(x.action),""]);
   for(const x of c)rows.push([stamp(x.created_at),"ملاحظة",t.title,x.body,"",""]);
   for(const x of f)rows.push([stamp(x.created_at),"مرفق",t.title,x.filename,"",x.size+" bytes"]);
