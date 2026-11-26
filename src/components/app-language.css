@@ -78,3 +78,8 @@ html[data-stc-language="en"] .stc-language-switch {
   .stc-language-switch,
   .stc-language-switch button { transition: none !important; }
 }
+
+/* Keep the language control fully inside the visible viewport in both directions. */
+html .stc-language-switch{left:max(12px,env(safe-area-inset-left));right:auto;inset-inline-start:auto;inset-inline-end:auto;transform:none;max-width:calc(100vw - 24px);box-sizing:border-box;flex-shrink:0}
+html .stc-language-switch button{flex:none;min-width:34px;white-space:nowrap}
+@media(max-width:620px){html .stc-language-switch{left:max(10px,env(safe-area-inset-left));bottom:max(10px,env(safe-area-inset-bottom))}}

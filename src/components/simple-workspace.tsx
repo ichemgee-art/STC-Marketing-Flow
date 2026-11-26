@@ -167,7 +167,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
         {files.map(f=><button type="button" className="easy-file" key={f.id} onClick={()=>void download(f)}>{f.filename}</button>)}
         {task.status!=="approved"&&<label className="easy-upload">ارفع ملف لو حابب<input type="file" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);e.currentTarget.value="";}}/></label>}
       </details>
-      {!!oldNotes.length&&<details className="easy-details"><summary>ملاحظات اتحفظت قبل كده ({oldNotes.length})</summary>{oldNotes.map(n=><p key={n.id} className="easy-past-note">{n.body}</p>)}</details>}
+      {!!oldNotes.length&&<details className="easy-details"><summary>ملاحظات اتحفظت قبل كده ({oldNotes.length})</summary>{oldNotes.map(n=><p key={n.id} className="easy-past-note" data-no-translate>{n.body}</p>)}</details>}
       {!!taskEvents.length&&<details className="easy-details flow-task-history">
         <summary><History size={16}/> سجل حركة التاسك ({taskEvents.length})</summary>
         {taskEvents.map(event=><div key={event.id} className="flow-history-item">
