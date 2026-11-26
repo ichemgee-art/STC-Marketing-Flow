@@ -1,7 +1,8 @@
 /** Browser XLSX export: all user-supplied strings are literal inline cells, never formulas. */
 export type ReportHour={work_date:string;start_minutes:number;end_minutes:number;activities:string};
 export type ReportAchievement={work_date:string;title:string;unit:string;done_count:number;note:string};
-type Report={profileName:string;brand:string;monthKey:string;hours:ReportHour[];done:ReportAchievement[]};
+import {reportMonth,type ReportPeriod} from "./report-period";
+type Report={profileName:string;brand:string;monthKey:string;hours:ReportHour[];done:ReportAchievement[];period?:ReportPeriod};
 export function monthBounds(month:string){
  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw Error("اختار شهر صحيح.");
  const d=new Date(month+"-01T00:00:00Z");d.setUTCMonth(d.getUTCMonth()+1);
@@ -43,19 +44,20 @@ function zip(files:Record<string,string>){
  const output=new Uint8Array(offset+total+22);let pos=0;for(const part of [...chunks,...central,end]){output.set(part,pos);pos+=part.length;}return output;
 }
 export function buildSeoMonthlyWorkbook(report:Report){
- const {first,next}=monthBounds(report.monthKey),inMonth=(s:string)=>s>=first&&s<next;
+ const period=report.period??reportMonth(report.monthKey);
+ const {first,next}=period,inMonth=(s:string)=>s>=first&&s<next;
  const hours=report.hours.filter(h=>inMonth(h.work_date)).sort((a,b)=>a.work_date.localeCompare(b.work_date)||a.start_minutes-b.start_minutes);
  const done=report.done.filter(h=>inMonth(h.work_date)).sort((a,b)=>a.work_date.localeCompare(b.work_date));
  const days=[...new Set([...hours.map(h=>h.work_date),...done.map(h=>h.work_date)])].sort();
  const total=hours.reduce((n,h)=>n+h.end_minutes-h.start_minutes,0);
- const prefix=(title:string,labels:string[])=>[[c(title,1)],[c(report.profileName+" | "+report.brand+" | "+report.monthKey)],[c("إجمالي ساعات الشهر"),c(total/1440,5)],header(labels)];
+ const prefix=(title:string,labels:string[])=>[[c(title,1)],[c(report.profileName+" | "+report.brand+" | "+period.label)],[c("إجمالي ساعات الفترة"),c(total/1440,5)],header(labels)];
  const detail=prefix("STC | فترات العمل",["التاريخ","من الساعة","إلى الساعة","مدة الفترة","الأعمال المنفذة"]);
  for(const h of hours)detail.push([day(h.work_date),time(h.start_minutes),time(h.end_minutes),duration(h.end_minutes-h.start_minutes),c(h.activities)]);
- const daily=prefix("STC | ملخص التقرير الشهري",["التاريخ","إجمالي ساعات اليوم","عدد الفترات","الأعمال المسجلة","عدد سجلات Done"]);
+ const daily=prefix("STC | ملخص التقرير",["التاريخ","إجمالي ساعات اليوم","عدد الفترات","الأعمال المسجلة","عدد سجلات Done"]);
  for(const date of days){const rows=hours.filter(h=>h.work_date===date);daily.push([day(date),duration(rows.reduce((n,h)=>n+h.end_minutes-h.start_minutes,0)),c(rows.length),c(rows.map(h=>h.activities).join("\n")),c(done.filter(h=>h.work_date===date).length)]);}
  const achievements=prefix("STC | الإنجازات المسجلة Done",["التاريخ","التارجت","المنفذ","الوحدة","الملاحظات"]);
  for(const h of done)achievements.push([day(h.work_date),c(h.title),c(h.done_count),c(h.unit),c(h.note||"")]);
- const names=["ملخص الشهر","فترات العمل","الإنجازات"],sheets=[sheet(daily,[17,23,17,85,22]),sheet(detail,[17,17,17,18,85]),sheet(achievements,[17,42,15,20,75])];
+ const names=[period.fileKey===report.monthKey?"ملخص الشهر":"ملخص الفترة","فترات العمل","الإنجازات"],sheets=[sheet(daily,[17,23,17,85,22]),sheet(detail,[17,17,17,18,85]),sheet(achievements,[17,42,15,20,75])];
  return packWorkbook(names,sheets);
 }
 function packWorkbook(names:string[],sheets:string[]){
@@ -76,6 +78,6 @@ export function buildDepartmentWorkbook(reports:DepartmentSheet[]){
   let name=base,i=2;while(used.has(name.toLowerCase()))name=base.slice(0,26)+" "+i++;
   used.add(name.toLowerCase());return name;
  });
- const sheets=reports.map(r=>sheet([[c("STC | التقرير الشهري",1)],[c(r.subtitle)],[c("البيانات المسجلة في السيستم")],header(["التاريخ","النوع","العمل / العنوان","التفاصيل","الحالة","القيمة / المدة"]),...r.rows.map(row=>row.map(v=>c(v)))],[23,24,42,105,24,22]));
+ const sheets=reports.map(r=>sheet([[c("STC | تقرير الفترة",1)],[c(r.subtitle)],[c("البيانات المسجلة في السيستم")],header(["التاريخ","النوع","العمل / العنوان","التفاصيل","الحالة","القيمة / المدة"]),...r.rows.map(row=>row.map(v=>c(v)))],[23,24,42,105,24,22]));
  return packWorkbook(names,sheets);
 }

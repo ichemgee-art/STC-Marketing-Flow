@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Download, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { monthBounds, buildSeoMonthlyWorkbook, type ReportAchievement } from "@/lib/seo-monthly-export";
-import { readableError } from "@/lib/workspace-quality";
+import { monthBounds } from "@/lib/seo-monthly-export";
+import MonthlyReports from "./monthly-reports";
 import { confirmInCurrentLanguage } from "./app-language-provider";
 import type { Member } from "@/lib/domain";
 import type { SeoProgress, SeoTarget } from "./seo-target-board";
@@ -39,8 +39,6 @@ export default function SeoDailyReport({
   const [end,setEnd]=useState("17:00");
   const [activity,setActivity]=useState("");
   const [saving,setSaving]=useState(false);
-  const [exporting,setExporting]=useState(false);
-  const exportLock=useRef(false);
   const [targets,setTargets]=useState<SeoTarget[]>(()=>warm?.targets||[]);
   const [progress,setProgress]=useState<SeoProgress[]>(()=>warm?.progress||[]);
   const fetchSeq=useRef(0);
@@ -86,44 +84,6 @@ export default function SeoDailyReport({
   const achievements=progress.filter(e=>e.work_date===date).sort((a,b)=>b.created_at.localeCompare(a.created_at));
   const duration=rows.reduce((n,r)=>n+r.end_minutes-r.start_minutes,0);
   const monthDuration=monthEntries.reduce((n,r)=>n+r.end_minutes-r.start_minutes,0);
-  async function exportMonth(){
-    if(exportLock.current||!monthKey)return;
-    exportLock.current=true;setExporting(true);
-    try{
-      const {first,next}=monthBounds(monthKey);
-      const hours:SeoHours[]=[];
-      const done:ReportAchievement[]=[];
-      const pageSize=500;
-      for(let from=0;;from+=pageSize){
-        const r=await supabase.from("stc_seo_hours").select("id,profile_id,work_date,start_minutes,end_minutes,activities,created_by")
-          .eq("profile_id",profileId).gte("work_date",first).lt("work_date",next)
-          .order("work_date").order("start_minutes").order("id").range(from,from+pageSize-1);
-        if(r.error)throw r.error;
-        hours.push(...(r.data||[]));
-        if((r.data||[]).length<pageSize)break;
-      }
-      for(let from=0;;from+=pageSize){
-        const r=await supabase.from("stc_seo_progress").select("id,work_date,done_count,note,stc_seo_targets!inner(title,target_unit,profile_id)")
-          .eq("stc_seo_targets.profile_id",profileId).gte("work_date",first).lt("work_date",next)
-          .order("work_date").order("id").range(from,from+pageSize-1);
-        if(r.error)throw r.error;
-        for(const row of r.data||[]){
-          const target=Array.isArray(row.stc_seo_targets)?row.stc_seo_targets[0]:row.stc_seo_targets;
-          if(target)done.push({work_date:row.work_date,title:target.title,unit:target.target_unit,done_count:row.done_count,note:row.note});
-        }
-        if((r.data||[]).length<pageSize)break;
-      }
-      if(!hours.length&&!done.length){onNotice("مفيش بيانات متسجلة للشهر ده.");return;}
-      const workbook=buildSeoMonthlyWorkbook({profileName,brand,monthKey,hours,done});
-      const url=URL.createObjectURL(new Blob([new Uint8Array(workbook)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
-      const link=document.createElement("a");
-      link.href=url;link.download=("STC-SEO-"+profileName+"-"+monthKey+".xlsx").replace(/[\\/:*?"<>|]/g,"-");
-      document.body.appendChild(link);link.click();link.remove();
-      window.setTimeout(()=>URL.revokeObjectURL(url),1000);
-      onNotice("تم تصدير التقرير الشهري بنجاح.");
-    }catch(e){onError(readableError(e));}
-    finally{exportLock.current=false;setExporting(false);}
-  }
   async function submitHours() {
     if(monthKey&&!date.startsWith(monthKey+"-")){onError("اختار يوم جوه الشهر اللي فاتحه.");return;}
     const from=asMinutes(start),to=asMinutes(end);
@@ -164,8 +124,7 @@ export default function SeoDailyReport({
         <label className="seo-daily-picker"><CalendarDays size={18}/> اليوم<input type="date" value={date}
           min={monthKey?monthKey+"-01":undefined} max={monthKey?monthBounds(monthKey).last:undefined}
           onChange={e=>setDate(e.target.value)}/></label>
-        <button type="button" className="seo-month-export" disabled={exporting||!monthKey} aria-busy={exporting}
-          onClick={()=>void exportMonth()}><Download size={18}/>{exporting?"جاري التصدير…":"تصدير تقرير الشهر Excel"}</button>
+        <MonthlyReports department="seo" member={member} people={[{id:profileId,name:profileName,brand}]} initialMonth={monthKey||undefined} scopeLabel="تصدير التقرير اليومي" dailyOnly/>
       </div>
     </div>
     <div className="seo-daily-summary">

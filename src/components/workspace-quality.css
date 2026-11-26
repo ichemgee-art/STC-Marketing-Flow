@@ -121,3 +121,5 @@ body .mb2-refreshing{animation:mb2-refresh-spin .8s linear infinite}
 .stc-report-panel small{font-size:11px;color:#52677e;line-height:1.6}
 .stc-sound-toggle{display:inline-flex;align-items:center;justify-content:center;border:1px solid #ffffff35;color:#ffda88;background:#ffffff12;border-radius:7px;height:26px;width:32px;cursor:pointer;margin-inline-start:5px}
 @media(max-width:650px){.stc-report-actions{width:100%}.stc-report-actions .easy-create-button{width:auto}.stc-report-panel{inset-inline-end:auto;inset-inline-start:0}.stc-sound-toggle{margin-inline-start:auto}}
+
+.stc-report-panel select,.stc-report-panel input{box-sizing:border-box;min-height:40px;border:1px solid #dfe6ee;padding:7px 9px;background:white;color:#253a55;width:100%;border-radius:8px}.stc-report-dates{display:grid;grid-template-columns:1fr;gap:8px}.stc-report-panel [role=alert]{color:#a52b2b}

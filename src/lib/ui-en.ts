@@ -1214,7 +1214,17 @@ const EN_ENTRIES: [string,string][] = [
   ["تم إنشاء المهمة وإرسالها للموظف بنجاح.","Task created and assigned."],
   ["إسناد إلى","Assign to"],
   ["إسناد المهمة","Assign task"],
-]; 
+  ["نوع الفترة","Period type"],
+  ["شهر كامل","Full month"],
+  ["فترة محددة","Custom date range"],
+  ["من تاريخ","From date"],
+  ["إلى تاريخ","To date"],
+  ["اختار فترة صحيحة: تاريخ البداية قبل النهاية أو نفس اليوم.","Choose a valid range: the start date must be on or before the end date."],
+  ["اختار تاريخ صحيح.","Choose a valid date."],
+  ["تم تصدير التقرير بنجاح.","Report exported successfully."],
+  ["بيانات الفترة المسجلة في السيستم.","Records saved in the system for the selected period."],
+  ["تصدير التقرير اليومي","Export daily report"],
+];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)
   .sort((a,b)=>b[0].length-a[0].length);
