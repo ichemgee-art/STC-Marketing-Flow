@@ -12,6 +12,7 @@ import type { Member } from "@/lib/domain";
 import MonthlyReports from "./monthly-reports";
 import SeoTargetBoard, { clearSeoTargetMemory } from "./seo-target-board";
 import { countCompletedMonthlyTargets } from "@/lib/seo-progress-correction";
+import {companyMonthRange,companyMonthKey,cairoDate} from "@/lib/report-period";
 import SeoSourceCards from "./seo-source-cards";
 import SeoDailyReport, { clearSeoDailyMemory } from "./seo-daily-report";
 import SeoMetricsBoard, { clearSeoMetricsMemory } from "./seo-metrics-board";
@@ -81,7 +82,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
   const [section,setSection]=useState<"targets"|"metrics"|"daily"|"evidence"|"archive">("targets");
   const [positionReady,setPositionReady]=useState(false);
   const [snapshot,setSnapshot]=useState({total:0,completed:0,pending:0,approved:0});
-  const [newMonth,setNewMonth]=useState("");
+  const [newMonth,setNewMonth]=useState(()=>companyMonthKey(cairoDate(new Date().toISOString())));
   const [showMonthCreator,setShowMonthCreator]=useState(false);
   const [copyPreviousTargets,setCopyPreviousTargets]=useState(false);
   const [creatingMonth,setCreatingMonth]=useState(false);
@@ -197,13 +198,11 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
     if(!profile||!selected)return;
     const current=periods.find(p=>p.id===selected);
     if(!current)return;
-    const nextMonth=new Date(current.month_key+"-01T00:00:00Z");
-    nextMonth.setUTCMonth(nextMonth.getUTCMonth()+1);
-    const endExclusive=nextMonth.toISOString().slice(0,10);
+    const bounds=companyMonthRange(current.month_key);
     const [a,b,d]=await Promise.all([
       supabase.from("stc_seo_targets").select("id,target_count,cadence").eq("profile_id",profile.id).eq("month_key",current.month_key),
       supabase.from("stc_seo_metrics").select("status").eq("profile_id",profile.id).eq("month_key",current.month_key),
-      supabase.from("stc_seo_progress").select("target_id,done_count,work_date").gte("work_date",current.month_key+"-01").lt("work_date",endExclusive),
+      supabase.from("stc_seo_progress").select("target_id,done_count,work_date").gte("work_date",bounds.first).lt("work_date",bounds.next),
     ]);
     if(serial!==snapshotSerial.current||!mounted.current||a.error||b.error||d.error)return;
     const targets=a.data||[];
@@ -309,7 +308,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         profile_id:profile.id,source_sheet:"from-system-"+newMonth,
         source_filename:"خطة من السيستم",source_sha256:"manual:"+slug+":"+newMonth,
         month_key:newMonth,label,period_kind:"month",cells:{},links:{},comments:{},image_count:0,
-      });
+      }).select("id").single();
       if(result.error)throw result.error;
       if(copied.length){
         const inserted=await supabase.from("stc_seo_targets").insert(copied.map(t=>({
@@ -321,6 +320,8 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
         }
       }
       setShowMonthCreator(false);setCopyPreviousTargets(false);setNewMonth("");
+      setFlowLocation(member.id,{view:"seo",person:slug,section,month:newMonth},"push");
+      if(result.data)setSelected(result.data.id);
       await refresh();
       setToast(copied.length?
         "الشهر الجديد اتفتح واتنسخ "+copied.length+" تارجت من "+sourceMonth+"، من غير إنجازات قديمة.":
@@ -418,7 +419,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
       </div>
       {error&&<div className="seo-error" role="alert">{error}<button type="button" onClick={()=>setError("")}>×</button></div>}
       {manager&&<div className="seo-month-manager">
-        <button className="seo-target-add" type="button" onClick={()=>setShowMonthCreator(x=>!x)}><Plus size={16}/> افتحي شهر جديد</button>
+        <button className="seo-target-add" type="button" onClick={()=>{if(!showMonthCreator&&!newMonth)setNewMonth(companyMonthKey(cairoDate(new Date().toISOString())));setShowMonthCreator(x=>!x);}}><Plus size={16}/> افتحي شهر جديد</button>
         {showMonthCreator&&<form className="seo-new-month" onSubmit={e=>{e.preventDefault();void createMonth();}}>
           <label>اختاري الشهر<input type="month" value={newMonth} onChange={e=>setNewMonth(e.target.value)} required/></label>
           <label className="flow-copy-targets"><input type="checkbox" checked={copyPreviousTargets}
@@ -435,6 +436,7 @@ export default function SeoWorkspace({slug,member,onBack}: {slug: string;member:
           {p.label}
         </button>)}
       </div>
+      {period&&period.month_key>="2026-11"&&<p className="seo-month-label"><CalendarDays size={16}/> فترة الشهر: <span dir="ltr">{companyMonthRange(period.month_key).first} — {companyMonthRange(period.month_key).last}</span></p>}
       {period&&period.month_key>="2026-11"&&<div className="seo-overview-strip">
         <button type="button" onClick={()=>chooseSection("targets")}>
           <span>تارجت الشهر</span><strong>{snapshot.total}</strong>

@@ -1,13 +1,10 @@
 /** Browser XLSX export: all user-supplied strings are literal inline cells, never formulas. */
 export type ReportHour={work_date:string;start_minutes:number;end_minutes:number;activities:string};
 export type ReportAchievement={work_date:string;title:string;unit:string;qualitative?:boolean;done_count:number;note:string};
-import {reportMonth,type ReportPeriod} from "./report-period";
+import {companyReportMonth,companyMonthRange,type ReportPeriod} from "./report-period";
 type Report={profileName:string;brand:string;monthKey:string;hours:ReportHour[];done:ReportAchievement[];period?:ReportPeriod};
-export function monthBounds(month:string){
- if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw Error("اختار شهر صحيح.");
- const d=new Date(month+"-01T00:00:00Z");d.setUTCMonth(d.getUTCMonth()+1);
- return {first:month+"-01",next:d.toISOString().slice(0,10),last:new Date(d.getTime()-86400000).toISOString().slice(0,10)};
-}
+export function monthBounds(month:string){return companyMonthRange(month);}
+
 type Cell={v:string|number;s:number};
 const c=(v:string|number,s=0):Cell=>({v,s});
 const esc=(v:string)=>v.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFE\uFFFF]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -44,7 +41,7 @@ function zip(files:Record<string,string|Uint8Array>){
  const output=new Uint8Array(offset+total+22);let pos=0;for(const part of [...chunks,...central,end]){output.set(part,pos);pos+=part.length;}return output;
 }
 export function buildSeoMonthlyWorkbook(report:Report){
- const period=report.period??reportMonth(report.monthKey);
+ const period=report.period??companyReportMonth(report.monthKey);
  const {first,next}=period,inMonth=(s:string)=>s>=first&&s<next;
  const hours=report.hours.filter(h=>inMonth(h.work_date)).sort((a,b)=>a.work_date.localeCompare(b.work_date)||a.start_minutes-b.start_minutes);
  const done=report.done.filter(h=>inMonth(h.work_date)).sort((a,b)=>a.work_date.localeCompare(b.work_date));

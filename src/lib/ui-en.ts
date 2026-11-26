@@ -1323,6 +1323,8 @@ const EN_ENTRIES: [string,string][] = [
   ["تم التنفيذ","Completed"],
   ["لم يتم التنفيذ","Not completed"],
   ["حالة التنفيذ","Completion status"],
+  ["فترة الشهر:","Reporting month:"],
+  ["تسجيل سابق خارج الفترة","Earlier entry outside the reporting period"],
 ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)

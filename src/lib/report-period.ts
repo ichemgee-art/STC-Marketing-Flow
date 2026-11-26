@@ -36,3 +36,32 @@ export function inReportPeriod(value:unknown,period:ReportPeriod){
 export function campaignOverlaps(start:unknown,end:unknown,period:ReportPeriod){
  return typeof start==="string"&&typeof end==="string"&&validDate(start)&&validDate(end)&&start<=end&&start<=period.last&&end>=period.first;
 }
+
+/** Company reporting month: previous month's 26th through this month's 25th. */
+export function companyMonthRange(month:string){
+ const {first}=monthRange(month);
+ const prior=addDays(first,-1).slice(0,7);
+ return {first:prior+"-26",last:month+"-25",next:month+"-26"};
+}
+export function companyMonthKey(date:string){
+ if(!validDate(date))throw Error("اختار تاريخ صحيح.");
+ return Number(date.slice(8))>=26?addDays(monthRange(date.slice(0,7)).last,1).slice(0,7):date.slice(0,7);
+}
+export function inCompanyMonth(date:string,month:string){
+ const {first,last}=companyMonthRange(month);
+ return validDate(date)&&date>=first&&date<=last;
+}
+export function companyDefaultDay(month:string,today:string){
+ return inCompanyMonth(today,month)?today:companyMonthRange(month).first;
+}
+export function companyReportPeriod(first:string,last:string):ReportPeriod{
+ const p=reportPeriod(first,last),fullMonths:string[]=[];
+ for(let month=companyMonthKey(first);month<=companyMonthKey(last);){
+  const bounds=companyMonthRange(month);
+  if(bounds.first>=first&&bounds.last<=last)fullMonths.push(month);
+  month=companyMonthKey(bounds.next);
+ }
+ const full=fullMonths.length===1&&first===companyMonthRange(fullMonths[0]).first&&last===companyMonthRange(fullMonths[0]).last;
+ return {...p,fullMonths,fileKey:full?fullMonths[0]:first+"_to_"+last};
+}
+export function companyReportMonth(month:string){const r=companyMonthRange(month);return companyReportPeriod(r.first,r.last);}

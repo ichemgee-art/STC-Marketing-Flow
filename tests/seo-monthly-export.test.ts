@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import {buildSeoMonthlyWorkbook,monthBounds} from "../src/lib/seo-monthly-export";
 import {parseSeoWorkbook} from "../src/lib/seo-workbook";
 test("month boundaries respect leap years and December rollover",()=>{
- assert.deepEqual(monthBounds("2028-02"),{first:"2028-02-01",next:"2028-03-01",last:"2028-02-29"});
- assert.equal(monthBounds("2026-12").next,"2027-01-01");
+ assert.deepEqual(monthBounds("2028-02"),{first:"2028-01-26",next:"2028-02-26",last:"2028-02-25"});
+ assert.equal(monthBounds("2026-12").next,"2026-12-26");
  assert.throws(()=>monthBounds("2026-13"));
 });
 test("XLSX preserves work periods, totals over 24h, Done-only days and literal user text",()=>{
@@ -23,4 +23,10 @@ test("XLSX preserves work periods, totals over 24h, Done-only days and literal u
  assert.equal(done.cells.B5,"SEO");
  assert.equal(Number(done.cells.C5),3);
  assert.ok(!Buffer.from(workbook).includes(Buffer.from("<f>")));
+});
+
+test("company December workbook includes November 26 and December 25 only inside cycle",()=>{
+ const hours=["2026-11-25","2026-11-26","2026-12-25","2026-12-26"].map(work_date=>({work_date,start_minutes:540,end_minutes:600,activities:work_date}));
+ const result=parseSeoWorkbook(Buffer.from(buildSeoMonthlyWorkbook({profileName:"QA",brand:"STC",monthKey:"2026-12",hours,done:[]})));
+ assert.equal(result.sheets[1].cells.E5,"2026-11-26");assert.equal(result.sheets[1].cells.E6,"2026-12-25");assert.equal(result.sheets[1].cells.E7,undefined);
 });

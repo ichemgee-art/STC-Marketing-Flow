@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { monthBounds } from "@/lib/seo-monthly-export";
+import {companyMonthRange,inCompanyMonth,companyDefaultDay} from "@/lib/report-period";
 import MonthlyReports from "./monthly-reports";
 import SeoProgressEdit from "./seo-progress-edit";
 import { confirmInCurrentLanguage } from "./app-language-provider";
@@ -34,7 +34,7 @@ export default function SeoDailyReport({
   const warm=recent&&Date.now()-recent.at<120_000?recent:null;
   const [date,setDate]=useState(()=>{
     const now=cairoToday();
-    return monthKey&&now.startsWith(monthKey+"-")?now:monthKey?monthKey+"-01":now;
+    return monthKey?companyDefaultDay(monthKey,now):now;
   });
   const [start,setStart]=useState("09:00");
   const [end,setEnd]=useState("17:00");
@@ -79,14 +79,14 @@ export default function SeoDailyReport({
       void supabase.removeChannel(channel);
     };
   },[profileId,load]);
-  const monthEntries=entries.filter(e=>!monthKey||e.work_date.startsWith(monthKey+"-"));
-  const days=useMemo(()=>[...new Set([date,...monthEntries.map(e=>e.work_date),...progress.filter(e=>!monthKey||e.work_date.startsWith(monthKey+"-")).map(e=>e.work_date)])].sort().reverse(),[date,monthEntries,progress,monthKey]);
+  const monthEntries=entries.filter(e=>!monthKey||inCompanyMonth(e.work_date,monthKey));
+  const days=useMemo(()=>[...new Set([date,...monthEntries.map(e=>e.work_date),...progress.filter(e=>!monthKey||inCompanyMonth(e.work_date,monthKey)).map(e=>e.work_date)])].sort().reverse(),[date,monthEntries,progress,monthKey]);
   const rows=monthEntries.filter(e=>e.work_date===date).sort((a,b)=>a.start_minutes-b.start_minutes);
   const achievements=progress.filter(e=>e.work_date===date).sort((a,b)=>b.created_at.localeCompare(a.created_at));
   const duration=rows.reduce((n,r)=>n+r.end_minutes-r.start_minutes,0);
   const monthDuration=monthEntries.reduce((n,r)=>n+r.end_minutes-r.start_minutes,0);
   async function submitHours() {
-    if(monthKey&&!date.startsWith(monthKey+"-")){onError("اختار يوم جوه الشهر اللي فاتحه.");return;}
+    if(monthKey&&!inCompanyMonth(date,monthKey)){onError("اختار يوم جوه الشهر اللي فاتحه.");return;}
     const from=asMinutes(start),to=asMinutes(end);
     if(!Number.isInteger(from)||!Number.isInteger(to)||from<0||to>1440||to<=from){
       onError("اتأكد من مواعيد البداية والنهاية.");return;
@@ -123,7 +123,7 @@ export default function SeoDailyReport({
       </div>
       <div className="seo-daily-actions">
         <label className="seo-daily-picker"><CalendarDays size={18}/> اليوم<input type="date" value={date}
-          min={monthKey?monthKey+"-01":undefined} max={monthKey?monthBounds(monthKey).last:undefined}
+          min={monthKey?companyMonthRange(monthKey).first:undefined} max={monthKey?companyMonthRange(monthKey).last:undefined}
           onChange={e=>setDate(e.target.value)}/></label>
         <MonthlyReports department="seo" member={member} people={[{id:profileId,name:profileName,brand}]} initialMonth={monthKey||undefined} scopeLabel="تصدير التقرير اليومي" dailyOnly/>
       </div>

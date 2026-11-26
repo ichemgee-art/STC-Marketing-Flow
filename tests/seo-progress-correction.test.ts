@@ -7,6 +7,6 @@ test("optional targets are complete by status, not a visible numeric quota",()=>
 test("December summary does not count three blank monthly targets as complete",()=>{
  const targets=[...Array.from({length:3},(_,i)=>({id:"blank"+i,cadence:"monthly",target_count:null})),...Array.from({length:6},(_,i)=>({id:"numeric"+i,cadence:"monthly",target_count:4})),{id:"daily",cadence:"daily",target_count:null}];
  assert.equal(countCompletedMonthlyTargets(targets,[],"2026-12"),0);
- const progress=[{target_id:"blank0",done_count:0,work_date:"2026-12-01"},{target_id:"blank1",done_count:1,work_date:"2026-11-30"},{target_id:"blank2",done_count:1,work_date:"2026-12-01"},{target_id:"numeric0",done_count:3,work_date:"2026-12-01"},{target_id:"numeric0",done_count:1,work_date:"2026-12-02"},{target_id:"daily",done_count:1,work_date:"2026-12-01"}];
+ const progress=[{target_id:"blank0",done_count:0,work_date:"2026-12-01"},{target_id:"blank1",done_count:1,work_date:"2026-11-25"},{target_id:"blank2",done_count:1,work_date:"2026-11-26"},{target_id:"numeric0",done_count:3,work_date:"2026-12-01"},{target_id:"numeric0",done_count:1,work_date:"2026-12-02"},{target_id:"daily",done_count:1,work_date:"2026-12-01"}];
  assert.equal(countCompletedMonthlyTargets(targets,progress,"2026-12"),2);
 });

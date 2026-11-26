@@ -1,3 +1,4 @@
+import {inCompanyMonth} from "./report-period";
 export function progressCount(value:string):number|null {
  if(!value.trim())return null;
  const n=Number(value);return Number.isInteger(n)&&n>=0&&n<=1000000?n:null;
@@ -21,7 +22,7 @@ export function countCompletedMonthlyTargets(
 ):number{
  const sums=new Map<string,number>();
  for(const row of progress){
-  if(!row.work_date.startsWith(monthKey+"-"))continue;
+  if(!inCompanyMonth(row.work_date,monthKey))continue;
   sums.set(row.target_id,(sums.get(row.target_id)||0)+row.done_count);
  }
  return targets.filter(t=>t.cadence==="monthly"&&isTargetComplete(t.target_count,sums.get(t.id)||0)).length;

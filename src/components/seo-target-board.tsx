@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, ClipboardCheck, Pencil, Plus, Target, X, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SeoProgressEdit from "./seo-progress-edit";
+import {companyMonthRange,inCompanyMonth,companyDefaultDay} from "@/lib/report-period";
 import {progressCount,targetQuantity,isTargetComplete,countCompletedMonthlyTargets} from "@/lib/seo-progress-correction";
 
 export type SeoTarget = {
@@ -17,9 +18,9 @@ export function clearSeoTargetMemory(){targetMemory.clear();}
 
 function cairoToday() {return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Cairo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
 function sumFor(t:SeoTarget,logs:SeoProgress[],day:string) {
-  return logs.filter(p=>p.target_id===t.id&&(t.cadence==="monthly"||p.work_date===day)).reduce((n,p)=>n+p.done_count,0);
+  return logs.filter(p=>p.target_id===t.id&&inCompanyMonth(p.work_date,t.month_key)&&(t.cadence==="monthly"||p.work_date===day)).reduce((n,p)=>n+p.done_count,0);
 }
-function countAll(id:string, logs:SeoProgress[]) {return logs.filter(x=>x.target_id===id).reduce((sum,x)=>sum+x.done_count,0);}
+function countAll(id:string, logs:SeoProgress[],monthKey:string) {return logs.filter(x=>x.target_id===id&&inCompanyMonth(x.work_date,monthKey)).reduce((sum,x)=>sum+x.done_count,0);}
 export default function SeoTargetBoard({
  profileId,monthKey,manager,memberId,onNotice,onError
 }:{
@@ -45,7 +46,8 @@ export default function SeoTargetBoard({
    if(!active)return;
    try{if(note)sessionStorage.setItem(noteKey,note);else sessionStorage.removeItem(noteKey);}catch{}
  },[noteKey,note,active]);
- const [day,setDay]=useState(()=>cairoToday().startsWith(monthKey+"-")?cairoToday():monthKey+"-01");
+ const bounds=companyMonthRange(monthKey);
+ const [day,setDay]=useState(()=>companyDefaultDay(monthKey,cairoToday()));
  const [busy,setBusy]=useState(false);
  const [loaded,setLoaded]=useState(!!warm);
  const fetchSeq=useRef(0);
@@ -65,7 +67,7 @@ export default function SeoTargetBoard({
    const p=await supabase.from("stc_seo_progress").select("*").in("target_id",list.map(x=>x.id)).order("created_at",{ascending:false});
    if(seq!==fetchSeq.current)return;
    if(p.error){onError(p.error.message);return;}
-   const entries=(p.data as SeoProgress[]).filter(row=>row.work_date.startsWith(monthKey+"-"));
+   const entries=p.data as SeoProgress[];
    targetMemory.set(cacheKey,{at:Date.now(),targets:list,progress:entries});
    setTargets(list);setProgress(entries);setLoaded(true);
  },[profileId,monthKey,onError,cacheKey]);
@@ -109,7 +111,7 @@ export default function SeoTargetBoard({
    if(manager){onError("تسجيل الإنجاز متاح لصاحب الشغل بس، مش لناردين.");return;}
    const n=target.target_count===null?1:progressCount(amount);
    if(n===null){onError("عدد المنجز لازم يكون رقم صحيح أكبر من أو يساوي صفر.");return;}
-   if(!day.startsWith(monthKey+"-")){onError("اختار يوم داخل نفس شهر التارجت.");return;}
+   if(!inCompanyMonth(day,monthKey)){onError("اختار يوم داخل نفس شهر التارجت.");return;}
    if(target.cadence==="monthly"&&n>0&&sumFor(target,progress,day)+n>(target.target_count??1)){
      onError("العدد ده هيعدّي التارجت الشهري. راجع اللي اتسجّل الأول.");return;
    }
@@ -156,7 +158,7 @@ export default function SeoTargetBoard({
   </div>}
   {!!targets.length&&<>
     <div className="seo-target-day"><CalendarDays size={18}/><span>{manager?"اختاري اليوم عشان تشوفي اللي اتنفّذ:":"اليوم اللي هتسجّل عليه شغلك:"}</span>
-      <input type="date" value={day} min={monthKey+"-01"} max={monthKey+"-31"} onChange={e=>setDay(e.target.value)}/>
+      <input type="date" value={day} min={bounds.first} max={bounds.last} onChange={e=>setDay(e.target.value)}/>
     </div>
     <nav className="flow-target-filters" aria-label="تصفية تارجت الشهر"><Filter size={16}/>
       <button type="button" className={filter==="all"?"active":""} onClick={()=>setFilter("all")}>
@@ -167,16 +169,16 @@ export default function SeoTargetBoard({
         اتعمل <small>{targets.filter(t=>isTargetComplete(t.target_count,sumFor(t,progress,day))).length}</small></button>
     </nav>
     <div className="seo-live-card-grid">{targets.filter(t=>{
-      const done=t.cadence==="monthly"?countAll(t.id,progress):sumFor(t,progress,day);
+      const done=t.cadence==="monthly"?countAll(t.id,progress,monthKey):sumFor(t,progress,day);
       return filter==="all"||filter==="complete"&&isTargetComplete(t.target_count,done)||
         filter==="pending"&&!isTargetComplete(t.target_count,done);
     }).map(target=>{
       const done=sumFor(target,progress,day);
-      const all=countAll(target.id,progress);
+      const all=countAll(target.id,progress,monthKey);
       const numeric=target.target_count!==null;
       const pct=target.target_count===null?0:Math.min(100,Math.round((done/target.target_count)*100));
       const completed=isTargetComplete(target.target_count,done);
-      const entries=progress.filter(p=>p.target_id===target.id&&(target.cadence==="monthly"||p.work_date===day));
+      const entries=progress.filter(p=>p.target_id===target.id&&(target.cadence==="monthly"||p.work_date===day||!inCompanyMonth(p.work_date,monthKey)));
       return <article key={target.id} className={"seo-live-card"+(completed?" is-done":"")}>
        <div className="seo-live-card-top"><span className={"seo-live-cadence "+target.cadence}>{target.cadence==="daily"?"تارجت يومي":"تارجت شهري"}</span>
          <span className={completed?"seo-live-badge done":"seo-live-badge"}>{completed?"اتعمل ✓":manager?"مستني تنفيذ":"لسه شغال"}</span></div>
@@ -195,7 +197,7 @@ export default function SeoTargetBoard({
          <button type="submit" disabled={busy}>{busy?"بنسجّل…":"تمام، سجّل الإنجاز"}</button>
        </form>}
        {entries.length>0&&<details className="seo-progress-history"><summary>آخر الإنجازات والملاحظات ({entries.length})</summary>
-         {entries.map(entry=><div key={entry.id}><b>{numeric?entry.done_count:entry.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"} · {entry.work_date}</b>{entry.note&&<p data-no-translate>{entry.note}</p>}{!manager&&entry.created_by===memberId&&<SeoProgressEdit entry={entry} qualitative={!numeric} onSaved={load} onNotice={onNotice} onError={onError}/>}</div>)}
+         {entries.map(entry=><div key={entry.id}><b>{numeric?entry.done_count:entry.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"} · {entry.work_date}</b>{!inCompanyMonth(entry.work_date,monthKey)&&<small>تسجيل سابق خارج الفترة</small>}{entry.note&&<p data-no-translate>{entry.note}</p>}{!manager&&entry.created_by===memberId&&<SeoProgressEdit entry={entry} qualitative={!numeric} onSaved={load} onNotice={onNotice} onError={onError}/>}</div>)}
        </details>}
       </article>;
     })}</div>

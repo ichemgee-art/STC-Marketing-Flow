@@ -1,7 +1,7 @@
 import {supabase} from "./supabase";
 import {seoMetricLabel} from "./seo-metric-labels";
 import {type DepartmentSheet,type ReportAchievement,type ReportHour} from "./seo-monthly-export";
-import {inReportPeriod,campaignOverlaps,type ReportPeriod} from "./report-period";
+import {inReportPeriod,campaignOverlaps,inCompanyMonth,type ReportPeriod} from "./report-period";
 export type Department="content"|"seo"|"media";
 export type ReportPerson={id:string;name:string;brand?:string};
 type Row=(string|number)[];
@@ -58,7 +58,7 @@ async function seo(person:ReportPerson,period:ReportPeriod,dailyOnly=false):Prom
  for(const h of hours.sort((a,b)=>a.work_date.localeCompare(b.work_date)||a.start_minutes-b.start_minutes))rows.push([h.work_date,"فترة عمل",mins(h.start_minutes)+" – "+mins(h.end_minutes),h.activities,"",mins(h.end_minutes-h.start_minutes)]);
  for(const x of done)rows.push([x.work_date,"إنجاز Done",x.title,x.note,x.qualitative?(x.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"):"",x.qualitative?"":x.done_count]);
  if(dailyOnly)return rows;
- // Monthly snapshots are not weekly data. Include them only for fully selected calendar months.
+ // Monthly snapshots are not weekly data. Include them only for fully selected company reporting months.
  if(!period.fullMonths.length){rows.push(["","ملاحظة","المؤشرات والتارجت الشهري","تظهر البيانات الشهرية عند اختيار شهر كامل؛ التقرير الحالي يشمل الساعات والإنجازات الفعلية للفترة.","",""]);return rows;}
  for(const month of period.fullMonths){
   const [targets,metrics,periods]=await Promise.all([
@@ -66,7 +66,7 @@ async function seo(person:ReportPerson,period:ReportPeriod,dailyOnly=false):Prom
    pages((a,b)=>supabase.from("stc_seo_metrics").select("*").eq("profile_id",person.id).eq("month_key",month).order("id").range(a,b)),
    pages((a,b)=>supabase.from("stc_seo_periods").select("label,cells,links,comments,source_sheet,image_count,id").eq("profile_id",person.id).eq("month_key",month).order("id").range(a,b))
   ]);
-  for(const t of targets){const completed=progress.filter(x=>x.target_id===t.id&&String(x.work_date).startsWith(month+"-")).reduce((n,x)=>n+x.done_count,0);rows.push([month,"تارجت شهري",t.title,lines(t.details,t.target_count==null?"مهمة بدون عدد":"المطلوب: "+t.target_count,"الدورية: "+t.cadence),t.target_count==null?(completed>0?"تم التنفيذ":"لم يتم التنفيذ"):"المنفذ",t.target_count==null?"":completed]);}
+  for(const t of targets){const completed=progress.filter(x=>x.target_id===t.id&&inCompanyMonth(String(x.work_date),month)).reduce((n,x)=>n+x.done_count,0);rows.push([month,"تارجت شهري",t.title,lines(t.details,t.target_count==null?"مهمة بدون عدد":"المطلوب: "+t.target_count,"الدورية: "+t.cadence),t.target_count==null?(completed>0?"تم التنفيذ":"لم يتم التنفيذ"):"المنفذ",t.target_count==null?"":completed]);}
   for(const x of metrics)rows.push([month,"مؤشر SEO شهري",seoMetricLabel(x.metric_key),lines("قبل: "+str(x.before_value),"بعد: "+str(x.after_value),x.note,x.review_note),label(x.status),""]);
   for(const x of periods)for(const [addr,value] of Object.entries(x.cells||{}))rows.push([month,"بيانات تاريخية شهرية",x.source_sheet+" / "+addr,lines(str(value),x.comments?.[addr],x.links?.[addr]),"",""]);
  }
