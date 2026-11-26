@@ -131,7 +131,7 @@ export default function SeoDailyReport({
     <div className="seo-daily-summary">
       <div><Clock3 size={19}/><span>ساعات اليوم</span><strong>{timeLabel(duration)}</strong></div>
       <div><CalendarDays size={19}/><span>ساعات الشهر</span><strong>{timeLabel(monthDuration)}</strong></div>
-      <div><CheckCircle2 size={19}/><span>الإنجازات اللي اتسجلت</span><strong>{achievements.reduce((n,x)=>n+x.done_count,0)}</strong></div>
+      <div><CheckCircle2 size={19}/><span>الإنجازات اللي اتسجلت</span><strong>{achievements.filter(x=>x.done_count>0).length}</strong></div>
     </div>
     {!manager&&<form className="seo-daily-entry-form" onSubmit={e=>{e.preventDefault();void submitHours();}}>
       <h3><Plus size={19}/> ضيف فترة شغل</h3>
@@ -159,10 +159,10 @@ export default function SeoDailyReport({
         <div className="seo-daily-achievements">{achievements.map(row=>{
           const target=targets.find(t=>t.id===row.target_id);
           return <article key={row.id}>
-            <span className="seo-daily-done"><CheckCircle2 size={16}/> {row.done_count} {target?.target_unit||"إنجاز"}</span>
+            <span className="seo-daily-done"><CheckCircle2 size={16}/> {target?.target_count===null?(row.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"):row.done_count}</span>
             <strong>{target?.title||"تارجت"}</strong>
             {row.note&&<p data-no-translate>{row.note}</p>}
-            {!manager&&row.created_by===member.id&&<SeoProgressEdit entry={row} onSaved={load} onNotice={onNotice} onError={onError}/>}
+            {!manager&&row.created_by===member.id&&<SeoProgressEdit entry={row} qualitative={target?.target_count===null} onSaved={load} onNotice={onNotice} onError={onError}/>}
           </article>;
         })}</div>
       </div>

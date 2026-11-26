@@ -1,6 +1,6 @@
 /** Browser XLSX export: all user-supplied strings are literal inline cells, never formulas. */
 export type ReportHour={work_date:string;start_minutes:number;end_minutes:number;activities:string};
-export type ReportAchievement={work_date:string;title:string;unit:string;done_count:number;note:string};
+export type ReportAchievement={work_date:string;title:string;unit:string;qualitative?:boolean;done_count:number;note:string};
 import {reportMonth,type ReportPeriod} from "./report-period";
 type Report={profileName:string;brand:string;monthKey:string;hours:ReportHour[];done:ReportAchievement[];period?:ReportPeriod};
 export function monthBounds(month:string){
@@ -55,8 +55,8 @@ export function buildSeoMonthlyWorkbook(report:Report){
  for(const h of hours)detail.push([day(h.work_date),time(h.start_minutes),time(h.end_minutes),duration(h.end_minutes-h.start_minutes),c(h.activities)]);
  const daily=prefix("STC | ملخص التقرير",["التاريخ","إجمالي ساعات اليوم","عدد الفترات","الأعمال المسجلة","عدد سجلات Done"]);
  for(const date of days){const rows=hours.filter(h=>h.work_date===date);daily.push([day(date),duration(rows.reduce((n,h)=>n+h.end_minutes-h.start_minutes,0)),c(rows.length),c(rows.map(h=>h.activities).join("\n")),c(done.filter(h=>h.work_date===date).length)]);}
- const achievements=prefix("STC | الإنجازات المسجلة Done",["التاريخ","التارجت","المنفذ","الوحدة","الملاحظات"]);
- for(const h of done)achievements.push([day(h.work_date),c(h.title),c(h.done_count),c(h.unit),c(h.note||"")]);
+ const achievements=prefix("STC | الإنجازات المسجلة Done",["التاريخ","التارجت","المنفذ","حالة التنفيذ","الملاحظات"]);
+ for(const h of done)achievements.push([day(h.work_date),c(h.title),c(h.qualitative?"":h.done_count),c(h.qualitative?(h.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"):""),c(h.note||"")]);
  const names=[period.fileKey===report.monthKey?"ملخص الشهر":"ملخص الفترة","فترات العمل","الإنجازات"],sheets=[sheet(daily,[17,23,17,85,22]),sheet(detail,[17,17,17,18,85]),sheet(achievements,[17,42,15,20,75])];
  return packWorkbook(names,sheets);
 }

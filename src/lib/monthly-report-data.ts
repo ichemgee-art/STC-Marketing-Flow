@@ -46,17 +46,17 @@ export async function loadSeoDaily(person:ReportPerson,period:ReportPeriod){
  const {first,next}=period;
  const [hours,progress]=await Promise.all([
   pages((a,b)=>supabase.from("stc_seo_hours").select("*").eq("profile_id",person.id).gte("work_date",first).lt("work_date",next).order("id").range(a,b)),
-  pages((a,b)=>supabase.from("stc_seo_progress").select("*,stc_seo_targets!inner(title,target_unit,profile_id)").eq("stc_seo_targets.profile_id",person.id).gte("work_date",first).lt("work_date",next).order("id").range(a,b))
+  pages((a,b)=>supabase.from("stc_seo_progress").select("*,stc_seo_targets!inner(title,target_count,profile_id)").eq("stc_seo_targets.profile_id",person.id).gte("work_date",first).lt("work_date",next).order("id").range(a,b))
  ]);
  const work:ReportHour[]=hours.map(h=>({work_date:h.work_date,start_minutes:h.start_minutes,end_minutes:h.end_minutes,activities:h.activities}));
- const done:ReportAchievement[]=progress.map(x=>{const t=Array.isArray(x.stc_seo_targets)?x.stc_seo_targets[0]:x.stc_seo_targets;return {work_date:x.work_date,title:t?.title||"تارجت",unit:t?.target_unit||"",done_count:x.done_count,note:x.note||""};});
+ const done:ReportAchievement[]=progress.map(x=>{const t=Array.isArray(x.stc_seo_targets)?x.stc_seo_targets[0]:x.stc_seo_targets;return {work_date:x.work_date,title:t?.title||"تارجت",unit:"",qualitative:t?.target_count===null,done_count:x.done_count,note:x.note||""};});
  return {hours:work,done,progress};
 }
 async function seo(person:ReportPerson,period:ReportPeriod,dailyOnly=false):Promise<Row[]>{
  const {hours,done,progress}=await loadSeoDaily(person,period);
  const rows:Row[]=[["","إجمالي الساعات","ساعات الفترة","","",mins(hours.reduce((n,x)=>n+x.end_minutes-x.start_minutes,0))]];
  for(const h of hours.sort((a,b)=>a.work_date.localeCompare(b.work_date)||a.start_minutes-b.start_minutes))rows.push([h.work_date,"فترة عمل",mins(h.start_minutes)+" – "+mins(h.end_minutes),h.activities,"",mins(h.end_minutes-h.start_minutes)]);
- for(const x of done)rows.push([x.work_date,"إنجاز Done",x.title,lines(x.note,x.unit),"",x.done_count]);
+ for(const x of done)rows.push([x.work_date,"إنجاز Done",x.title,x.note,x.qualitative?(x.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"):"",x.qualitative?"":x.done_count]);
  if(dailyOnly)return rows;
  // Monthly snapshots are not weekly data. Include them only for fully selected calendar months.
  if(!period.fullMonths.length){rows.push(["","ملاحظة","المؤشرات والتارجت الشهري","تظهر البيانات الشهرية عند اختيار شهر كامل؛ التقرير الحالي يشمل الساعات والإنجازات الفعلية للفترة.","",""]);return rows;}
@@ -66,7 +66,7 @@ async function seo(person:ReportPerson,period:ReportPeriod,dailyOnly=false):Prom
    pages((a,b)=>supabase.from("stc_seo_metrics").select("*").eq("profile_id",person.id).eq("month_key",month).order("id").range(a,b)),
    pages((a,b)=>supabase.from("stc_seo_periods").select("label,cells,links,comments,source_sheet,image_count,id").eq("profile_id",person.id).eq("month_key",month).order("id").range(a,b))
   ]);
-  for(const t of targets){const completed=progress.filter(x=>x.target_id===t.id&&String(x.work_date).startsWith(month+"-")).reduce((n,x)=>n+x.done_count,0);rows.push([month,"تارجت شهري",t.title,lines(t.details,"المطلوب: "+t.target_count+" "+t.target_unit,"الدورية: "+t.cadence),"المنفذ",completed]);}
+  for(const t of targets){const completed=progress.filter(x=>x.target_id===t.id&&String(x.work_date).startsWith(month+"-")).reduce((n,x)=>n+x.done_count,0);rows.push([month,"تارجت شهري",t.title,lines(t.details,t.target_count==null?"مهمة بدون عدد":"المطلوب: "+t.target_count,"الدورية: "+t.cadence),t.target_count==null?(completed>0?"تم التنفيذ":"لم يتم التنفيذ"):"المنفذ",t.target_count==null?"":completed]);}
   for(const x of metrics)rows.push([month,"مؤشر SEO شهري",seoMetricLabel(x.metric_key),lines("قبل: "+str(x.before_value),"بعد: "+str(x.after_value),x.note,x.review_note),label(x.status),""]);
   for(const x of periods)for(const [addr,value] of Object.entries(x.cells||{}))rows.push([month,"بيانات تاريخية شهرية",x.source_sheet+" / "+addr,lines(str(value),x.comments?.[addr],x.links?.[addr]),"",""]);
  }

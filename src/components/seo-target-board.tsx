@@ -3,10 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, ClipboardCheck, Pencil, Plus, Target, X, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SeoProgressEdit from "./seo-progress-edit";
+import {progressCount,targetQuantity,isTargetComplete} from "@/lib/seo-progress-correction";
 
 export type SeoTarget = {
   id:string;profile_id:string;month_key:string;title:string;details:string;
-  target_count:number;target_unit:string;cadence:"monthly"|"daily";
+  target_count:number|null;target_unit:string;cadence:"monthly"|"daily";
 };
 export type SeoProgress = {
   id:string;target_id:string;work_date:string;done_count:number;note:string;created_by:string;created_at:string;version?:number;
@@ -83,16 +84,16 @@ export default function SeoTargetBoard({
    const poll=setInterval(()=>{if(document.visibilityState==="visible")void load();},45000);
    return()=>{clearInterval(poll);void supabase.removeChannel(channel);};
  },[profileId,monthKey,load]);
- const monthCompleted=useMemo(()=>targets.filter(t=>t.cadence==="monthly"&&countAll(t.id,progress)>=t.target_count).length,[targets,progress]);
+ const monthCompleted=useMemo(()=>targets.filter(t=>t.cadence==="monthly"&&isTargetComplete(t.target_count,countAll(t.id,progress))).length,[targets,progress]);
  async function saveTarget(form:HTMLFormElement){
    const f=new FormData(form);
    const title=String(f.get("title")||"").trim();
-   const targetCount=Number(f.get("count"));
-   if(title.length<2||!Number.isInteger(targetCount)||targetCount<1){onError("اكتبي اسم التارجت والعدد المطلوب بشكل صحيح.");return;}
+   const targetCount=targetQuantity(String(f.get("count")||""));
+   if(title.length<2||targetCount===undefined){onError("اكتبي اسم التارجت والعدد لو مطلوب بشكل صحيح.");return;}
    setBusy(true);
    try{
      const values={title,details:String(f.get("details")||"").trim(),
-       target_count:targetCount,target_unit:String(f.get("unit")||"مهمة").trim()||"مهمة",
+       target_count:targetCount,
        cadence:String(f.get("cadence")||"monthly")};
      const r=editing
        ? await supabase.from("stc_seo_targets").update(values).eq("id",editing.id).eq("profile_id",profileId)
@@ -106,13 +107,13 @@ export default function SeoTargetBoard({
    // The manager sets targets and reviews employee progress; only the
    // assigned specialist should report completed work.
    if(manager){onError("تسجيل الإنجاز متاح لصاحب الشغل بس، مش لناردين.");return;}
-   const n=Number(amount);
-   if(!Number.isInteger(n)||n<1||n>1000000){onError("عدد المنجز لازم يكون رقم صحيح أكبر من صفر.");return;}
+   const n=target.target_count===null?1:progressCount(amount);
+   if(n===null){onError("عدد المنجز لازم يكون رقم صحيح أكبر من أو يساوي صفر.");return;}
    if(!day.startsWith(monthKey+"-")){onError("اختار يوم داخل نفس شهر التارجت.");return;}
-   if(target.cadence==="monthly"&&sumFor(target,progress,day)+n>target.target_count){
+   if(target.cadence==="monthly"&&n>0&&sumFor(target,progress,day)+n>(target.target_count??1)){
      onError("العدد ده هيعدّي التارجت الشهري. راجع اللي اتسجّل الأول.");return;
    }
-   if(target.cadence==="daily"&&sumFor(target,progress,day)+n>target.target_count){
+   if(target.cadence==="daily"&&n>0&&sumFor(target,progress,day)+n>(target.target_count??1)){
      onError("العدد ده هيعدّي تارجت اليوم. لو الخطة اتغيرت، ناردين تقدر تعدّل العدد.");return;
    }
    setBusy(true);
@@ -143,8 +144,7 @@ export default function SeoTargetBoard({
     <label>اسم الشغل<input name="title" defaultValue={editing?.title||""} placeholder="مثلاً: كتابة Blogs" required maxLength={180}/></label>
     <label>تفاصيل أو تعليمات (اختياري)<textarea name="details" defaultValue={editing?.details||""} rows={2} placeholder="المطلوب بالظبط…"/></label>
     <div className="seo-target-form-grid">
-      <label>العدد المطلوب<input name="count" type="number" min="1" step="1" max="1000000" defaultValue={editing?.target_count||1} required/></label>
-      <label>الوحدة<input name="unit" defaultValue={editing?.target_unit||"مهمة"} maxLength={30} placeholder="بلوج / منتج / صفحة"/></label>
+      <label>العدد المطلوب (اختياري)<input name="count" type="number" min="0" step="1" max="1000000" defaultValue={editing?.target_count??""} placeholder="اتركيه فاضي أو صفر لو بدون عدد"/></label>
       <label>كل إمتى؟<select name="cadence" defaultValue={editing?.cadence||"monthly"}><option value="monthly">في الشهر</option><option value="daily">كل يوم</option></select></label>
     </div>
     <button type="submit" className="seo-target-save" disabled={busy}>{busy?"بنحفظ…":"احفظي التارجت"}</button>
@@ -162,41 +162,40 @@ export default function SeoTargetBoard({
       <button type="button" className={filter==="all"?"active":""} onClick={()=>setFilter("all")}>
         الكل <small>{targets.length}</small></button>
       <button type="button" className={filter==="pending"?"active":""} onClick={()=>setFilter("pending")}>
-        لسه ناقص <small>{targets.filter(t=>(t.cadence==="monthly"?countAll(t.id,progress):
-          sumFor(t,progress,day))<t.target_count).length}</small></button>
+        لسه ناقص <small>{targets.filter(t=>!isTargetComplete(t.target_count,sumFor(t,progress,day))).length}</small></button>
       <button type="button" className={filter==="complete"?"active":""} onClick={()=>setFilter("complete")}>
-        اتعمل <small>{targets.filter(t=>(t.cadence==="monthly"?countAll(t.id,progress):
-          sumFor(t,progress,day))>=t.target_count).length}</small></button>
+        اتعمل <small>{targets.filter(t=>isTargetComplete(t.target_count,sumFor(t,progress,day))).length}</small></button>
     </nav>
     <div className="seo-live-card-grid">{targets.filter(t=>{
       const done=t.cadence==="monthly"?countAll(t.id,progress):sumFor(t,progress,day);
-      return filter==="all"||filter==="complete"&&done>=t.target_count||
-        filter==="pending"&&done<t.target_count;
+      return filter==="all"||filter==="complete"&&isTargetComplete(t.target_count,done)||
+        filter==="pending"&&!isTargetComplete(t.target_count,done);
     }).map(target=>{
       const done=sumFor(target,progress,day);
       const all=countAll(target.id,progress);
-      const pct=Math.min(100,Math.round((done/target.target_count)*100));
-      const completed=done>=target.target_count;
+      const numeric=target.target_count!==null;
+      const pct=target.target_count===null?0:Math.min(100,Math.round((done/target.target_count)*100));
+      const completed=isTargetComplete(target.target_count,done);
       const entries=progress.filter(p=>p.target_id===target.id&&(target.cadence==="monthly"||p.work_date===day));
       return <article key={target.id} className={"seo-live-card"+(completed?" is-done":"")}>
        <div className="seo-live-card-top"><span className={"seo-live-cadence "+target.cadence}>{target.cadence==="daily"?"تارجت يومي":"تارجت شهري"}</span>
          <span className={completed?"seo-live-badge done":"seo-live-badge"}>{completed?"اتعمل ✓":manager?"مستني تنفيذ":"لسه شغال"}</span></div>
        <h3>{target.title}</h3>{target.details&&<p className="seo-live-details">{target.details}</p>}
-       <div className="seo-live-figures"><strong>{done} <span>/ {target.target_count}</span></strong><small>{target.target_unit} {target.cadence==="daily"?"في اليوم":"في الشهر"}</small></div>
-       <div className="seo-live-track"><div style={{width:pct+"%"}}/></div>
-       <div className="seo-live-card-foot"><span>{pct}% من المطلوب {target.cadence==="daily"?"النهارده":""}</span>
+       {numeric&&<><div className="seo-live-figures"><strong>{done} <span>/ {target.target_count}</span></strong><small>{target.cadence==="daily"?"في اليوم":"في الشهر"}</small></div>
+       <div className="seo-live-track"><div style={{width:pct+"%"}}/></div></>}
+       <div className="seo-live-card-foot"><span>{numeric?<>{pct}% من المطلوب {target.cadence==="daily"?"النهارده":""}</>:completed?"تم التنفيذ":"مهمة بدون عدد"}</span>
          {manager&&<button type="button" className="seo-live-edit" onClick={()=>{setEditing(target);setCreate(false);}}><Pencil size={14}/> تعديل</button>}</div>
-       {target.cadence==="daily"&&<p className="seo-target-month-count">إجمالي اللي اتسجّل في الشهر: {all} {target.target_unit}</p>}
+       {numeric&&target.cadence==="daily"&&<p className="seo-target-month-count">إجمالي اللي اتسجّل في الشهر: {all}</p>}
        {!manager&&!completed&&<button type="button" className="seo-live-done-btn" disabled={busy} onClick={()=>{setActive(active===target.id?null:target.id);setNote("");setAmount("1");}}>
          <ClipboardCheck size={17}/> {active===target.id?"اقفل تسجيل الإنجاز":"سجّل Done / إنجاز"}
        </button>}
        {!manager&&active===target.id&&!completed&&<form className="seo-live-progress-form" onSubmit={e=>{e.preventDefault();void saveProgress(target);}}>
-         <label>عملت كام؟<input type="number" min="1" max={target.target_count-done} value={amount} onChange={e=>setAmount(e.target.value)} required/></label>
+         {target.target_count!==null&&<label>عملت كام؟<input type="number" min="0" max={Math.max(0,target.target_count-done)} value={amount} onChange={e=>setAmount(e.target.value)} required/></label>}
          <label>ملاحظة (اختياري)<textarea rows={2} value={note} onChange={e=>setNote(e.target.value)} placeholder="اللي خلّصته أو رابط الشغل…"/></label>
          <button type="submit" disabled={busy}>{busy?"بنسجّل…":"تمام، سجّل الإنجاز"}</button>
        </form>}
        {entries.length>0&&<details className="seo-progress-history"><summary>آخر الإنجازات والملاحظات ({entries.length})</summary>
-         {entries.map(entry=><div key={entry.id}><b>{entry.done_count} {target.target_unit} · {entry.work_date}</b>{entry.note&&<p data-no-translate>{entry.note}</p>}{!manager&&entry.created_by===memberId&&<SeoProgressEdit entry={entry} onSaved={load} onNotice={onNotice} onError={onError}/>}</div>)}
+         {entries.map(entry=><div key={entry.id}><b>{numeric?entry.done_count:entry.done_count>0?"تم التنفيذ":"لم يتم التنفيذ"} · {entry.work_date}</b>{entry.note&&<p data-no-translate>{entry.note}</p>}{!manager&&entry.created_by===memberId&&<SeoProgressEdit entry={entry} qualitative={!numeric} onSaved={load} onNotice={onNotice} onError={onError}/>}</div>)}
        </details>}
       </article>;
     })}</div>

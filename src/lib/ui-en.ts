@@ -1315,6 +1315,14 @@ const EN_ENTRIES: [string,string][] = [
   ["إجمالي ساعات الفترة:","Total hours for the period:"],
   ["لا توجد أعمال مسجلة في التقرير اليومي خلال الفترة.","No work recorded in the daily report during this period."],
   ["الأعمال المنفذة","Work performed"],
+  ["العدد المطلوب (اختياري)","Required quantity (optional)"],
+  ["اتركيه فاضي أو صفر لو بدون عدد","Leave blank or enter zero for a task without quantity"],
+  ["اكتبي اسم التارجت والعدد لو مطلوب بشكل صحيح.","Enter a valid target title and quantity if required."],
+  ["عدد المنجز لازم يكون رقم صحيح أكبر من أو يساوي صفر.","Completed quantity must be a whole number of zero or more."],
+  ["مهمة بدون عدد","Task without quantity"],
+  ["تم التنفيذ","Completed"],
+  ["لم يتم التنفيذ","Not completed"],
+  ["حالة التنفيذ","Completion status"],
 ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)
