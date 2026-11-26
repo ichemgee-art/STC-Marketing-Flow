@@ -12,6 +12,7 @@ export type Member = {
   display_name: string;
   role: "manager" | "member";
   active: boolean;
+  shared_team?: boolean;
 };
 export type Task = {
   id: string;
@@ -33,6 +34,7 @@ export type Task = {
   report_category?: string|null;
   requested_quantity?: number|null;
   actual_quantity?: number|null;
+  text_deliverables?: string[];
 };
 export type Notice = {
   id: string;

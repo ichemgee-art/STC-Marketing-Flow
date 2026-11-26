@@ -1340,6 +1340,21 @@ const EN_ENTRIES: [string,string][] = [
   ["تم تسجيل تنفيذ","Work recorded"],
   ["لم يسجل تنفيذ","No work recorded"],
   ["لا توجد تارجتات شهرية للفترة.","No monthly targets for the period."],
+  ["كابشن","Caption"],
+  ["كونتنت","Content"],
+  ["الكابشن","Caption"],
+  ["الكونتنت","Content"],
+  ["إضافة كابشن","Add caption"],
+  ["إضافة كونتنت","Add content"],
+  ["حفظ المحتوى","Save content"],
+  ["المحتوى اتحفظ وظهر للتيم.","Content saved and visible to the team."],
+  ["مساحة الفريق المشتركة","Shared team workspace"],
+  ["مساحة فريق المحتوى والتصميم","Content and design workspace"],
+  ["اختار اسم من التيم عشان تشوف التاسكات والمحتوى.","Select a team member to view tasks and content."],
+  ["احفظ المحتوى عشان يظهر لباقي التيم، أو ابعته لناردين للمراجعة.","Save content to share it with the team, or submit it for review."],
+  ["كمّل كل خانات الكتابة قبل التسليم، أو امسح الخانات الفاضية.","Complete every text box or remove empty boxes before submitting."],
+  ["المحتوى اتعدّل من جهاز تاني. اقفل الكارد وافتحه تاني.","Content changed on another device. Reopen the task."],
+  ["تم النسخ","Copied"],
 ];
 export const UI_EN: Record<string,string> = Object.fromEntries(EN_ENTRIES);
 export const UI_EN_ENTRIES = Object.entries(UI_EN)

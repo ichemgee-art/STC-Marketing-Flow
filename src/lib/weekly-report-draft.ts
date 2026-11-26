@@ -22,7 +22,7 @@ export function readDraft(store:Store|null,id:string,selection:Selection):Draft{
  const v=read(store,draftKey(id,selection));if(!isObject(v))return blankDraft();
  const allocations:Allocations={};
  if(isObject(v.allocations))for(const [key,row] of Object.entries(v.allocations)){
-  if(!["design","ai_image","ai_video","video","caption","datasheet","photo","other"].includes(key)||!isObject(row))continue;
+  if(!["design","ai_image","ai_video","video","caption","content","datasheet","photo","other"].includes(key)||!isObject(row))continue;
   allocations[key]={published:typeof row.published==="string"?row.published:"",next:typeof row.next==="string"?row.next:"",unused:typeof row.unused==="string"?row.unused:""};
  }
  return {allocations,posts:stringMap(v.posts),whatsapp:typeof v.whatsapp==="string"?v.whatsapp:"",notes:typeof v.notes==="string"?v.notes:"",selected:Array.isArray(v.selected)?v.selected.filter((s):s is string=>typeof s==="string"):[]};

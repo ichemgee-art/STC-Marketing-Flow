@@ -8,6 +8,7 @@ import { showToast } from "@/lib/toasts";
 import MonthlyReports from "./monthly-reports";
 import WeeklyReports from "./weekly-reports";
 import TaskUsage from "./task-usage";
+import {isTextTask,submissionTexts,TextDeliverables} from "./text-deliverables";
 import {ReportTaskFields,reportTaskValues} from "./report-task-fields";
 import {seoMetricLabel} from "@/lib/seo-metric-labels";
 import { notifySound, unlockSound, type SoundKind } from "@/lib/notification-sound";
@@ -35,13 +36,13 @@ const stage = (s: Task["status"]) => ({
 const date = (d: string|null) => d ? new Date(d+"T12:00:00Z").toLocaleDateString("ar-EG",{day:"numeric",month:"short",year:"numeric"}) : "من غير ميعاد";
 const first = (name: string) => name.split(" ")[0] || name;
 
-function Tile({task,who,manager,open}:{task:Task;who?:string;manager:boolean;open:()=>void}) {
+function Tile({task,who,manager,sharedTeam,open}:{task:Task;who?:string;manager:boolean;sharedTeam?:boolean;open:()=>void}) {
   const late=!!task.due_date&&task.due_date<cairoDay()&&task.status!=="approved";
   return <button type="button" className={"easy-task easy-task--"+task.status} onClick={open}>
     <div className="easy-task-head"><span className={"easy-tag easy-tag--"+task.status}>{stage(task.status)}</span>{task.priority==="high"&&<span className="easy-priority">مستعجلة</span>}</div>
     <h3>{task.title}</h3>
     {task.description&&<p>{task.description}</p>}
-    <div className="easy-task-meta">{manager&&<span><UserRound size={15}/>{who||"من التيم"}</span>}<span className={late?"easy-late":""}><CalendarDays size={15}/>{date(task.due_date)}</span></div>
+    <div className="easy-task-meta">{(manager||sharedTeam)&&<span><UserRound size={15}/>{who||"من التيم"}</span>}<span className={late?"easy-late":""}><CalendarDays size={15}/>{date(task.due_date)}</span></div>
     <div className="easy-task-footer">{task.status==="approved"?<strong className="easy-approved"><CheckCircle2 size={17}/> تم الاعتماد</strong>
     :task.status==="waiting_review"&&manager?<strong className="easy-review-action">مستني موافقتك · راجعيه <ChevronLeft size={17}/></strong>
     :task.status==="waiting_review"?<strong>اتسلّم ومستني ناردين تراجعه</strong>
@@ -57,6 +58,12 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
   });
   const [edit,setEdit]=useState(false);
   const [actual,setActual]=useState(String(task.actual_quantity??task.requested_quantity??1));
+  const [texts,setTexts]=useState<string[]>(()=>task.text_deliverables?.length?[...task.text_deliverables]:[""]);
+  const [textDirty,setTextDirty]=useState(false);
+  const textVersion=useRef(task.version);
+  const textTask=isTextTask(task.report_category);
+  useEffect(()=>{if(!textDirty){setTexts(task.text_deliverables?.length?[...task.text_deliverables]:[""]);textVersion.current=task.version;}},[task.version,task.text_deliverables,textDirty]);
+  function editTexts(next:string[]){if(!textDirty)textVersion.current=task.version;setTexts(next);setTextDirty(true);}
   const editVersion=useRef(task.version);
   const [taskEvents,setTaskEvents]=useState<{id:string;actor_id:string|null;action:string;created_at:string}[]>([]);
   useEffect(()=>{
@@ -88,12 +95,15 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
   async function change(status:Task["status"]){
     await run(async()=>{
       const values:Record<string,unknown>={status};
-      if(status==="waiting_review"){values.submission_note=note.trim();if(task.report_brand&&task.report_category){const n=Number(actual);if(!Number.isInteger(n)||n<1||n>1000000)throw Error("اكتب العدد المنفذ بشكل صحيح.");values.actual_quantity=n;}}
+      if(status==="waiting_review"){values.submission_note=note.trim();if(textTask){if(textVersion.current!==task.version)throw Error("المحتوى اتعدّل من جهاز تاني. اقفل الكارد وافتحه تاني.");const items=submissionTexts(texts);values.text_deliverables=items;values.actual_quantity=items.length;}else if(task.report_brand&&task.report_category){const n=Number(actual);if(!Number.isInteger(n)||n<1||n>1000000)throw Error("اكتب العدد المنفذ بشكل صحيح.");values.actual_quantity=n;}}
       if(status==="approved"||status==="changes_requested")values.review_note=note.trim();
       const r=await supabase.from("stc_tasks").update(values).eq("id",task.id).eq("version",task.version).is("deleted_at",null).select("id");
       if(r.error)throw r.error;
       if(!r.data?.length)throw new Error("التاسك اتغيّر من حساب تاني. اقفله وافتحه تاني.");
     },status==="waiting_review"?"تمام! التاسك اتسلّم وناردين جالها إشعار.":status==="approved"?"تم الاعتماد! صاحب التاسك جاله إشعار بالموافقة.":status==="changes_requested"?"تمام، التعديلات وصلت لصاحب التاسك.":"تم تحديث التاسك بنجاح.");
+  }
+  async function saveTexts(){
+    await run(async()=>{if(textVersion.current!==task.version)throw Error("المحتوى اتعدّل من جهاز تاني. اقفل الكارد وافتحه تاني.");const r=await supabase.from("stc_tasks").update({text_deliverables:texts}).eq("id",task.id).eq("version",textVersion.current).select("id");if(r.error)throw r.error;if(!r.data?.length)throw Error("المحتوى اتعدّل من جهاز تاني. اقفل الكارد وافتحه تاني.");await refresh();setTextDirty(false);}, "المحتوى اتحفظ وظهر للتيم.",false);
   }
   async function saveNote(){
     if(!note.trim())return;
@@ -151,12 +161,13 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
       {task.status==="approved"&&<div className="easy-green-note"><CheckCircle2 size={22}/> ناردين وافقت على التاسك، عاش! 🎉</div>}
       {task.status==="waiting_review"&&<div className="easy-yellow-note"><Clock3 size={20}/>{manager?"التاسك ده مستني موافقتك.":"التاسك اتسلّم ومستني ناردين تراجعه."}</div>}
       {task.status==="changes_requested"&&!manager&&<div className="easy-yellow-note"><AlertCircle size={20}/> ناردين عايزة تعديلات. عدّل وابعت تاني.</div>}
+      {textTask&&!edit&&<TextDeliverables kind={task.report_category==="caption"?"caption":"content"} values={texts} onChange={editTexts} readOnly={manager||task.status==="waiting_review"||task.status==="approved"} busy={busy} dirty={textDirty} onSave={()=>void saveTexts()}/>}
       {!edit&&task.status!=="approved"&&<div className="easy-note-entry">
         <label htmlFor="easy-note">عندك ملاحظة؟ <small>(اختياري)</small></label>
         <textarea id="easy-note" value={note} onChange={e=>setNote(e.target.value)} rows={3} placeholder="اكتب ملاحظتك هنا لو حابب…"/>
         {!!note.trim()&&<button type="button" className="easy-link-btn" disabled={busy} onClick={()=>void saveNote()}><MessageCircle size={15}/> احفظ الملاحظة بس</button>}
       </div>}
-      {!edit&&!manager&&task.report_brand&&task.report_category&&task.status!=="approved"&&task.status!=="waiting_review"&&<label className="wr-quantity">العدد المنفذ<input type="number" min={1} max={1000000} value={actual} onChange={e=>setActual(e.target.value)}/></label>}
+      {!edit&&!manager&&!textTask&&task.report_brand&&task.report_category&&task.status!=="approved"&&task.status!=="waiting_review"&&<label className="wr-quantity">العدد المنفذ<input type="number" min={1} max={1000000} value={actual} onChange={e=>setActual(e.target.value)}/></label>}
       {task.report_brand&&<p className="wr-meta">{task.report_brand==="stc"?"STC":"iChem"} · {task.actual_quantity??"—"} / {task.requested_quantity??"—"}</p>}
       {!edit&&task.status!=="approved"&&<div className="easy-dialog-actions">
         {!manager&&task.status!=="waiting_review"&&<>
@@ -193,7 +204,7 @@ function TaskDialog({task,member,team,close,refresh,notify}:{task:Task;member:Me
         {edit&&task.status!=="approved"&&<form className="easy-form" onSubmit={e=>{e.preventDefault();void saveEdit(e.currentTarget);}}>
           <label>اسم التاسك<input name="title" required maxLength={300} defaultValue={task.title}/></label>
           <label>المطلوب<textarea name="description" rows={3} defaultValue={task.description}/></label>
-          <label>مين هيعمله؟<select name="assignee" defaultValue={task.assignee_id}>{team.filter(p=>p.role==="member"&&p.active).map(p=><option key={p.id} value={p.id}>{p.display_name}</option>)}</select></label>
+          <label>مين هيعمله؟<select name="assignee" defaultValue={task.assignee_id}>{team.filter(p=>p.role==="member"&&p.active&&!p.shared_team).map(p=><option key={p.id} value={p.id}>{p.display_name}</option>)}</select></label>
           <ReportTaskFields task={task}/>
           <label>الميعاد<input name="due" type="date" defaultValue={task.due_date||""}/></label>
           <label>الأولوية<select name="priority" defaultValue={task.priority}><option value="normal">عادية</option><option value="high">مستعجلة</option><option value="low">مش مستعجلة</option></select></label>
@@ -413,7 +424,7 @@ export default function SimpleWorkspace(){
         if(soundRole.current==="member"&&n.status==="approved"&&n.submitted_by===userId)notifySound(userId,"approved","media:"+n.id+":"+n.updated_at,n.updated_at);
       })
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"stc_notifications"},scheduled.request)
-      .on("postgres_changes",{event:"INSERT",schema:"public",table:"stc_notifications",filter:"recipient_id=eq."+userId},payload=>{
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"stc_notifications"},payload=>{
         const n=payload.new as Notice;
         if(n.kind==="deleted"){scheduled.request();return;}
         const sound:SoundKind|undefined=n.kind==="assigned"||n.kind==="reassigned"?"assigned":n.kind==="waiting_review"?"review":n.kind==="approved"?"approved":undefined;
@@ -460,13 +471,14 @@ export default function SimpleWorkspace(){
     };
   },[userId,refresh,announce]);
   const manager=member?.role==="manager";
+  const sharedTeam=member?.shared_team===true;
   const canOpenStorage=!!manager||storageAccess;
-  const people=useMemo(()=>team.filter(p=>p.role==="member"&&p.active
+  const people=useMemo(()=>team.filter(p=>p.role==="member"&&p.active&&!p.shared_team
     && !seoPeople.some(sp=>sp.member_id===p.id) && !mediaPeople.some(mp=>mp.member_id===p.id)
   ),[team,seoPeople,mediaPeople]);
   const reviewTasks=tasks.filter(t=>t.status==="waiting_review");
   const today=cairoDay();
-  const scoped=tasks.filter(t=>(!manager||tab==="all"||t.assignee_id===tab)&&(!reviewOnly||t.status==="waiting_review"));
+  const scoped=tasks.filter(t=>((!manager&&!sharedTeam)||tab==="all"||t.assignee_id===tab)&&(!reviewOnly||t.status==="waiting_review"));
   const matches=(t:Task,f:FlowFilter)=>f==="all"||
     f==="active"&&["todo","in_progress","tomorrow"].includes(t.status)||
     f==="review"&&t.status==="waiting_review"||
@@ -603,7 +615,7 @@ export default function SimpleWorkspace(){
     onBack={() => {if(manager)returnToTasks();else void logout();}}
   />;
   return <div className="easy-shell" dir="rtl">
-    <header className="easy-header"><div className="easy-brand"><BrandLockup/><div><strong>Marketing Flow</strong><small>{manager?"متابعة شغل التيم":"تاسكاتي"}</small></div></div>
+    <header className="easy-header"><div className="easy-brand"><BrandLockup/><div><strong>Marketing Flow</strong><small>{manager?"متابعة شغل التيم":sharedTeam?"مساحة الفريق المشتركة":"تاسكاتي"}</small></div></div>
       <div className="easy-header-buttons"><span className={online?"easy-online":"easy-offline"}>{online?"متصل":"بيوصل…"}</span>
         {canOpenStorage&&<button type="button" className="easy-storage-entry" onClick={enterStorage}
           title="متابعة استهلاك Supabase Storage"><HardDrive size={18}/><span>التخزين والملفات</span></button>}
@@ -612,9 +624,9 @@ export default function SimpleWorkspace(){
       </div>
     </header>
     <main className="easy-content">
-      <section className="easy-intro"><div><h1>{manager?"إدارة شغل الفريق":"شغلك النهارده"}</h1>
-        <p>{manager?"راجعي التسليمات، أو اختاري القسم اللي عايزة تتابعيه.":"ابدأ بالأولوية الأولى، وباقي التاسكات تحت."}</p></div>
-        <div className="stc-report-actions">{manager&&<button type="button" className="easy-btn easy-btn--light" onClick={enterWeekly}>تقارير الماركتنج الرسمية</button>}<MonthlyReports key={manager?managerSection:"personal"} department={manager?managerSection:"content"} member={member} people={manager?(managerSection==="content"?people.map(p=>({id:p.id,name:p.display_name})):managerSection==="seo"?seoPeople.map(p=>({id:p.id,name:p.display_name,brand:p.brand})):mediaPeople.map(p=>({id:p.id,name:p.display_name}))):[{id:member.id,name:member.display_name}]} scopeLabel={manager?"تقرير القسم":"تقريري الشهري"}/>
+      <section className="easy-intro"><div><h1>{manager?"إدارة شغل الفريق":sharedTeam?"مساحة فريق المحتوى والتصميم":"شغلك النهارده"}</h1>
+        <p>{manager?"راجعي التسليمات، أو اختاري القسم اللي عايزة تتابعيه.":sharedTeam?"اختار اسم من التيم عشان تشوف التاسكات والمحتوى.":"ابدأ بالأولوية الأولى، وباقي التاسكات تحت."}</p></div>
+        <div className="stc-report-actions">{manager&&<button type="button" className="easy-btn easy-btn--light" onClick={enterWeekly}>تقارير الماركتنج الرسمية</button>}<MonthlyReports key={manager?managerSection:"personal"} department={manager?managerSection:"content"} member={member} people={manager?(managerSection==="content"?people.map(p=>({id:p.id,name:p.display_name})):managerSection==="seo"?seoPeople.map(p=>({id:p.id,name:p.display_name,brand:p.brand})):mediaPeople.map(p=>({id:p.id,name:p.display_name}))):sharedTeam?people.map(p=>({id:p.id,name:p.display_name})):[{id:member.id,name:member.display_name}]} scopeLabel={manager?"تقرير القسم":"تقريري الشهري"}/>
         {manager&&managerSection==="content"&&<button className="easy-btn easy-btn--navy easy-create-button" onClick={()=>setCreating(true)}><Plus size={19}/> تاسك جديد</button>}</div>
       </section>
       {err&&<div className="easy-error" role="alert">{err}<button onClick={()=>void refresh()}>جرّب تاني</button></div>}
@@ -695,16 +707,17 @@ export default function SimpleWorkspace(){
           </nav>
         </section>}
       </>}
+      {sharedTeam&&<section className="flow-department-panel"><div className="flow-department-title"><h2>فريق المحتوى والتصميم</h2></div><nav className="easy-tabs" aria-label="فريق المحتوى والتصميم"><button className={"easy-tab "+(tab==="all"?"active":"")} onClick={()=>choose("all")}><ListTodo size={18}/> كل التيم <b>{tasks.length}</b></button>{people.map((p,i)=><button key={p.id} className={"easy-tab easy-tab--"+i+" "+(tab===p.id?"active":"")} onClick={()=>choose(p.id)}>{p.display_name}<b>{tasks.filter(t=>t.assignee_id===p.id).length}</b></button>)}</nav></section>}
       {(!manager||managerSection==="content")&&<section className="flow-task-area">
-      <div className="easy-section-heading"><h2>{reviewOnly?"مستنية مراجعتك":manager?(tab==="all"?"كل التاسكات":"تاسكات "+(people.find(p=>p.id===tab)?.display_name||"التيم")):"التاسكات بتاعتك"} <span>{visible.length}</span></h2>
+      <div className="easy-section-heading"><h2>{reviewOnly?"مستنية مراجعتك":(manager||sharedTeam)?(tab==="all"?"كل التاسكات":"تاسكات "+(people.find(p=>p.id===tab)?.display_name||"التيم")):"التاسكات بتاعتك"} <span>{visible.length}</span></h2>
 
-        {manager&&tab!=="all"&&people.some(p=>p.id===tab)&&<MonthlyReports key={tab} department="content" member={member} people={people.filter(p=>p.id===tab).map(p=>({id:p.id,name:p.display_name}))} scopeLabel="تقرير الموظف"/>}
+        {(manager||sharedTeam)&&tab!=="all"&&people.some(p=>p.id===tab)&&<MonthlyReports key={tab} department="content" member={member} people={people.filter(p=>p.id===tab).map(p=>({id:p.id,name:p.display_name}))} scopeLabel="تقرير الموظف"/>}
       </div>
       <nav className="flow-filters" aria-label="فلترة التاسكات حسب الحالة"><Filter size={17}/>
         {filterOptions.map(f=><button key={f.id} type="button" className={flowFilter===f.id?"active":""}
           aria-pressed={flowFilter===f.id} onClick={()=>changeFilter(f.id)}>{f.label}{(f.id==="all"||scoped.some(t=>matches(t,f.id)))&&<small>{scoped.filter(t=>matches(t,f.id)).length}</small>}</button>)}
       </nav>
-      <div className="easy-grid">{visible.slice(0,taskLimit).map(task=><Tile key={task.id} task={task} manager={!!manager} who={people.find(p=>p.id===task.assignee_id)?.display_name} open={()=>openTask(task)}/>)}</div>
+      <div className="easy-grid">{visible.slice(0,taskLimit).map(task=><Tile key={task.id} task={task} manager={!!manager} sharedTeam={sharedTeam} who={people.find(p=>p.id===task.assignee_id)?.display_name} open={()=>openTask(task)}/>)}</div>
       {visible.length>taskLimit&&<button className="stc-show-more" type="button" onClick={()=>setTaskLimit(n=>n+24)}>عرض المزيد ({visible.length-taskLimit})</button>}
       {!visible.length&&<div className="easy-empty"><ListTodo size={34}/><h3>{flowFilter!=="all"?"مفيش تاسكات في الحالة دي":reviewOnly?"مفيش تاسكات مستنية مراجعتك":manager?"لسه مفيش تاسكات هنا":"لسه مفيش تاسكات عندك"}</h3><p>{flowFilter!=="all"?"اختار حالة تانية أو اعرض الكل.":reviewOnly?"كل التسليمات متراجعة دلوقتي.":manager?"ابعتِ تاسك جديد وهيظهر هنا.":"أول ما ناردين تبعتلك تاسك هتلاقيه هنا."}</p></div>}
       </section>}

@@ -9,7 +9,7 @@ export const brandName=(brand:Brand)=>brand==="stc"?"STC":"iChem";
 export const brandLogo=(brand:Brand)=>brand==="stc"?"/stc-logo.png":"/ichem-logo.png";
 export const platforms=["Facebook","Instagram","LinkedIn","TikTok","YouTube"] as const;
 export const states=[["published","Published"],["used","Used"],["scheduled","Scheduled"],["not_used","Not used yet"],["cancelled","Will not be used"]] as const;
-export const cats:Record<string,string>={design:"Graphic Design",ai_image:"AI Images",ai_video:"AI Videos",video:"Videos",caption:"Captions",datasheet:"Datasheets",photo:"Photography",other:"Other"};
+export const cats:Record<string,string>={design:"Graphic Design",ai_image:"AI Images",ai_video:"AI Videos",video:"Videos",caption:"Captions",content:"Content",datasheet:"Datasheets",photo:"Photography",other:"Other"};
 async function pages(query:(a:number,b:number)=>PromiseLike<{data:any[]|null;error:unknown}>){const rows:any[]=[];for(let a=0;;a+=500){const r=await query(a,a+499);if(r.error)throw r.error;const d=r.data||[];rows.push(...d);if(d.length<500)return rows;}}
 export async function loadWeeklySource(){
  const [tasks,events,team,usage,profiles,hours,briefs,submissions,seoTargets,seoProgress]=await Promise.all([
